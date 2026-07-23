@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1075274178952",
+    "project_id": "syph-3c8be",
+    "storage_bucket": "syph-3c8be.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1075274178952:android:7ee3dc6e789ca908b1da3d",
+        "android_client_info": {
+          "package_name": "com.syph.chat"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBp3wJYek4P5Obwao0xsRGtL2ttehiPd7g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
