@@ -1,20 +1,16 @@
-/**
- * useConversations.ts (UPDATED with Notifications)
- * Integrate real-time notifications for incoming messages
- */
-
 import {
   addDoc,
   collection,
   doc,
   getDocs,
   onSnapshot,
+  orderBy,
   query,
   serverTimestamp,
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { db } from '../firebaseConfig';
 import { Conversation, ConversationParticipant, Message } from '../types';
 
@@ -24,50 +20,14 @@ export const useConversations = (
 ) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const messageListenersRef: Record<string, any> = {};
 
-  useEffect(() => {
-    if (!currentUserId) {
-      setIsLoading(false);
-      return;
-    }
-
-    const q = query(collection(db, 'conversations'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const convs: Conversation[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data() as Conversation;
-        
-        let isParticipant = false;
-        
-        if (data.isGroup && data.participants) {
-          isParticipant = data.participants.some(p => p.uid === currentUserId);
-        } else {
-          isParticipant = data.participant1?.uid === currentUserId || data.participant2?.uid === currentUserId;
-        }
-
-        if (!data.isDeleted && isParticipant) {
-          convs.push({ ...data, id: doc.id });
-          
-          // Set up message listener for this conversation
-          setupMessageListener(doc.id, currentUserId, onNewMessage);
-        }
-      });
-      setConversations(convs);
-      setIsLoading(false);
-    }, (error) => {
-      console.error('Error listening to conversations:', error);
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [currentUserId, onNewMessage]);
+  // FIXED: Ref preserves active message listeners across renders without triggering duplicate subscriptions
+  const messageListenersRef = useRef<Record<string, () => void>>({});
 
   // Listen to new messages in a conversation
   const setupMessageListener = useCallback(
     (conversationId: string, userId: string, callback?: (sender: string, message: string, convId: string) => void) => {
-      if (messageListenersRef[conversationId]) {
+      if (messageListenersRef.current[conversationId]) {
         return; // Already listening
       }
 
@@ -78,7 +38,7 @@ export const useConversations = (
         snapshot.docChanges().forEach((change) => {
           if (change.type === 'added') {
             const messageData = change.doc.data();
-            
+
             // Only notify if message is from someone else
             if (messageData.senderId !== userId && callback) {
               callback(
@@ -91,10 +51,59 @@ export const useConversations = (
         });
       });
 
-      messageListenersRef[conversationId] = unsubscribe;
+      messageListenersRef.current[conversationId] = unsubscribe;
     },
     []
   );
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setIsLoading(false);
+      return;
+    }
+
+    const q = query(collection(db, 'conversations'));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const convs: Conversation[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data() as Conversation;
+
+          let isParticipant = false;
+
+          if (data.isGroup && data.participants) {
+            isParticipant = data.participants.some((p) => p.uid === currentUserId);
+          } else {
+            isParticipant =
+              data.participant1?.uid === currentUserId ||
+              data.participant2?.uid === currentUserId;
+          }
+
+          if (!data.isDeleted && isParticipant) {
+            convs.push({ ...data, id: docSnap.id });
+
+            // Set up message listener safely
+            setupMessageListener(docSnap.id, currentUserId, onNewMessage);
+          }
+        });
+        setConversations(convs);
+        setIsLoading(false);
+      },
+      (error) => {
+        console.error('Error listening to conversations:', error);
+        setIsLoading(false);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+      // Clean up all message listeners when component unmounts
+      Object.values(messageListenersRef.current).forEach((unsub) => unsub());
+      messageListenersRef.current = {};
+    };
+  }, [currentUserId, onNewMessage, setupMessageListener]);
 
   // Get or create 1-on-1 conversation
   const getOrCreateConversation = async (
@@ -172,7 +181,10 @@ export const useConversations = (
         ...selectedUsers,
       ];
 
-      const sortedUIDs = participants.map(p => p.uid).sort().join('_');
+      const sortedUIDs = participants
+        .map((p) => p.uid)
+        .sort()
+        .join('_');
       const groupConversationId = `group_${sortedUIDs}`;
 
       const q = query(
@@ -258,36 +270,35 @@ export const useConversations = (
       }
 
       try {
+        // OPTIMIZED: Query directly orders messages on Firestore side
         const messagesRef = collection(db, `conversations/${conversationId}/messages`);
-        const q = query(messagesRef);
+        const q = query(messagesRef, orderBy('createdAt', 'asc'));
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          const msgs: Message[] = [];
-          snapshot.forEach((doc) => {
-            const data = doc.data();
-            msgs.push({
-              id: doc.id,
-              text: data.text || '',
-              senderId: data.senderId || '',
-              senderUsername: data.senderUsername || 'Anonymous',
-              receiverId: data.receiverId,
-              status: data.status || 'sent',
-              createdAt: data.createdAt,
+        const unsubscribe = onSnapshot(
+          q,
+          (snapshot) => {
+            const msgs: Message[] = [];
+            snapshot.forEach((docSnap) => {
+              const data = docSnap.data();
+              msgs.push({
+                id: docSnap.id,
+                text: data.text || '',
+                senderId: data.senderId || '',
+                senderUsername: data.senderUsername || 'Anonymous',
+                receiverId: data.receiverId,
+                status: data.status || 'sent',
+                createdAt: data.createdAt,
+              });
             });
-          });
 
-          msgs.sort((a, b) => {
-            const timeA = a.createdAt?.toDate?.() || new Date(a.createdAt) || 0;
-            const timeB = b.createdAt?.toDate?.() || new Date(b.createdAt) || 0;
-            return new Date(timeA).getTime() - new Date(timeB).getTime();
-          });
-
-          setMessages(msgs);
-          setMessagesLoading(false);
-        }, (error) => {
-          console.error('Error fetching messages:', error);
-          setMessagesLoading(false);
-        });
+            setMessages(msgs);
+            setMessagesLoading(false);
+          },
+          (error) => {
+            console.error('Error fetching messages:', error);
+            setMessagesLoading(false);
+          }
+        );
 
         return () => unsubscribe();
       } catch (error) {

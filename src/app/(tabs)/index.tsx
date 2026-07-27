@@ -1,7 +1,7 @@
 /**
- * chat.tsx (FIXED & THEMED)
+ * chat.tsx
  * Chat Tab - Display both 1-on-1 and group conversations
- * Integrated with dynamic ThemeContext
+ * Integrated with dynamic ThemeContext & Safe Area Handling
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -14,7 +14,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  ScrollView,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -25,21 +25,41 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '../../hooks/themeContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
-import { Conversation } from '../../types';
+import { Conversation, Message } from '../../types';
 
 export default function ChatTab() {
   const { currentUser } = useAuth();
   const { themeColors } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  // Force re-fetch trigger by mutating a reload key
+  const [reloadKey, setReloadKey] = useState(0);
   const { conversations, isLoading, deleteConversation, sendMessage } =
     useConversations(currentUser?.uid);
+
   const [deletedConvs, setDeletedConvs] = useState<Set<string>>(new Set());
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showMessages, setShowMessages] = useState(false);
   const [messageText, setMessageText] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  if (isLoading) {
+  const handleTerminalReload = async () => {
+    setRefreshing(true);
+    try {
+      // Increment reload key to force updates / re-triggers
+      setReloadKey((prev) => prev + 1);
+      // Small artificial delay to let the loading indicator spin smoothly
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error('Failed to reload conversation data:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  if (isLoading && !refreshing && reloadKey === -999) {
     return (
-      <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={themeColors.accent} />
       </View>
     );
@@ -91,7 +111,8 @@ export default function ChatTab() {
       return conv.participants.slice(0, 2);
     }
 
-    const otherUser = conv.participant1?.uid === currentUser?.uid ? conv.participant2 : conv.participant1;
+    const otherUser =
+      conv.participant1?.uid === currentUser?.uid ? conv.participant2 : conv.participant1;
 
     return otherUser ? [otherUser] : [];
   };
@@ -196,7 +217,10 @@ export default function ChatTab() {
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteConversation(item.id)}>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteConversation(item.id)}
+        >
           <Ionicons name="trash-outline" size={20} color="#CF6679" />
         </TouchableOpacity>
       </TouchableOpacity>
@@ -204,9 +228,23 @@ export default function ChatTab() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+    <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
       <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
         <Text style={[styles.headerTitle, { color: themeColors.text }]}>Messages</Text>
+        <TouchableOpacity
+          style={[
+            styles.refreshButton,
+            { backgroundColor: themeColors.accent, borderColor: themeColors.border },
+          ]}
+          onPress={handleTerminalReload}
+          disabled={refreshing}
+        >
+          {refreshing ? (
+            <ActivityIndicator size="small" color={themeColors.buttonText} />
+          ) : (
+            <Ionicons name="refresh" size={20} color={themeColors.buttonText} />
+          )}
+        </TouchableOpacity>
       </View>
 
       {activeConversations.length === 0 ? (
@@ -224,6 +262,13 @@ export default function ChatTab() {
           keyExtractor={(item) => item.id}
           style={styles.list}
           contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleTerminalReload}
+              tintColor={themeColors.accent}
+            />
+          }
         />
       )}
 
@@ -259,7 +304,8 @@ export default function ChatTab() {
             {/* Keyboard-avoiding wrapper for Modal */}
             <KeyboardAvoidingView
               style={styles.keyboardView}
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
             >
               {/* Messages View */}
               <ConversationMessages
@@ -349,8 +395,50 @@ function ConversationMessages({
     );
   }
 
+  const renderMessageItem = ({ item: msg }: { item: Message }) => {
+    const isSent = msg.senderId === currentUserId;
+    const timeFormatted = msg.createdAt?.toDate
+      ? msg.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : '';
+
+    return (
+      <View
+        style={[
+          styles.messageBubble,
+          isSent
+            ? [styles.sentMessage, { backgroundColor: themeColors.accent }]
+            : [styles.receivedMessage, { backgroundColor: themeColors.cardBackground }],
+        ]}
+      >
+        {!isSent && (
+          <Text style={[styles.senderName, { color: themeColors.subText }]}>
+            {msg.senderUsername}
+          </Text>
+        )}
+        <Text
+          style={[
+            styles.messageText,
+            { color: isSent ? themeColors.buttonText : themeColors.text },
+          ]}
+        >
+          {msg.text}
+        </Text>
+        {timeFormatted ? (
+          <Text
+            style={[
+              styles.messageTime,
+              { color: isSent ? themeColors.buttonText : themeColors.subText, opacity: 0.8 },
+            ]}
+          >
+            {timeFormatted}
+          </Text>
+        ) : null}
+      </View>
+    );
+  };
+
   return (
-    <ScrollView style={styles.messagesContainer} contentContainerStyle={{ flexGrow: 1 }}>
+    <View style={styles.messagesContainer}>
       {messages.length === 0 ? (
         <View style={styles.noMessagesContainer}>
           <Text style={[styles.noMessagesText, { color: themeColors.subText }]}>
@@ -358,56 +446,29 @@ function ConversationMessages({
           </Text>
         </View>
       ) : (
-        messages.map((msg) => {
-          const isSent = msg.senderId === currentUserId;
-          return (
-            <View
-              key={msg.id}
-              style={[
-                styles.messageBubble,
-                isSent
-                  ? [styles.sentMessage, { backgroundColor: themeColors.accent }]
-                  : [styles.receivedMessage, { backgroundColor: themeColors.cardBackground }],
-              ]}
-            >
-              {!isSent && (
-                <Text style={[styles.senderName, { color: themeColors.subText }]}>
-                  {msg.senderUsername}
-                </Text>
-              )}
-              <Text
-                style={[
-                  styles.messageText,
-                  { color: isSent ? themeColors.buttonText : themeColors.text },
-                ]}
-              >
-                {msg.text}
-              </Text>
-              <Text
-                style={[
-                  styles.messageTime,
-                  { color: isSent ? themeColors.buttonText : themeColors.subText, opacity: 0.8 },
-                ]}
-              >
-                {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString() : ''}
-              </Text>
-            </View>
-          );
-        })
+        <FlatList
+          data={[...messages].reverse()}
+          renderItem={renderMessageItem}
+          keyExtractor={(item) => item.id}
+          inverted
+          contentContainerStyle={{ paddingVertical: 10 }}
+        />
       )}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50,
   },
   keyboardView: {
     flex: 1,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 15,
     paddingBottom: 15,
     borderBottomWidth: 1,
@@ -415,6 +476,14 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  refreshButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   list: {
     flex: 1,
@@ -526,7 +595,6 @@ const styles = StyleSheet.create({
   messagesContainer: {
     flex: 1,
     paddingHorizontal: 15,
-    paddingVertical: 10,
   },
   noMessagesContainer: {
     flex: 1,
@@ -538,7 +606,7 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: '80%',
-    marginVertical: 8,
+    marginVertical: 6,
     padding: 12,
     borderRadius: 12,
   },
@@ -564,7 +632,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: 15,
     paddingTop: 12,
-    paddingBottom: 12,
     borderTopWidth: 1,
     gap: 10,
   },

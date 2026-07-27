@@ -1,8 +1,3 @@
-/**
- * useUserSearch.ts
- * Search for users by username
- */
-
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { useState } from 'react';
 import { db } from '../firebaseConfig';
@@ -19,7 +14,8 @@ export const useUserSearch = () => {
   const [error, setError] = useState<string | null>(null);
 
   const searchUsers = async (searchTerm: string, currentUserId: string) => {
-    if (!searchTerm.trim()) {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) {
       setResults([]);
       return;
     }
@@ -28,24 +24,23 @@ export const useUserSearch = () => {
     setError(null);
 
     try {
-      // Search for users whose username starts with search term
+      // FIXED: Queries against 'usernameLowercase' to guarantee case-insensitive prefix searches
       const q = query(
         collection(db, 'users'),
-        where('username', '>=', searchTerm.toLowerCase()),
-        where('username', '<=', searchTerm.toLowerCase() + '\uf8ff'),
+        where('usernameLowercase', '>=', term),
+        where('usernameLowercase', '<=', term + '\uf8ff'),
         limit(10)
       );
 
       const snapshot = await getDocs(q);
       const searchResults: SearchResult[] = [];
 
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        // Exclude current user from results
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
         if (data.uid !== currentUserId) {
           searchResults.push({
             uid: data.uid,
-            username: data.username,
+            username: data.username, // Display intact username
             profileImageUrl: data.profileImageUrl,
           });
         }

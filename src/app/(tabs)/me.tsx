@@ -4,6 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -25,6 +26,7 @@ export default function MeTab() {
     useUserProfile(currentUser?.uid);
 
   const { selectedTheme, themeColors, setTheme } = useTheme();
+  const router = useRouter();
 
   const [newUsername, setNewUsername] = useState('');
   const [isChangingUsername, setIsChangingUsername] = useState(false);
@@ -60,7 +62,14 @@ export default function MeTab() {
         text: 'Logout',
         style: 'destructive',
         onPress: async () => {
-          await logout();
+          try {
+            await logout();
+            // Pointing to the root group-level route or login entry layout 
+            // preventing the unmatched route fallback warning.
+            router.replace('/(auth)/login');
+          } catch (error: any) {
+            Alert.alert('Logout Error', error.message || 'Failed to log out.');
+          }
         },
       },
     ]);
@@ -74,8 +83,6 @@ export default function MeTab() {
     );
   }
 
-  const initial = profile?.username?.[0]?.toUpperCase() || '?';
-
   const themeOptions: { id: ThemeOption; label: string; primary: string; secondary: string }[] = [
     { id: 'default', label: 'Default', primary: '#121212', secondary: '#03DAC5' },
     { id: 'beige-purple', label: 'Beige & Purple', primary: '#F5F5DC', secondary: '#800080' },
@@ -88,7 +95,6 @@ export default function MeTab() {
         <Text style={[styles.headerTitle, { color: themeColors.text }]}>My Profile</Text>
       </View>
 
-      {/* Username Section */}
       {/* Username Section */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: themeColors.subText }]}>Username</Text>
@@ -191,45 +197,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-  },
-  profileSection: {
-    alignItems: 'center',
-    paddingVertical: 30,
-  },
-  avatarLargeContainer: {
-    position: 'relative',
-    marginBottom: 15,
-  },
-  avatarLarge: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  avatarLargePlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarLargeText: {
-    fontWeight: 'bold',
-    fontSize: 40,
-  },
-  changePhotoButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-  },
-  changePhotoText: {
-    fontSize: 12,
-    fontStyle: 'italic',
   },
   section: {
     paddingHorizontal: 15,

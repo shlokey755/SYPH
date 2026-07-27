@@ -1,10 +1,7 @@
-/**
- * types.ts (UPDATED with Group Chat Support)
- */
-
 export interface UserProfile {
   uid: string;
   username: string;
+  usernameLowercase?: string;
   displayName: string;
   walletBalance: number;
   lastUsernameChange?: any;
@@ -16,7 +13,7 @@ export interface Message {
   text: string;
   senderId: string;
   senderUsername: string;
-  receiverId?: string; // For 1-on-1 chats
+  receiverId?: string;
   status: 'sent' | 'delivered' | 'read';
   createdAt: any;
 }
@@ -27,14 +24,13 @@ export interface ConversationParticipant {
   profileImageUrl?: string;
 }
 
-// Updated: Now supports both 1-on-1 and group conversations
 export interface Conversation {
   id: string;
-  isGroup: boolean; // ← NEW: Flag for group chat
-  groupName?: string; // ← NEW: Name for group
-  participant1?: ConversationParticipant; // For 1-on-1 chats
-  participant2?: ConversationParticipant; // For 1-on-1 chats
-  participants?: ConversationParticipant[]; // ← NEW: For group chats
+  isGroup: boolean;
+  groupName?: string;
+  participant1?: ConversationParticipant;
+  participant2?: ConversationParticipant;
+  participants?: ConversationParticipant[];
   lastMessage?: string;
   lastMessageTime?: any;
   lastMessageSenderId?: string;

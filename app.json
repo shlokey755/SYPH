@@ -21,8 +21,8 @@
       },
       "package": "com.syph.chat",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 1, // ← Add this (increments with each update)
-      "permissions": [ // ← Add this (if needed)
+      "versionCode": 1,
+      "permissions": [
         "android.permission.INTERNET",
         "android.permission.VIBRATE"
       ]

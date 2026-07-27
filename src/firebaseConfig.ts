@@ -1,38 +1,39 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
+
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp } from 'firebase/app';
+import {
+  getAuth,
+  // @ts-expect-error - getReactNativePersistence exists in RN bundle but is missing in web type definitions
+  getReactNativePersistence,
+  initializeAuth
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// 1. Import everything as an object from firebase/auth
-import * as firebaseAuth from 'firebase/auth';
-
 const firebaseConfig = {
-  apiKey: "AIzaSyCCvScn0DwsFVPxuyQJuDMIbp5Tx22MuUs",
-  authDomain: "syph-3c8be.firebaseapp.com",
-  projectId: "syph-3c8be",
-  storageBucket: "syph-3c8be.firebasestorage.app",
-  messagingSenderId: "1075274178952",
-  appId: "1:1075274178952:web:86ea7c40a52101d5b1da3d"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
 };
 
+// Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-let auth: any;
+// Initialize Auth with AsyncStorage persistence
+let auth: ReturnType<typeof getAuth>;
 
 try {
-  // 2. Extract the functions dynamically to trick TypeScript's linter
-  const { initializeAuth, getReactNativePersistence } = firebaseAuth as any;
-  
   auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
+    persistence: getReactNativePersistence(ReactNativeAsyncStorage),
   });
-} catch (error) {
-  auth = firebaseAuth.getAuth(app);
+} catch (e) {
+  auth = getAuth(app);
 }
 
 const db = getFirestore(app);
 
 export { app, auth, db };
-
-
-
 

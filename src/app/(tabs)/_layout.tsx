@@ -1,35 +1,13 @@
 // app/(tabs)/_layout.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { Redirect, Tabs } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
+import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ThemeProvider, useTheme } from '../../hooks/themeContext';
-import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../hooks/themeContext';
 
 export default function TabsLayout() {
-  const { currentUser, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#121212', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#ffffff" />
-      </View>
-    );
-  }
-
-  if (!currentUser) {
-    return <Redirect href="/(auth)/auth" />;
-  }
-
-  return (
-    <ThemeProvider>
-      <ThemedTabs />
-    </ThemeProvider>
-  );
-}
-
-function ThemedTabs() {
   const { themeColors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -39,18 +17,19 @@ function ThemedTabs() {
           backgroundColor: themeColors.cardBackground,
           borderTopColor: themeColors.border,
           borderTopWidth: 1,
-          height: 90,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+          paddingTop: 8,
         },
         tabBarActiveTintColor: themeColors.accent,
         tabBarInactiveTintColor: themeColors.subText,
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
-          marginBottom: 8,
         },
       }}
     >
-      {/* 1. Chat Screen is now index */}
+      {/* 1. Main Chat Screen (index.tsx) */}
       <Tabs.Screen
         name="index"
         options={{
@@ -61,6 +40,7 @@ function ThemedTabs() {
         }}
       />
 
+      {/* 2. Profile Screen (me.tsx) */}
       <Tabs.Screen
         name="me"
         options={{
@@ -71,6 +51,7 @@ function ThemedTabs() {
         }}
       />
 
+      {/* 3. Add Friends & Groups Screen (add.tsx) */}
       <Tabs.Screen
         name="add"
         options={{

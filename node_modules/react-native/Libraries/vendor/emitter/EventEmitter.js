@@ -16,40 +16,32 @@ export interface EventSubscription {
 }
 
 export interface IEventEmitter<
-  TEventToArgsMap extends Readonly<
-    Record<string, ReadonlyArray<UnsafeEventObject>>,
-  >,
+  TEventToArgsMap: $ReadOnly<Record<string, $ReadOnlyArray<UnsafeEventObject>>>,
 > {
-  addListener<TEvent extends keyof TEventToArgsMap>(
+  addListener<TEvent: $Keys<TEventToArgsMap>>(
     eventType: TEvent,
-    listener: (...args: TEventToArgsMap[TEvent]) => unknown,
-    context?: unknown,
+    listener: (...args: TEventToArgsMap[TEvent]) => mixed,
+    context?: mixed,
   ): EventSubscription;
 
-  emit<TEvent extends keyof TEventToArgsMap>(
+  emit<TEvent: $Keys<TEventToArgsMap>>(
     eventType: TEvent,
     ...args: TEventToArgsMap[TEvent]
   ): void;
 
-  removeAllListeners<TEvent extends keyof TEventToArgsMap>(
-    eventType?: ?TEvent,
-  ): void;
+  removeAllListeners<TEvent: $Keys<TEventToArgsMap>>(eventType?: ?TEvent): void;
 
-  listenerCount<TEvent extends keyof TEventToArgsMap>(
-    eventType: TEvent,
-  ): number;
+  listenerCount<TEvent: $Keys<TEventToArgsMap>>(eventType: TEvent): number;
 }
 
 interface Registration<TArgs> {
-  +context: unknown;
-  +listener: (...args: TArgs) => unknown;
+  +context: mixed;
+  +listener: (...args: TArgs) => mixed;
   +remove: () => void;
 }
 
 type Registry<
-  TEventToArgsMap extends Readonly<
-    Record<string, ReadonlyArray<UnsafeEventObject>>,
-  >,
+  TEventToArgsMap: $ReadOnly<Record<string, $ReadOnlyArray<UnsafeEventObject>>>,
 > = {
   [K in keyof TEventToArgsMap]: Set<Registration<TEventToArgsMap[K]>>,
 };
@@ -75,9 +67,9 @@ type Registry<
  *
  */
 export default class EventEmitter<
-  TEventToArgsMap extends Readonly<
-    Record<string, ReadonlyArray<UnsafeEventObject>>,
-  > = Readonly<Record<string, ReadonlyArray<UnsafeEventObject>>>,
+  TEventToArgsMap: $ReadOnly<
+    Record<string, $ReadOnlyArray<UnsafeEventObject>>,
+  > = $ReadOnly<Record<string, $ReadOnlyArray<UnsafeEventObject>>>,
 > implements IEventEmitter<TEventToArgsMap>
 {
   #registry: Registry<TEventToArgsMap>;
@@ -91,10 +83,10 @@ export default class EventEmitter<
    * Registers a listener that is called when the supplied event is emitted.
    * Returns a subscription that has a `remove` method to undo registration.
    */
-  addListener<TEvent extends keyof TEventToArgsMap>(
+  addListener<TEvent: $Keys<TEventToArgsMap>>(
     eventType: TEvent,
-    listener: (...args: TEventToArgsMap[TEvent]) => unknown,
-    context: unknown,
+    listener: (...args: TEventToArgsMap[TEvent]) => mixed,
+    context: mixed,
   ): EventSubscription {
     if (typeof listener !== 'function') {
       throw new TypeError(
@@ -103,7 +95,7 @@ export default class EventEmitter<
     }
     const registrations = allocate<
       TEventToArgsMap,
-      keyof TEventToArgsMap,
+      $Keys<TEventToArgsMap>,
       TEventToArgsMap[TEvent],
     >(this.#registry, eventType);
     const registration: Registration<TEventToArgsMap[TEvent]> = {
@@ -124,7 +116,7 @@ export default class EventEmitter<
    * If a listener modifies the listeners registered for the same event, those
    * changes will not be reflected in the current invocation of `emit`.
    */
-  emit<TEvent extends keyof TEventToArgsMap>(
+  emit<TEvent: $Keys<TEventToArgsMap>>(
     eventType: TEvent,
     ...args: TEventToArgsMap[TEvent]
   ): void {
@@ -134,6 +126,7 @@ export default class EventEmitter<
       // Copy `registrations` to take a snapshot when we invoke `emit`, in case
       // registrations are added or removed when listeners are invoked.
       for (const registration of Array.from(registrations)) {
+        // $FlowFixMe[incompatible-call]
         registration.listener.apply(registration.context, args);
       }
     }
@@ -142,7 +135,7 @@ export default class EventEmitter<
   /**
    * Removes all registered listeners.
    */
-  removeAllListeners<TEvent extends keyof TEventToArgsMap>(
+  removeAllListeners<TEvent: $Keys<TEventToArgsMap>>(
     eventType?: ?TEvent,
   ): void {
     if (eventType == null) {
@@ -156,9 +149,7 @@ export default class EventEmitter<
   /**
    * Returns the number of registered listeners for the supplied event.
    */
-  listenerCount<TEvent extends keyof TEventToArgsMap>(
-    eventType: TEvent,
-  ): number {
+  listenerCount<TEvent: $Keys<TEventToArgsMap>>(eventType: TEvent): number {
     const registrations: ?Set<Registration<TEventToArgsMap[TEvent]>> =
       this.#registry[eventType];
     return registrations == null ? 0 : registrations.size;
@@ -166,10 +157,9 @@ export default class EventEmitter<
 }
 
 function allocate<
-  TEventToArgsMap extends Readonly<
-    Record<string, ReadonlyArray<UnsafeEventObject>>,
-  >,
-  TEvent extends keyof TEventToArgsMap,
+  TEventToArgsMap: $ReadOnly<Record<string, $ReadOnlyArray<UnsafeEventObject>>>,
+  TEvent: $Keys<TEventToArgsMap>,
+  TEventArgs: TEventToArgsMap[TEvent],
 >(
   registry: Registry<TEventToArgsMap>,
   eventType: TEvent,

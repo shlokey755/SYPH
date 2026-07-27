@@ -9,30 +9,27 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@expo/vector-icons": "^15.0.2",
-    "@react-native-async-storage/async-storage": "2.2.0",
-    "@react-navigation/bottom-tabs": "^6.0.0",
-    "@react-navigation/native": "^6.0.0",
-    "expo": "^57.0.2",
-    "expo-constants": "^57.0.3",
-    "expo-dev-client": "^57.0.5",
-    "expo-linking": "^57.0.1",
-    "expo-router": "^57.0.3",
-    "expo-splash-screen": "~57.0.2",
-    "firebase": "^12.15.0",
-    "react": "19.2.3",
-    "react-native": "^0.86.0",
-    "react-native-gesture-handler": "^2.0.0",
-    "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "4.25.2"
-  },
-  "overrides": {
-    "metro": "~0.80.8",
-    "metro-resolver": "~0.80.8",
-    "metro-config": "~0.80.8"
+    "@expo/vector-icons": "^15.0.3",
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-navigation/bottom-tabs": "^7.2.0",
+    "@react-navigation/native": "^7.0.14",
+    "expo": "~54.0.0",
+    "expo-constants": "~18.0.13",
+    "expo-dev-client": "~6.0.21",
+    "expo-linking": "~8.0.12",
+    "expo-router": "~6.0.24",
+    "expo-splash-screen": "~31.0.13",
+    "firebase": "^11.4.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-native": "0.81.5",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0"
   },
   "devDependencies": {
-    "@types/react": "^19.2.17",
-    "typescript": "~6.0.3"
+    "@types/node": "^26.1.1",
+    "@types/react": "~19.1.10",
+    "typescript": "^5.3.3"
   }
 }
