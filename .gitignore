@@ -6,9 +6,7 @@ node_modules/
 dist/
 web-build/
 
-# Native builds
-ios/
-android/
+
 
 # Debug logs
 npm-debug.log*
