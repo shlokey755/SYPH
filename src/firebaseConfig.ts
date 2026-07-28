@@ -1,13 +1,5 @@
-
-
-import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp } from 'firebase/app';
-import {
-  getAuth,
-  // @ts-expect-error - getReactNativePersistence exists in RN bundle but is missing in web type definitions
-  getReactNativePersistence,
-  initializeAuth
-} from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -22,18 +14,10 @@ const firebaseConfig = {
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Auth with AsyncStorage persistence
-let auth: ReturnType<typeof getAuth>;
+// Initialize Auth
+const auth = getAuth(app);
 
-try {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(ReactNativeAsyncStorage),
-  });
-} catch (e) {
-  auth = getAuth(app);
-}
-
+// Initialize Firestore
 const db = getFirestore(app);
 
 export { app, auth, db };
-
