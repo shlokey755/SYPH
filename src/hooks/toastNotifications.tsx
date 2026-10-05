@@ -1,229 +1,223 @@
 /**
- * ToastNotification.tsx
- * Toast notification component for incoming messages
+ * toastNotifications.tsx
+ * App-wide toast system (FR-09, NFR-06).
+ *
+ *   const toast = useToast();
+ *   toast.success('Saved');
+ *   toast.error('Upload failed', 'Check your connection');
+ *   const id = toast.progress('Uploading photo', 0);   // progress toast stays until dismissed
+ *   toast.update(id, { progress: 0.5 });
+ *   toast.dismiss(id);
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
-import {
-  Animated,
-  StyleSheet,
-  Text,
-  TextStyle,
-  TouchableOpacity,
-  View,
-  ViewStyle
-} from 'react-native';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from './themeContext';
 
-// Toast data interface
-interface Toast {
-  id: string;
-  senderUsername: string;
-  messageText: string;
-  conversationId: string;
-  timestamp: number;
-}
+export type ToastType = 'success' | 'error' | 'info' | 'message' | 'progress';
 
-// Component props interface
-interface ToastNotificationProps {
-  toast: Toast | null;
-  onDismiss: () => void;
-  onPress?: (conversationId: string) => void;
+export interface ToastOptions {
+  type?: ToastType;
+  title: string;
+  message?: string;
+  /** 0..1, only used by progress toasts. */
+  progress?: number;
+  /** ms before auto-dismiss. 0 keeps it until dismissed. */
   duration?: number;
+  onPress?: () => void;
 }
 
-/**
- * ToastNotification Component
- * Displays a notification toast that slides in from top
- */
-export const ToastNotification = ({
-  toast,
-  onDismiss,
-  onPress,
-  duration = 4000,
-}: ToastNotificationProps) => {
-  // Animation value for sliding
-  const [slideAnim] = React.useState(new Animated.Value(-100));
+interface ToastItem extends ToastOptions {
+  id: string;
+  type: ToastType;
+}
 
-  // Local state for toast data
-  const [toastData, setToastData] = useState<Toast | null>(toast);
+interface ToastApi {
+  show: (options: ToastOptions) => string;
+  update: (id: string, patch: Partial<ToastOptions>) => void;
+  dismiss: (id: string) => void;
+  success: (title: string, message?: string) => string;
+  error: (title: string, message?: string) => string;
+  info: (title: string, message?: string) => string;
+  progress: (title: string, progress?: number) => string;
+}
 
-  /**
-   * Effect: Handle toast appearing/disappearing
-   */
-  useEffect(() => {
-    // Early exit if no toast
-    if (!toast) {
-      return;
-    }
+const MAX_VISIBLE = 3;
+const DEFAULT_DURATION = 3500;
+const ERROR_COLOR = '#CF6679';
 
-    // Set toast data
-    setToastData(toast);
+const ToastContext = createContext<ToastApi | undefined>(undefined);
 
-    // Animate slide in
-    Animated.timing(slideAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
+const ICONS: Record<ToastType, keyof typeof Ionicons.glyphMap> = {
+  success: 'checkmark-circle',
+  error: 'alert-circle',
+  info: 'information-circle',
+  message: 'chatbubble-ellipses',
+  progress: 'cloud-upload',
+};
 
-    // Set timeout to auto-dismiss
-    const timer = setTimeout(() => {
-      // Animate slide out
-      Animated.timing(slideAnim, {
-        toValue: -100,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        // Clear data after animation completes
-        onDismiss();
-        setToastData(null);
-      });
-    }, duration);
+export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const counter = useRef(0);
 
-    // Cleanup timer
-    return () => clearTimeout(timer);
-  }, [toast, duration, slideAnim, onDismiss]);
+  const dismiss = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
-  /**
-   * Handle toast press - navigate to conversation
-   */
-  const handlePress = () => {
-    if (!toastData) return;
+  const show = useCallback((options: ToastOptions) => {
+    counter.current += 1;
+    const id = `toast-${Date.now()}-${counter.current}`;
+    const item: ToastItem = { ...options, id, type: options.type ?? 'info' };
+    setToasts((prev) => [...prev, item].slice(-MAX_VISIBLE));
+    return id;
+  }, []);
 
-    // Call onPress callback if provided
-    onPress?.(toastData.conversationId);
+  const update = useCallback((id: string, patch: Partial<ToastOptions>) => {
+    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  }, []);
 
-    // Animate out and dismiss
-    Animated.timing(slideAnim, {
-      toValue: -100,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => {
-      onDismiss();
-      setToastData(null);
-    });
-  };
-
-  // Don't render if no toast data
-  if (!toastData) {
-    return null;
-  }
-
-  const senderInitial = toastData.senderUsername[0]?.toUpperCase() || '?';
+  const api = useMemo<ToastApi>(
+    () => ({
+      show,
+      update,
+      dismiss,
+      success: (title, message) => show({ type: 'success', title, message }),
+      error: (title, message) => show({ type: 'error', title, message, duration: 5000 }),
+      info: (title, message) => show({ type: 'info', title, message }),
+      progress: (title, progress = 0) => show({ type: 'progress', title, progress, duration: 0 }),
+    }),
+    [show, update, dismiss]
+  );
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        {
-          transform: [{ translateY: slideAnim }],
-        },
-      ]}
-    >
-      <TouchableOpacity
-        style={styles.toast}
-        onPress={handlePress}
-        activeOpacity={0.8}
-      >
-        {/* Avatar with sender initial */}
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{senderInitial}</Text>
-          </View>
-        </View>
-
-        {/* Sender name and message preview */}
-        <View style={styles.contentContainer}>
-          <Text style={styles.senderName} numberOfLines={1}>
-            {toastData.senderUsername}
-          </Text>
-          <Text style={styles.messagePreview} numberOfLines={1}>
-            {toastData.messageText}
-          </Text>
-        </View>
-
-        {/* Close button */}
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={onDismiss}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="close" size={20} color="#aaa" />
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </Animated.View>
+    <ToastContext.Provider value={api}>
+      {children}
+      <ToastHost toasts={toasts} onDismiss={dismiss} />
+    </ToastContext.Provider>
   );
 };
 
+export const useToast = (): ToastApi => {
+  const ctx = useContext(ToastContext);
+  if (!ctx) throw new Error('useToast must be used within a ToastProvider');
+  return ctx;
+};
+
+function ToastHost({
+  toasts,
+  onDismiss,
+}: {
+  toasts: ToastItem[];
+  onDismiss: (id: string) => void;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View pointerEvents="box-none" style={[styles.host, { top: insets.top + 8 }]}>
+      {toasts.map((t) => (
+        <ToastView key={t.id} toast={t} onDismiss={onDismiss} />
+      ))}
+    </View>
+  );
+}
+
+function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: string) => void }) {
+  const { themeColors } = useTheme();
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+  }, [anim]);
+
+  const duration =
+    toast.duration ?? (toast.type === 'progress' ? 0 : DEFAULT_DURATION);
+
+  useEffect(() => {
+    if (duration <= 0) return;
+    const timer = setTimeout(() => onDismiss(toast.id), duration);
+    return () => clearTimeout(timer);
+  }, [duration, toast.id, onDismiss]);
+
+  const color = toast.type === 'error' ? ERROR_COLOR : themeColors.accent;
+  const pct = Math.max(0, Math.min(1, toast.progress ?? 0));
+
+  return (
+    <Animated.View
+      style={{
+        opacity: anim,
+        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
+      }}
+    >
+      <Pressable
+        accessibilityRole="alert"
+        onPress={() => {
+          toast.onPress?.();
+          onDismiss(toast.id);
+        }}
+        style={[
+          styles.toast,
+          {
+            backgroundColor: themeColors.cardBackground,
+            borderColor: themeColors.border,
+            borderLeftColor: color,
+          },
+        ]}
+      >
+        <Ionicons name={ICONS[toast.type]} size={22} color={color} />
+        <View style={styles.body}>
+          <Text style={[styles.title, { color: themeColors.text }]} numberOfLines={1}>
+            {toast.title}
+          </Text>
+          {toast.message ? (
+            <Text style={[styles.message, { color: themeColors.subText }]} numberOfLines={2}>
+              {toast.message}
+            </Text>
+          ) : null}
+          {toast.type === 'progress' ? (
+            <View style={[styles.track, { backgroundColor: themeColors.border }]}>
+              <View style={[styles.fill, { backgroundColor: color, width: `${pct * 100}%` }]} />
+            </View>
+          ) : null}
+        </View>
+        <Pressable onPress={() => onDismiss(toast.id)} hitSlop={10}>
+          <Ionicons name="close" size={18} color={themeColors.subText} />
+        </Pressable>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
+  host: {
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
     zIndex: 9999,
-  } as ViewStyle,
-
+    elevation: 9999,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E1E1E',
-    marginHorizontal: 10,
-    marginTop: 50,
-    borderRadius: 12,
+    gap: 10,
     padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
     borderLeftWidth: 4,
-    borderLeftColor: '#03DAC5',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  } as ViewStyle,
-
-  avatarContainer: {
-    marginRight: 10,
-  } as ViewStyle,
-
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#03DAC5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  } as ViewStyle,
-
-  avatarText: {
-    color: '#121212',
-    fontWeight: 'bold',
-    fontSize: 16,
-  } as TextStyle,
-
-  contentContainer: {
-    flex: 1,
-    marginRight: 8,
-  } as ViewStyle,
-
-  senderName: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 2,
-  } as TextStyle,
-
-  messagePreview: {
-    color: '#aaa',
-    fontSize: 12,
-    lineHeight: 16,
-  } as TextStyle,
-
-  closeButton: {
-    padding: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  } as ViewStyle,
+  },
+  body: { flex: 1 },
+  title: { fontSize: 14, fontWeight: '600' },
+  message: { fontSize: 12, marginTop: 2 },
+  track: { height: 4, borderRadius: 2, marginTop: 8, overflow: 'hidden' },
+  fill: { height: 4, borderRadius: 2 },
 });
-
-export default ToastNotification;

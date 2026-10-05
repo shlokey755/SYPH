@@ -4,9 +4,11 @@ import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../../hooks/themeContext';
+import { useConversations } from '../../hooks/useConversations';
 
 export default function TabsLayout() {
   const { themeColors } = useTheme();
+  const { unreadTotal } = useConversations();
   const insets = useSafeAreaInsets();
 
   return (
@@ -34,6 +36,8 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Chat',
+          tabBarBadge: unreadTotal > 0 ? (unreadTotal > 99 ? '99+' : unreadTotal) : undefined,
+          tabBarBadgeStyle: { backgroundColor: themeColors.accent, color: themeColors.buttonText },
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles" size={size} color={color} />
           ),

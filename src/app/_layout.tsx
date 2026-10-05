@@ -1,7 +1,10 @@
 // src/app/_layout.tsx
 import { Stack } from 'expo-router';
 import { ThemeProvider, useTheme } from '../hooks/themeContext';
+import { ToastProvider } from '../hooks/toastNotifications';
 import { AuthProvider } from '../hooks/useAuth';
+import { ConversationsProvider } from '../hooks/useConversations';
+import { UserSettingsProvider } from '../hooks/useUserSettings';
 
 function RootNav() {
   const { themeColors } = useTheme();
@@ -21,11 +24,18 @@ function RootNav() {
   );
 }
 
+// Provider order matters: settings and conversations read the signed-in user, toasts read the theme.
 export default function RootLayout() {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <RootNav />
+        <ToastProvider>
+          <UserSettingsProvider>
+            <ConversationsProvider>
+              <RootNav />
+            </ConversationsProvider>
+          </UserSettingsProvider>
+        </ToastProvider>
       </ThemeProvider>
     </AuthProvider>
   );

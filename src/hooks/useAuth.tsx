@@ -49,7 +49,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               username: userData.username || 'Anonymous',
               usernameLowercase: userData.usernameLowercase || (userData.username ? userData.username.toLowerCase() : 'anonymous'),
               displayName: userData.username || 'Anonymous',
-              walletBalance: 0,
               createdAt: new Date(),
             });
           } else {
@@ -59,7 +58,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               username: fallbackUsername,
               usernameLowercase: fallbackUsername.toLowerCase(),
               displayName: fallbackUsername,
-              walletBalance: 0,
               createdAt: new Date(),
             });
           }

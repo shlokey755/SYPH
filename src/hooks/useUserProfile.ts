@@ -11,6 +11,7 @@ import { doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { auth, db } from '../firebaseConfig';
 import { UserProfile } from '../types';
+import { toMillis } from '../utils/conversation';
 
 export const useUserProfile = (uid: string | undefined) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -31,8 +32,7 @@ export const useUserProfile = (uid: string | undefined) => {
         if (!data.lastUsernameChange) {
           setCanChangeUsername(true);
         } else {
-          const lastChange = data.lastUsernameChange.toDate();
-          const nextChange = new Date(lastChange.getTime() + 24 * 60 * 60 * 1000);
+          const nextChange = new Date(toMillis(data.lastUsernameChange) + 24 * 60 * 60 * 1000);
           const now = new Date();
 
           if (now >= nextChange) {

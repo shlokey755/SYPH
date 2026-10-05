@@ -7,12 +7,14 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:rules": "npx --yes firebase-tools@latest emulators:exec --only firestore --project demo-syph \"node tests/firestore.rules.test.js\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~57.0.0",
+    "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.20",
     "expo-linking": "~57.0.11",
     "expo-router": "~57.0.24",
@@ -26,6 +28,7 @@
     "react-native-screens": "~4.26.0"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@types/node": "^24.0.0",
     "@types/react": "~19.2.0",
     "typescript": "~5.9.2"
