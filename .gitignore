@@ -20,3 +20,9 @@ yarn-error.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Native build output / local tooling
+.expo-shared/
+*.log
+*.tsbuildinfo
+.metro-health-check*
