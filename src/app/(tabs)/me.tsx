@@ -11,14 +11,18 @@ import {
   Alert,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import { themeList, useTheme } from '../../hooks/themeContext';
+import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
+import { useUserSettings } from '../../hooks/useUserSettings';
+import { updateProfileFields } from '../../services/userService';
 
 export default function MeTab() {
   const { currentUser, logout } = useAuth();
@@ -28,8 +32,36 @@ export default function MeTab() {
   const { selectedTheme, themeColors, setTheme } = useTheme();
   const router = useRouter();
 
+  const toast = useToast();
+  const { settings, setNotifications } = useUserSettings();
+
   const [newUsername, setNewUsername] = useState('');
   const [isChangingUsername, setIsChangingUsername] = useState(false);
+  const [statusText, setStatusText] = useState<string | null>(null);
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+
+  const currentStatus = statusText ?? profile?.status ?? '';
+
+  const handleSaveStatus = async () => {
+    if (!currentUser) return;
+    setIsSavingStatus(true);
+    try {
+      await updateProfileFields(currentUser.uid, { status: currentStatus.trim() });
+      toast.success('Status updated');
+    } catch (e) {
+      toast.error('Could not save status', e instanceof Error ? e.message : undefined);
+    } finally {
+      setIsSavingStatus(false);
+    }
+  };
+
+  const handleToggleNotifications = async (enabled: boolean) => {
+    try {
+      await setNotifications(enabled);
+    } catch (e) {
+      toast.error('Could not update notifications', e instanceof Error ? e.message : undefined);
+    }
+  };
 
   const handleChangeUsername = async () => {
     if (!newUsername.trim()) {
@@ -131,6 +163,51 @@ export default function MeTab() {
             {isChangingUsername ? 'Updating...' : 'Change Username (1x per day)'}
           </Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Status Section */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: themeColors.subText }]}>Status</Text>
+        <TextInput
+          style={[styles.input, { backgroundColor: themeColors.inputBg, color: themeColors.text, borderColor: themeColors.border }]}
+          placeholder="What's on your mind?"
+          placeholderTextColor={themeColors.subText}
+          value={currentStatus}
+          onChangeText={setStatusText}
+          maxLength={80}
+          editable={!isSavingStatus}
+        />
+        <TouchableOpacity
+          style={[
+            styles.button,
+            { backgroundColor: themeColors.accent },
+            (isSavingStatus || currentStatus.trim() === (profile?.status ?? '')) && { opacity: 0.6 },
+          ]}
+          onPress={handleSaveStatus}
+          disabled={isSavingStatus || currentStatus.trim() === (profile?.status ?? '')}
+        >
+          <Text style={[styles.buttonText, { color: themeColors.buttonText }]}>
+            {isSavingStatus ? 'Saving...' : 'Save Status'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Notifications Section */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: themeColors.subText }]}>Notifications</Text>
+        <View style={[styles.switchRow, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.border }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.switchLabel, { color: themeColors.text }]}>Message notifications</Text>
+            <Text style={{ color: themeColors.subText, fontSize: 12 }}>
+              Mute a single chat from its header bell.
+            </Text>
+          </View>
+          <Switch
+            value={settings.notificationsEnabled}
+            onValueChange={handleToggleNotifications}
+            trackColor={{ true: themeColors.accent, false: themeColors.border }}
+          />
+        </View>
       </View>
 
       {/* Theme Options Section */}
@@ -292,6 +369,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     marginLeft: 12,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 1,
+  },
+  switchLabel: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   spacer: {
     height: 30,

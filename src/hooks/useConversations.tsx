@@ -62,7 +62,7 @@ export const ConversationsProvider = ({ children }: { children: React.ReactNode 
   const uid = currentUser?.uid;
   const toast = useToast();
   const router = useRouter();
-  const { isMuted } = useUserSettings();
+  const { isMuted, settings } = useUserSettings();
 
   const [all, setAll] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,6 +73,8 @@ export const ConversationsProvider = ({ children }: { children: React.ReactNode 
   // Latest callbacks, so the Firestore listener does not resubscribe when they change.
   const isMutedRef = useRef(isMuted);
   isMutedRef.current = isMuted;
+  const notificationsOnRef = useRef(settings.notificationsEnabled);
+  notificationsOnRef.current = settings.notificationsEnabled;
   const toastRef = useRef(toast);
   toastRef.current = toast;
   const routerRef = useRef(router);
@@ -123,6 +125,7 @@ export const ConversationsProvider = ({ children }: { children: React.ReactNode 
             !firstSnapshot &&
             millis > previous &&
             activeChatRef.current !== conv.id &&
+            notificationsOnRef.current &&
             !isMutedRef.current(conv.id)
           ) {
             const sender = conv.lastMessageSenderName || 'New message';

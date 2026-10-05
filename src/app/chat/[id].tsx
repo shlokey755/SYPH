@@ -24,6 +24,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ForwardPicker } from '../../components/chat/ForwardPicker';
+import { GroupInfoModal } from '../../components/chat/GroupInfoModal';
 import { MessageAction, MessageActionSheet } from '../../components/chat/MessageActionSheet';
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { MessageInput } from '../../components/chat/MessageInput';
@@ -76,6 +77,7 @@ export default function ChatScreen() {
   const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [groupInfoOpen, setGroupInfoOpen] = useState(false);
 
   const me = useMemo(
     () => (currentUser ? { uid: currentUser.uid, username: currentUser.username } : null),
@@ -250,14 +252,21 @@ export default function ChatScreen() {
         <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back">
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </Pressable>
-        <View style={styles.headerInfo}>
+        <Pressable
+          style={styles.headerInfo}
+          disabled={!conversation?.isGroup}
+          onPress={() => setGroupInfoOpen(true)}
+          accessibilityLabel={conversation?.isGroup ? 'Group info' : undefined}
+        >
           <Text style={[styles.headerTitle, { color: themeColors.text }]} numberOfLines={1}>
             {title}
           </Text>
           {subtitle ? (
-            <Text style={[styles.headerSubtitle, { color: themeColors.subText }]}>{subtitle}</Text>
+            <Text style={[styles.headerSubtitle, { color: themeColors.subText }]}>
+              {subtitle} - tap for info
+            </Text>
           ) : null}
-        </View>
+        </Pressable>
         <Pressable
           onPress={() => {
             setSearchOpen((open) => !open);
@@ -341,6 +350,14 @@ export default function ChatScreen() {
         colors={themeColors}
         onSelect={handleAction}
         onClose={() => setActionMessage(null)}
+      />
+      <GroupInfoModal
+        visible={groupInfoOpen}
+        conversation={conversation}
+        myUid={myUid}
+        colors={themeColors}
+        onClose={() => setGroupInfoOpen(false)}
+        onLeft={() => router.replace('/(tabs)')}
       />
       <ForwardPicker
         visible={!!forwardMessage}
