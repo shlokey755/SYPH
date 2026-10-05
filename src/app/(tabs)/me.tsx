@@ -16,7 +16,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { ThemeOption, useTheme } from '../../hooks/themeContext';
+import { themeList, useTheme } from '../../hooks/themeContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 
@@ -83,12 +83,6 @@ export default function MeTab() {
     );
   }
 
-  const themeOptions: { id: ThemeOption; label: string; primary: string; secondary: string }[] = [
-    { id: 'default', label: 'Default', primary: '#121212', secondary: '#03DAC5' },
-    { id: 'beige-purple', label: 'Beige & Purple', primary: '#F5F5DC', secondary: '#800080' },
-    { id: 'white-black', label: 'White & Black', primary: '#FFFFFF', secondary: '#000000' },
-  ];
-
   return (
     <ScrollView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
@@ -143,7 +137,7 @@ export default function MeTab() {
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: themeColors.subText }]}>Theme</Text>
         <View style={styles.themeContainer}>
-          {themeOptions.map((item) => {
+          {themeList.map((item) => {
             const isSelected = selectedTheme === item.id;
             return (
               <TouchableOpacity
@@ -156,8 +150,8 @@ export default function MeTab() {
                 onPress={() => setTheme(item.id)}
               >
                 <View style={styles.themePreview}>
-                  <View style={[styles.colorBadge, { backgroundColor: item.primary }]} />
-                  <View style={[styles.colorBadge, { backgroundColor: item.secondary }]} />
+                  <View style={[styles.colorBadge, { backgroundColor: item.colors.background, borderWidth: 1, borderColor: item.colors.border }]} />
+                  <View style={[styles.colorBadge, { backgroundColor: item.colors.accent }]} />
                 </View>
                 <Text style={[styles.themeLabel, { color: themeColors.subText }, isSelected && { color: themeColors.text, fontWeight: '600' }]}>
                   {item.label}
@@ -173,9 +167,9 @@ export default function MeTab() {
 
       {/* Logout Section */}
       <View style={styles.section}>
-        <TouchableOpacity style={[styles.logoutButton, { backgroundColor: themeColors.cardBackground }]} onPress={handleLogout}>
-          <Ionicons name="log-out" size={20} color="#CF6679" />
-          <Text style={styles.logoutText}>Logout</Text>
+        <TouchableOpacity style={[styles.logoutButton, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.danger }]} onPress={handleLogout}>
+          <Ionicons name="log-out" size={20} color={themeColors.danger} />
+          <Text style={[styles.logoutText, { color: themeColors.danger }]}>Logout</Text>
         </TouchableOpacity>
       </View>
 
@@ -293,10 +287,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 15,
     borderWidth: 1,
-    borderColor: '#CF6679',
   },
   logoutText: {
-    color: '#CF6679',
     fontWeight: '600',
     fontSize: 16,
     marginLeft: 12,

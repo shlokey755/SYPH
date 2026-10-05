@@ -15,8 +15,6 @@ interface Props {
   onClose: () => void;
 }
 
-const DANGER = '#CF6679';
-
 export function MessageActionSheet({ message, isMine, colors, onSelect, onClose }: Props) {
   const insets = useSafeAreaInsets();
   if (!message) return null;
@@ -52,8 +50,8 @@ export function MessageActionSheet({ message, isMine, colors, onSelect, onClose 
               onPress={() => onSelect(a.id, message)}
               style={({ pressed }) => [styles.item, pressed && { backgroundColor: colors.inputBg }]}
             >
-              <Ionicons name={a.icon} size={20} color={a.danger ? DANGER : colors.text} />
-              <Text style={[styles.label, { color: a.danger ? DANGER : colors.text }]}>{a.label}</Text>
+              <Ionicons name={a.icon} size={20} color={a.danger ? colors.danger : colors.text} />
+              <Text style={[styles.label, { color: a.danger ? colors.danger : colors.text }]}>{a.label}</Text>
             </Pressable>
           ))}
         </View>

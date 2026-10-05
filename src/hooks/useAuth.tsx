@@ -49,6 +49,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               username: userData.username || 'Anonymous',
               usernameLowercase: userData.usernameLowercase || (userData.username ? userData.username.toLowerCase() : 'anonymous'),
               displayName: userData.username || 'Anonymous',
+              profileImageUrl: userData.profileImageUrl,
+              status: userData.status,
+              theme: userData.theme,
               createdAt: new Date(),
             });
           } else {

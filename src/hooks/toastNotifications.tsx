@@ -54,7 +54,6 @@ interface ToastApi {
 
 const MAX_VISIBLE = 3;
 const DEFAULT_DURATION = 3500;
-const ERROR_COLOR = '#CF6679';
 
 const ToastContext = createContext<ToastApi | undefined>(undefined);
 
@@ -147,7 +146,7 @@ function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: str
     return () => clearTimeout(timer);
   }, [duration, toast.id, onDismiss]);
 
-  const color = toast.type === 'error' ? ERROR_COLOR : themeColors.accent;
+  const color = toast.type === 'error' ? themeColors.danger : themeColors.accent;
   const pct = Math.max(0, Math.min(1, toast.progress ?? 0));
 
   return (

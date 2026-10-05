@@ -32,7 +32,7 @@ export function removePushToken(uid: string, token: string) {
 }
 
 export function saveTheme(uid: string, theme: string) {
-  return updateDoc(doc(db, 'users', uid), { theme });
+  return setDoc(doc(db, 'users', uid), { theme }, { merge: true });
 }
 
 export function updateProfileFields(
