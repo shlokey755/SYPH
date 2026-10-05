@@ -11,11 +11,11 @@ Everything the app depends on that lives outside the code: console steps, keys, 
 | Step | How |
 |------|-----|
 | Publish | Firebase Console > Firestore Database > Rules > paste `firestore.rules` > Publish. Or `firebase deploy --only firestore:rules`. |
-| Test (optional) | `npm run test:rules` - starts the local Firestore emulator (needs Java 11+) and runs `tests/firestore.rules.test.js`. |
+| Test (optional) | `cd tests/firestore-rules && npm install && npm test` - starts the local Firestore emulator (needs Java 11+ and network access for the first-run emulator download). |
 
 **Important**
 - Chats now use a `participantIds` field. **Conversations created by the old build do not have it and will not appear.** Recreate your test chats from the Add tab.
-- The rules were written and re-reviewed by hand but **have not been executed against the emulator** (the emulator download was blocked in the build environment). Run `npm run test:rules` once; if a case fails, tell me which one.
+- The rules were written and re-reviewed by hand but **have not been executed against the emulator** (the emulator download was blocked in the build environment). Run the rules tests once; if a case fails, tell me which one.
 
 ### 1.2 Environment variables (`.env`, see `.env.example`)
 
