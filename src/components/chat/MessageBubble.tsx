@@ -16,6 +16,7 @@ interface Props {
   colors: ThemeColors;
   onLongPress: (message: Message) => void;
   onReplyPress?: (messageId: string) => void;
+  onOpenMedia?: (message: Message) => void;
 }
 
 function StatusIcon({ status, color }: { status: MessageStatus; color: string }) {
@@ -41,6 +42,7 @@ function MessageBubbleBase({
   colors,
   onLongPress,
   onReplyPress,
+  onOpenMedia,
 }: Props) {
   const textColor = isMine ? colors.buttonText : colors.text;
   const subColor = isMine ? colors.buttonText : colors.subText;
@@ -105,7 +107,13 @@ function MessageBubbleBase({
             <Text style={[styles.deleted, { color: subColor }]}>This message was deleted</Text>
           </View>
         ) : (
-          <MessageContent message={message} textColor={textColor} colors={colors} isMine={isMine} />
+          <MessageContent
+            message={message}
+            textColor={textColor}
+            colors={colors}
+            isMine={isMine}
+            onOpenMedia={onOpenMedia}
+          />
         )}
 
         <View style={styles.footer}>

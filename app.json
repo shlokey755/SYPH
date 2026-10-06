@@ -44,7 +44,21 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow SYPH to access your photos so you can share them in chats and set a profile picture.",
+          "cameraPermission": "Allow SYPH to use the camera so you can take photos and videos for chats."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow SYPH to use the microphone to record voice messages."
+        }
+      ],
+      "expo-video"
     ],
     "extra": {
       "router": {},

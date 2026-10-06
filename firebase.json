@@ -16,5 +16,8 @@
         "destination": "/index.tsx"
       }
     ]
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }

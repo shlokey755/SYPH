@@ -23,15 +23,20 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AttachChoice, AttachSheet } from '../../components/chat/AttachSheet';
 import { ForwardPicker } from '../../components/chat/ForwardPicker';
+import { GifPicker } from '../../components/chat/GifPicker';
 import { GroupInfoModal } from '../../components/chat/GroupInfoModal';
+import { MediaViewer } from '../../components/chat/MediaViewer';
 import { MessageAction, MessageActionSheet } from '../../components/chat/MessageActionSheet';
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { MessageInput } from '../../components/chat/MessageInput';
+import { StickerPicker } from '../../components/chat/StickerPicker';
 import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
+import { useMediaSender } from '../../hooks/useMediaSender';
 import { useMessages } from '../../hooks/useMessages';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import * as chat from '../../services/chatService';
@@ -78,11 +83,43 @@ export default function ChatScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [gifOpen, setGifOpen] = useState(false);
+  const [stickerOpen, setStickerOpen] = useState(false);
+  const [viewerMessage, setViewerMessage] = useState<Message | null>(null);
 
   const me = useMemo(
     () => (currentUser ? { uid: currentUser.uid, username: currentUser.username } : null),
     [currentUser]
   );
+
+  const media = useMediaSender({
+    conversation,
+    me,
+    replyTo,
+    onReplyConsumed: () => setReplyTo(null),
+  });
+
+  const handleAttach = (choice: AttachChoice) => {
+    setAttachOpen(false);
+    switch (choice) {
+      case 'library':
+        media.pickFromLibrary();
+        break;
+      case 'camera':
+        media.takePhoto();
+        break;
+      case 'document':
+        media.pickDocument();
+        break;
+      case 'gif':
+        setGifOpen(true);
+        break;
+      case 'sticker':
+        setStickerOpen(true);
+        break;
+    }
+  };
 
   // Tell the conversations provider which chat is open (suppresses its toasts).
   useFocusEffect(
@@ -236,6 +273,7 @@ export default function ChatScreen() {
           colors={themeColors}
           onLongPress={setActionMessage}
           onReplyPress={scrollToMessage}
+          onOpenMedia={setViewerMessage}
         />
       );
     },
@@ -337,6 +375,8 @@ export default function ChatScreen() {
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
           onSend={handleSend}
+          onAttach={() => setAttachOpen(true)}
+          onSendVoice={media.sendVoice}
         />
       ) : (
         <View style={[styles.connecting, { paddingBottom: Math.max(insets.bottom, 12) }]}>
@@ -351,6 +391,31 @@ export default function ChatScreen() {
         onSelect={handleAction}
         onClose={() => setActionMessage(null)}
       />
+      <AttachSheet
+        visible={attachOpen}
+        colors={themeColors}
+        onChoose={handleAttach}
+        onClose={() => setAttachOpen(false)}
+      />
+      <StickerPicker
+        visible={stickerOpen}
+        colors={themeColors}
+        onPick={(emoji) => {
+          setStickerOpen(false);
+          media.sendSticker(emoji);
+        }}
+        onClose={() => setStickerOpen(false)}
+      />
+      <GifPicker
+        visible={gifOpen}
+        colors={themeColors}
+        onPick={(url, width, height) => {
+          setGifOpen(false);
+          media.sendGif(url, width, height);
+        }}
+        onClose={() => setGifOpen(false)}
+      />
+      <MediaViewer message={viewerMessage} onClose={() => setViewerMessage(null)} />
       <GroupInfoModal
         visible={groupInfoOpen}
         conversation={conversation}

@@ -22,6 +22,7 @@ import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
+import { useProfileImages } from '../../hooks/useProfileImages';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import { Conversation } from '../../types';
 import {
@@ -41,6 +42,15 @@ export default function ChatTab() {
   const [searchText, setSearchText] = useState('');
 
   const myUid = currentUser?.uid;
+
+  const otherUids = useMemo(
+    () =>
+      conversations
+        .map((c) => getOtherParticipant(c, myUid)?.uid)
+        .filter((uid): uid is string => !!uid),
+    [conversations, myUid]
+  );
+  const photoOf = useProfileImages(otherUids);
 
   const filtered = useMemo(() => {
     const q = searchText.trim().toLowerCase();
@@ -88,8 +98,8 @@ export default function ChatTab() {
           pressed && { backgroundColor: themeColors.cardBackground },
         ]}
       >
-        {other?.profileImageUrl ? (
-          <Image source={{ uri: other.profileImageUrl }} style={styles.avatar} />
+        {photoOf(other?.uid) || other?.profileImageUrl ? (
+          <Image source={{ uri: photoOf(other?.uid) || other?.profileImageUrl }} style={styles.avatar} />
         ) : (
           <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: themeColors.accent }]}>
             {item.isGroup ? (

@@ -4,11 +4,13 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Switch,
@@ -22,6 +24,8 @@ import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useUserSettings } from '../../hooks/useUserSettings';
+import { setCachedProfileImage } from '../../hooks/useProfileImages';
+import { avatarPath, friendlyUploadError, uploadFile } from '../../services/mediaService';
 import { updateProfileFields } from '../../services/userService';
 
 export default function MeTab() {
@@ -40,7 +44,46 @@ export default function MeTab() {
   const [statusText, setStatusText] = useState<string | null>(null);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
 
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const photoUrl = avatarUrl ?? profile?.profileImageUrl;
   const currentStatus = statusText ?? profile?.status ?? '';
+
+  const handleChangePhoto = async () => {
+    if (!currentUser) return;
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+
+      setIsUploadingAvatar(true);
+      const progressId = toast.progress('Uploading photo', 0);
+      try {
+        const { url } = await uploadFile({
+          uri: asset.uri,
+          path: avatarPath(currentUser.uid, asset.fileName ?? 'avatar.jpg'),
+          mimeType: asset.mimeType ?? 'image/jpeg',
+          onProgress: (p) => toast.update(progressId, { progress: p }),
+        });
+        await updateProfileFields(currentUser.uid, { profileImageUrl: url });
+        setCachedProfileImage(currentUser.uid, url);
+        setAvatarUrl(url);
+        toast.success('Profile photo updated');
+      } finally {
+        toast.dismiss(progressId);
+      }
+    } catch (e) {
+      toast.error('Could not update photo', friendlyUploadError(e));
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   const handleSaveStatus = async () => {
     if (!currentUser) return;
@@ -119,6 +162,29 @@ export default function MeTab() {
     <ScrollView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
         <Text style={[styles.headerTitle, { color: themeColors.text }]}>My Profile</Text>
+      </View>
+
+      {/* Profile Photo Section */}
+      <View style={[styles.section, styles.photoSection]}>
+        <TouchableOpacity onPress={handleChangePhoto} disabled={isUploadingAvatar} accessibilityLabel="Change profile photo">
+          {photoUrl ? (
+            <Image source={{ uri: photoUrl }} style={styles.photo} />
+          ) : (
+            <View style={[styles.photo, styles.photoPlaceholder, { backgroundColor: themeColors.accent }]}>
+              <Text style={[styles.photoInitial, { color: themeColors.buttonText }]}>
+                {(profile?.username?.[0] ?? '?').toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={[styles.photoBadge, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.border }]}>
+            {isUploadingAvatar ? (
+              <ActivityIndicator size="small" color={themeColors.accent} />
+            ) : (
+              <Ionicons name="camera" size={16} color={themeColors.accent} />
+            )}
+          </View>
+        </TouchableOpacity>
+        <Text style={{ color: themeColors.subText, fontSize: 12, marginTop: 8 }}>Tap to change photo</Text>
       </View>
 
       {/* Username Section */}
@@ -369,6 +435,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     marginLeft: 12,
+  },
+  photoSection: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  photo: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+  },
+  photoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoInitial: {
+    fontSize: 38,
+    fontWeight: '700',
+  },
+  photoBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   switchRow: {
     flexDirection: 'row',
