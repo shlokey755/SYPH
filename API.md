@@ -1,60 +1,69 @@
-# SYPH - APIs, keys and console steps
+# API.md - what SYPH needs from you
 
-Everything the app needs from outside the repo. Items marked **REQUIRED** must be done for the feature
-to work; the rest are optional or only needed later. Keep this file current as features are added.
+Everything the app depends on that lives outside the code: console steps, keys, services. Items are added here as each feature is built.
 
-## 1. Firebase (REQUIRED)
+## 1. Required now
 
-Already configured through `.env` (see `.env.example`). Needed Firebase products:
+### 1.1 Deploy the Firestore rules (do this before running the new build)
 
-| Product | Used for | Status |
-|---|---|---|
-| Authentication (Email/Password) | login / register (username is mapped to `<username>@syph.com`) | enabled |
-| Cloud Firestore | users, conversations, messages, receipts | enabled |
-| Cloud Storage | photos, videos, voice notes, documents, profile photos | **enable in console** (see section 3) |
-| Cloud Messaging / Expo push | push notifications | see section 4 |
+`firestore.rules` replaces the old "any signed-in user can read everything" rules.
 
-### Deploy the security rules (REQUIRED, do this before using the new build)
+| Step | How |
+|------|-----|
+| Publish | Firebase Console > Firestore Database > Rules > paste `firestore.rules` > Publish. Or `firebase deploy --only firestore:rules`. |
+| Test (optional) | `cd tests/firestore-rules && npm install && npm test` - starts the local Firestore emulator (needs Java 11+ and network access for the first-run emulator download). |
 
-The new data model reads conversations with `where('participantIds', 'array-contains', uid)`.
-The old rules (any signed-in user can read every conversation) must be replaced.
+**Important**
+- Chats now use a `participantIds` field. **Conversations created by the old build do not have it and will not appear.** Recreate your test chats from the Add tab.
+- The rules were written and re-reviewed by hand but **have not been executed against the emulator** (the emulator download is blocked in the build environment). Run the rules tests once; if a case fails, tell me which one.
 
-1. Firebase Console -> Firestore Database -> **Rules**
-2. Paste the contents of `firestore.rules` -> **Publish**
-   (or `npx firebase-tools deploy --only firestore:rules` if you have the CLI logged in)
+### 1.2 Environment variables (`.env`, see `.env.example`)
 
-Test suite for the rules: `npm run test:rules` (needs internet to download the Firestore emulator once).
+| Variable | Where to find it |
+|----------|------------------|
+| `EXPO_PUBLIC_FIREBASE_API_KEY` | Console > Project settings > Your apps > Web app |
+| `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN` | same |
+| `EXPO_PUBLIC_FIREBASE_PROJECT_ID` | same |
+| `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET` | same |
+| `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | same |
+| `EXPO_PUBLIC_FIREBASE_APP_ID` | same |
+| `EXPO_PUBLIC_GIPHY_API_KEY` (optional) | https://developers.giphy.com/ > Create an app (SDK/API). Without it the GIF picker shows a "not set up" message; everything else works. |
 
-> The rules were written but **not yet executed against the emulator** by the assistant that wrote them
-> (the build environment blocked the emulator download). Run `npm run test:rules` once; every line should print `ok`.
+These ship inside the app bundle, so they are client config, not secrets. Access control is the rules files.
 
-### Data model change - old test chats disappear
+### 1.3 Expo Go
 
-Conversations now carry `participantIds` and use deterministic ids (`uidA_uidB`) for 1-on-1 chats.
-Conversations created by the previous build do not have these fields, so they will no longer be listed.
-Start the chats again from the Add tab (they were test data). No composite Firestore index is required.
+The project is on Expo SDK 57, which matches the current Expo Go from the store. After pulling: `npm install` then `npx expo start -c`.
 
-## 2. Environment variables
+### 1.4 Media (photos, video, voice notes, documents, profile photos)
 
-`.env` (copy `.env.example`). All `EXPO_PUBLIC_*` values are bundled into the app; they are client
-configuration, not secrets. Access control lives in `firestore.rules` / `storage.rules`.
+| Step | How |
+|------|-----|
+| Enable Storage | Firebase Console > Storage > Get started. New projects may require the pay-as-you-go (Blaze) plan to create a bucket; free-tier quotas still apply. Without Storage, text chat is unaffected and uploads show a clear error toast. |
+| Publish `storage.rules` | Console > Storage > Rules > paste `storage.rules` > Publish (or `firebase deploy --only storage`). These rules read the chat's member list from Firestore, so the console may ask you to grant Storage permission to read Firestore - accept. |
+| Permissions | Camera, photo library and microphone prompts are configured in `app.json` (expo-image-picker, expo-audio). Config-plugin changes need a new development build; Expo Go already includes these modules. |
 
-| Variable | Purpose |
-|---|---|
-| `EXPO_PUBLIC_FIREBASE_API_KEY` ... `EXPO_PUBLIC_FIREBASE_APP_ID` | Firebase web config |
+Limits: 25 MB per chat file, 5 MB per profile photo (enforced in `storage.rules`).
 
-Restrict the Firebase API key to your app (Google Cloud Console -> APIs & Services -> Credentials) once you ship.
+## 2. Data model (Firestore)
 
-## 3. Firebase Storage (needed for media - added with the media feature)
+| Path | Purpose |
+|------|---------|
+| `users/{uid}` | Public profile: `username`, `usernameLowercase`, `profileImageUrl`, `status`, `theme` |
+| `users/{uid}/private/settings` | Owner-only: `mutedChats[]`, `notificationsEnabled`, `expoPushTokens[]` |
+| `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `hiddenBy[]`, `readState{uid:{deliveredAt,readAt}}`, `unread{uid:n}` |
+| `conversations/{id}/messages/{id}` | `type`, `text`, `media`, `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
 
-New Firebase projects require the **Blaze (pay-as-you-go)** plan to create a Storage bucket. Free-tier usage
-limits still apply, but a billing account must be attached. If you do not want that, media sending stays
-disabled (the app shows a clear message) and text chat is unaffected.
+Storage paths: `chats/{conversationId}/{uid}/{file}`, `avatars/{uid}/{file}`.
 
-## 4. Push notifications (added with the push feature)
+1-on-1 chats use the id `<uidA>_<uidB>` (sorted), so two people can never end up with two chats.
 
-Details are added in that section when the feature lands.
+## 3. Coming with later features (not needed yet)
 
-## 5. Calls (added with the calls feature)
+Filled in as each feature lands.
 
-Details are added in that section when the feature lands.
+| Feature | You will need to provide |
+|---------|--------------------------|
+| Push notifications (FR-10) | A development build (remote push does not work in Expo Go on Android), FCM credentials via EAS, and a small Node server with a Firebase service-account key |
+| Audio / video calls (FR-06) | A development build (WebRTC is not in Expo Go) and a TURN server for calls across networks |
+| Google / phone sign-in (FR-01) | OAuth client IDs and a development build |
