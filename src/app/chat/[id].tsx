@@ -32,6 +32,7 @@ import { MessageAction, MessageActionSheet } from '../../components/chat/Message
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { MessageInput } from '../../components/chat/MessageInput';
 import { StickerPicker } from '../../components/chat/StickerPicker';
+import { OfflineBanner } from '../../components/OfflineBanner';
 import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
@@ -323,6 +324,8 @@ export default function ChatScreen() {
           />
         </Pressable>
       </View>
+
+      <OfflineBanner message="You're offline. Messages you send now are sent when you reconnect." />
 
       {searchOpen && (
         <View style={[styles.searchBar, { borderBottomColor: themeColors.border }]}>

@@ -26,3 +26,7 @@ Thumbs.db
 *.log
 *.tsbuildinfo
 .metro-health-check*
+
+# Firebase Admin service-account keys: full database access, never commit
+serviceAccount*.json
+*-firebase-adminsdk-*.json

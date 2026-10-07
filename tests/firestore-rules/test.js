@@ -113,6 +113,18 @@ const no = (n, p) => check(n, p, false);
   await no('removed member can no longer read', carol.doc('conversations/g1').get());
   await ok('creator renames group', alice.doc('conversations/g1').update({ groupName: 'New' }));
 
+  console.log('\nPush token registry');
+  const tok = (uid) => ({ uid, platform: 'android', updatedAt: FV.serverTimestamp() });
+  await ok('user claims a device token for themselves', alice.doc('pushTokens/ExponentPushToken[abc]').set(tok('alice')));
+  await no('cannot register a token as someone else', carol.doc('pushTokens/ExponentPushToken[evil]').set(tok('alice')));
+  await no('cannot add unexpected fields', alice.doc('pushTokens/ExponentPushToken[x]').set({ ...tok('alice'), admin: true }));
+  await ok('a new account on the same device can take over the token', bob.doc('pushTokens/ExponentPushToken[abc]').set(tok('bob')));
+  await no('previous owner cannot delete the entry after takeover', alice.doc('pushTokens/ExponentPushToken[abc]').delete());
+  await ok('current owner deletes the entry', bob.doc('pushTokens/ExponentPushToken[abc]').delete());
+  await ok('deleting a missing entry is harmless', alice.doc('pushTokens/ExponentPushToken[gone]').delete());
+  await no('registry cannot be read by clients', bob.doc('pushTokens/ExponentPushToken[abc]').get());
+  await no('registry cannot be listed', alice.collection('pushTokens').get());
+
   console.log(`\n${passed} passed, ${failed} failed`);
   await env.cleanup();
   process.exit(failed ? 1 : 0);

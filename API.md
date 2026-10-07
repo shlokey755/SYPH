@@ -58,12 +58,27 @@ Storage paths: `chats/{conversationId}/{uid}/{file}`, `avatars/{uid}/{file}`.
 
 1-on-1 chats use the id `<uidA>_<uidB>` (sorted), so two people can never end up with two chats.
 
+### 1.5 Push notifications while the app is closed (FR-10)
+
+In-app toasts and unread badges work everywhere, including Expo Go. Alerts while the app is closed need all of the steps below; skip them and nothing else breaks.
+
+| Step | How |
+|------|-----|
+| Re-publish `firestore.rules` | It now includes the `pushTokens` registry (same as 1.1). |
+| Development build | Remote push does not work in Expo Go or on simulators. `eas build --profile development --platform android` (iOS needs an Apple developer account). |
+| FCM credentials (Android) | Firebase Console > Project settings > Cloud Messaging, then `eas credentials` > Android > Google Service Account key for FCM V1. Expo guide: https://docs.expo.dev/push-notifications/fcm-credentials/ |
+| APNs key (iOS) | Handled by `eas credentials` when you build for iOS. |
+| Run the relay | `server/` is a small Node 22.9+ service. Steps, hosting options and the delivery rules are in `server/README.md`. |
+| Service account key | Firebase Console > Project settings > Service accounts > Generate new private key. Put it in `server/.env` or the host's secret store. It gives full database access, so never commit it (already git-ignored). |
+| Optional | `EXPO_ACCESS_TOKEN` (expo.dev > Account settings > Access tokens) for enhanced push security; `PUSH_HIDE_PREVIEW=1` to hide message text in notifications. |
+
+Run **one** relay instance. It must stay running; messages sent while it is down are not announced later (unread badges still catch the user up).
+
 ## 3. Coming with later features (not needed yet)
 
 Filled in as each feature lands.
 
 | Feature | You will need to provide |
 |---------|--------------------------|
-| Push notifications (FR-10) | A development build (remote push does not work in Expo Go on Android), FCM credentials via EAS, and a small Node server with a Firebase service-account key |
 | Audio / video calls (FR-06) | A development build (WebRTC is not in Expo Go) and a TURN server for calls across networks |
 | Google / phone sign-in (FR-01) | OAuth client IDs and a development build |

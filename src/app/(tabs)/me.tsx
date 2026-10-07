@@ -26,6 +26,7 @@ import { useUserProfile } from '../../hooks/useUserProfile';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import { setCachedProfileImage } from '../../hooks/useProfileImages';
 import { avatarPath, friendlyUploadError, uploadFile } from '../../services/mediaService';
+import { isPushSupported, registerForPush } from '../../services/pushService';
 import { updateProfileFields } from '../../services/userService';
 
 export default function MeTab() {
@@ -101,6 +102,13 @@ export default function MeTab() {
   const handleToggleNotifications = async (enabled: boolean) => {
     try {
       await setNotifications(enabled);
+      // Turning alerts on is the moment to ask for the system permission and explain if it is blocked.
+      if (enabled && currentUser && isPushSupported()) {
+        const result = await registerForPush(currentUser.uid, settings.expoPushTokens);
+        if (result.status === 'denied') {
+          toast.info('Notifications are blocked', 'Allow notifications for SYPH in your phone settings.');
+        }
+      }
     } catch (e) {
       toast.error('Could not update notifications', e instanceof Error ? e.message : undefined);
     }
@@ -267,6 +275,11 @@ export default function MeTab() {
             <Text style={{ color: themeColors.subText, fontSize: 12 }}>
               Mute a single chat from its header bell.
             </Text>
+            {!isPushSupported() && (
+              <Text style={{ color: themeColors.subText, fontSize: 12, marginTop: 4 }}>
+                Alerts while the app is closed need an installed build; in Expo Go you get in-app alerts only.
+              </Text>
+            )}
           </View>
           <Switch
             value={settings.notificationsEnabled}

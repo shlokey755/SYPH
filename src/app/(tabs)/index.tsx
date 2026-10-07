@@ -18,6 +18,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { OfflineBanner } from '../../components/OfflineBanner';
 import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
@@ -150,6 +151,8 @@ export default function ChatTab() {
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: themeColors.text }]}>Chats</Text>
       </View>
+
+      <OfflineBanner message="You're offline. Chats update when you reconnect." />
 
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={18} color={themeColors.subText} style={styles.searchIcon} />

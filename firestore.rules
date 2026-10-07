@@ -110,6 +110,18 @@ service cloud.firestore {
       }
     }
 
+    // ---------------- Push token registry ----------------
+    // One entry per device token, naming the account currently signed in on that device. The push relay
+    // (Admin SDK, bypasses rules) only sends to a token whose entry names the recipient.
+    // Clients can claim a token for themselves and delete their own entry; nobody can read the registry.
+    match /pushTokens/{token} {
+      allow create, update: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'platform', 'updatedAt']);
+      allow delete: if signedIn() && (resource == null || resource.data.uid == request.auth.uid);
+      allow read: if false;
+    }
+
     // Everything else is closed.
     match /{document=**} {
       allow read, write: if false;

@@ -1,0 +1,16 @@
+{
+  "name": "syph-push-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sends push notifications for new SYPH messages and group invites",
+  "type": "module",
+  "engines": { "node": ">=22.9" },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "dependencies": {
+    "expo-server-sdk": "^7.2.0",
+    "firebase-admin": "^14.5.0"
+  }
+}

@@ -58,7 +58,14 @@
           "microphonePermission": "Allow SYPH to use the microphone to record voice messages."
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "expo-notifications",
+        {
+          "color": "#00E5FF",
+          "defaultChannel": "messages"
+        }
+      ]
     ],
     "extra": {
       "router": {},

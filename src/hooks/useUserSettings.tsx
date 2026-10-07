@@ -18,6 +18,11 @@ const DEFAULT_SETTINGS: UserSettings = {
 
 interface SettingsContextType {
   settings: UserSettings;
+  /**
+   * True once the real settings are known (server-confirmed, or found in the local cache).
+   * Until then `settings` holds defaults, so anything that acts on them (e.g. push registration) should wait.
+   */
+  isLoaded: boolean;
   isMuted: (conversationId: string) => boolean;
   toggleMute: (conversationId: string) => Promise<void>;
   setNotifications: (enabled: boolean) => Promise<void>;
@@ -29,16 +34,31 @@ export const UserSettingsProvider = ({ children }: { children: React.ReactNode }
   const { currentUser } = useAuth();
   const uid = currentUser?.uid;
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    if (!uid) {
-      setSettings(DEFAULT_SETTINGS);
-      return;
-    }
+    setSettings(DEFAULT_SETTINGS);
+    setIsLoaded(false);
+    if (!uid) return;
+
     return onSnapshot(
       doc(db, 'users', uid, 'private', 'settings'),
-      (snap) => setSettings({ ...DEFAULT_SETTINGS, ...(snap.data() as Partial<UserSettings> | undefined) }),
-      (error) => console.warn('Settings listener error:', error.message)
+      // Metadata changes are included so we get a second event when the server confirms a cache-only answer.
+      { includeMetadataChanges: true },
+      (snap) => {
+        const next: UserSettings = {
+          ...DEFAULT_SETTINGS,
+          ...(snap.data() as Partial<UserSettings> | undefined),
+        };
+        // Metadata-only events must not look like changes to consumers.
+        setSettings((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+        // An empty cache hit while offline says nothing about the real settings.
+        if (!snap.metadata.fromCache || snap.exists()) setIsLoaded(true);
+      },
+      (error) => {
+        console.warn('Settings listener error:', error.message);
+        setIsLoaded(true);
+      }
     );
   }, [uid]);
 
@@ -63,8 +83,8 @@ export const UserSettingsProvider = ({ children }: { children: React.ReactNode }
   );
 
   const value = useMemo(
-    () => ({ settings, isMuted, toggleMute, setNotifications }),
-    [settings, isMuted, toggleMute, setNotifications]
+    () => ({ settings, isLoaded, isMuted, toggleMute, setNotifications }),
+    [settings, isLoaded, isMuted, toggleMute, setNotifications]
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
