@@ -45,19 +45,6 @@ The project is on Expo SDK 57, which matches the current Expo Go from the store.
 
 Limits: 25 MB per chat file, 5 MB per profile photo (enforced in `storage.rules`).
 
-## 2. Data model (Firestore)
-
-| Path | Purpose |
-|------|---------|
-| `users/{uid}` | Public profile: `username`, `usernameLowercase`, `profileImageUrl`, `status`, `theme` |
-| `users/{uid}/private/settings` | Owner-only: `mutedChats[]`, `notificationsEnabled`, `expoPushTokens[]` |
-| `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `hiddenBy[]`, `readState{uid:{deliveredAt,readAt}}`, `unread{uid:n}` |
-| `conversations/{id}/messages/{id}` | `type`, `text`, `media`, `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
-
-Storage paths: `chats/{conversationId}/{uid}/{file}`, `avatars/{uid}/{file}`.
-
-1-on-1 chats use the id `<uidA>_<uidB>` (sorted), so two people can never end up with two chats.
-
 ### 1.5 Push notifications while the app is closed (FR-10)
 
 In-app toasts and unread badges work everywhere, including Expo Go. Alerts while the app is closed need all of the steps below; skip them and nothing else breaks.
@@ -73,6 +60,24 @@ In-app toasts and unread badges work everywhere, including Expo Go. Alerts while
 | Optional | `EXPO_ACCESS_TOKEN` (expo.dev > Account settings > Access tokens) for enhanced push security; `PUSH_HIDE_PREVIEW=1` to hide message text in notifications. |
 
 Run **one** relay instance. It must stay running; messages sent while it is down are not announced later (unread badges still catch the user up).
+
+### 1.6 Offline use (NFR-07)
+
+Nothing to set up. Firestore keeps a local cache, so chats you have already opened stay readable offline and messages you send are queued and delivered when the connection returns (they show a clock icon until then). A slim banner appears on the Chat and conversation screens while the device is offline. Media uploads need a connection and show an error toast if it drops.
+
+## 2. Data model (Firestore)
+
+| Path | Purpose |
+|------|---------|
+| `users/{uid}` | Public profile: `username`, `usernameLowercase`, `profileImageUrl`, `status`, `theme` |
+| `users/{uid}/private/settings` | Owner-only: `mutedChats[]`, `notificationsEnabled`, `expoPushTokens[]` |
+| `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `hiddenBy[]`, `readState{uid:{deliveredAt,readAt}}`, `unread{uid:n}` |
+| `pushTokens/{token}` | Which account is signed in on a device (`uid`, `platform`, `updatedAt`). Write-only for clients; read by the push relay |
+| `conversations/{id}/messages/{id}` | `type`, `text`, `media`, `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
+
+Storage paths: `chats/{conversationId}/{uid}/{file}`, `avatars/{uid}/{file}`.
+
+1-on-1 chats use the id `<uidA>_<uidB>` (sorted), so two people can never end up with two chats.
 
 ## 3. Coming with later features (not needed yet)
 
