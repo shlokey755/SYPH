@@ -4,6 +4,7 @@
  * Watches Firestore with the Admin SDK and sends Expo push notifications:
  *   - a new message in a conversation  -> every other member (honouring mute + the notification switch)
  *   - being added to a group           -> the new member
+ *   - an incoming call (calls/{id})    -> the callee (honours the notification switch, not chat mute)
  *
  * It reads only the conversation summary (lastMessage, lastMessageTime, ...) that the app already writes with
  * every message, so it needs no extra indexes and never reads message bodies.
@@ -18,11 +19,14 @@ import { FieldValue, Timestamp, getFirestore } from 'firebase-admin/firestore';
 import { createPushSender } from './expoPush.js';
 import {
   addedMembers,
+  allowsCallNotification,
   allowsNotification,
+  buildCallPush,
   buildGroupAddedPush,
   buildMessagePush,
   createDeduper,
   recipientsOf,
+  shouldAnnounceCall,
   splitTokensByOwner,
   storedTokens,
   toMillis,
@@ -89,16 +93,17 @@ const sender = createPushSender({ expo, removeToken, log });
 
 /**
  * @param {string[]} uids
- * @param {string} conversationId
+ * @param {string} conversationId  only used for logging and for the default mute check
  * @param {(tokens: string[]) => object[]} build  turns a user's verified tokens into push messages
+ * @param {(settings: object) => boolean} [allow]  per-user permission check; defaults to the chat mute + switch
  */
-async function notifyUsers(uids, conversationId, build) {
+async function notifyUsers(uids, conversationId, build, allow = (settings) => allowsNotification(settings, conversationId)) {
   const perUser = await Promise.all(
     uids.map(async (uid) => {
       // One user's failed lookup must not cancel everyone else's notification.
       try {
         const settings = await getSettings(uid);
-        if (!allowsNotification(settings, conversationId)) return [];
+        if (!allow(settings)) return [];
 
         const tokens = storedTokens(settings);
         if (tokens.length === 0) return [];
@@ -207,6 +212,33 @@ listen(
       );
     }
     groupsBootstrapped = true;
+  }
+);
+
+// Incoming calls. A single-field range query keeps Firestore's automatic indexes enough (adding status == 'ringing'
+// would need a composite index), so the status is checked in the handler instead.
+const seenCalls = new Set();
+listen(
+  'calls',
+  () => db.collection('calls').where('createdAt', '>', startedAt),
+  async (snapshot) => {
+    for (const change of snapshot.docChanges()) {
+      if (change.type !== 'added') continue;
+      const call = change.doc.data();
+      const announce = shouldAnnounceCall(call, change.doc.id, {
+        startedAtMs: startedAt.toMillis(),
+        nowMs: Date.now(),
+        seenIds: seenCalls,
+      });
+      if (!announce || !call.calleeId) continue;
+
+      await notifyUsers(
+        [call.calleeId],
+        call.conversationId ?? change.doc.id,
+        (tokens) => buildCallPush({ callId: change.doc.id, call, tokens }),
+        allowsCallNotification
+      );
+    }
   }
 );
 

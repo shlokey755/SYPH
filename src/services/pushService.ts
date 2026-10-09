@@ -16,8 +16,9 @@ import { addPushToken, removePushToken } from './userService';
 
 type NotificationsModule = typeof import('expo-notifications');
 
-/** Android notification channel the relay targets (channelId in the push payload). */
+/** Android notification channels the relay targets (channelId in the push payload). Keep in sync with server/src/notify.js. */
 export const MESSAGES_CHANNEL_ID = 'messages';
+export const CALLS_CHANNEL_ID = 'calls';
 
 export type PushRegistration =
   | { status: 'registered'; token: string }
@@ -94,6 +95,12 @@ export async function registerForPush(
         name: 'Messages',
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 200, 100, 200],
+      });
+      // Incoming calls: loudest importance and a longer buzz, so a ringing phone is noticed.
+      await Notifications.setNotificationChannelAsync(CALLS_CHANNEL_ID, {
+        name: 'Calls',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 600, 300, 600, 300, 600],
       });
     }
 

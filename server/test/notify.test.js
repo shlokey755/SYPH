@@ -1,13 +1,19 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  CALLS_CHANNEL_ID,
+  CALL_PUSH_MAX_AGE_MS,
+  CALL_PUSH_TTL_SECONDS,
   MESSAGES_CHANNEL_ID,
   addedMembers,
+  allowsCallNotification,
   allowsNotification,
+  buildCallPush,
   buildGroupAddedPush,
   buildMessagePush,
   createDeduper,
   recipientsOf,
+  shouldAnnounceCall,
   splitTokensByOwner,
   storedTokens,
   toMillis,
@@ -168,5 +174,103 @@ describe('buildGroupAddedPush', () => {
       tokens: ['T1'],
     });
     assert.equal(m.body, 'Someone added you to the group');
+  });
+});
+
+describe('allowsCallNotification', () => {
+  it('is on unless the account-wide switch is off', () => {
+    assert.equal(allowsCallNotification(undefined), true);
+    assert.equal(allowsCallNotification({}), true);
+    assert.equal(allowsCallNotification({ notificationsEnabled: true }), true);
+    assert.equal(allowsCallNotification({ notificationsEnabled: false }), false);
+  });
+
+  it('ignores chat mute, unlike messages', () => {
+    const settings = { mutedChats: ['alice_bob'] };
+    assert.equal(allowsNotification(settings, 'alice_bob'), false);
+    assert.equal(allowsCallNotification(settings), true);
+  });
+});
+
+describe('shouldAnnounceCall', () => {
+  const startedAtMs = 1_000_000;
+  const nowMs = startedAtMs + 10_000;
+  const ringing = (overrides = {}) => ({
+    status: 'ringing',
+    createdAt: { toMillis: () => startedAtMs + 5_000 },
+    ...overrides,
+  });
+  const ctx = () => ({ startedAtMs, nowMs, seenIds: new Set() });
+
+  it('announces a fresh ringing call once', () => {
+    const c = ctx();
+    assert.equal(shouldAnnounceCall(ringing(), 'call1', c), true);
+    assert.equal(shouldAnnounceCall(ringing(), 'call1', c), false);
+    assert.equal(shouldAnnounceCall(ringing(), 'call2', c), true);
+  });
+
+  it('skips calls that are no longer ringing', () => {
+    for (const status of ['accepted', 'declined', 'cancelled', 'missed', 'ended']) {
+      assert.equal(shouldAnnounceCall(ringing({ status }), 'x', ctx()), false, status);
+    }
+  });
+
+  it('skips calls created before the relay started', () => {
+    const old = ringing({ createdAt: { toMillis: () => startedAtMs - 1 } });
+    assert.equal(shouldAnnounceCall(old, 'x', ctx()), false);
+  });
+
+  it('skips calls that are too old to still be ringing', () => {
+    const c = { startedAtMs, nowMs: startedAtMs + 5_000 + CALL_PUSH_MAX_AGE_MS + 1, seenIds: new Set() };
+    assert.equal(shouldAnnounceCall(ringing(), 'x', c), false);
+  });
+
+  it('skips calls with no resolved createdAt or no document', () => {
+    assert.equal(shouldAnnounceCall(ringing({ createdAt: null }), 'x', ctx()), false);
+    assert.equal(shouldAnnounceCall(undefined, 'x', ctx()), false);
+  });
+
+  it('does not remember calls it declined to announce', () => {
+    const c = ctx();
+    assert.equal(shouldAnnounceCall(ringing({ status: 'declined' }), 'x', c), false);
+    assert.equal(c.seenIds.has('x'), false);
+  });
+});
+
+describe('buildCallPush', () => {
+  const call = {
+    callerId: 'alice',
+    callerName: 'Alice',
+    calleeId: 'bob',
+    conversationId: 'alice_bob',
+    type: 'video',
+  };
+
+  it('builds one high-priority call notification per token', () => {
+    const [first, second] = buildCallPush({ callId: 'c1', call, tokens: ['ExponentPushToken[a]', 'ExponentPushToken[b]'] });
+    assert.equal(first.to, 'ExponentPushToken[a]');
+    assert.equal(second.to, 'ExponentPushToken[b]');
+    assert.equal(first.title, 'Alice');
+    assert.equal(first.body, 'Incoming video call');
+    assert.equal(first.priority, 'high');
+    assert.equal(first.channelId, CALLS_CHANNEL_ID);
+    assert.notEqual(first.channelId, MESSAGES_CHANNEL_ID);
+    assert.equal(first.ttl, CALL_PUSH_TTL_SECONDS);
+  });
+
+  it('carries what the app needs to open the right place', () => {
+    const [msg] = buildCallPush({ callId: 'c1', call, tokens: ['t'] });
+    assert.deepEqual(msg.data, { type: 'call', conversationId: 'alice_bob', callId: 'c1' });
+    assert.equal(msg.threadId, 'alice_bob');
+  });
+
+  it('words voice calls differently and tolerates a missing caller name', () => {
+    const [msg] = buildCallPush({ callId: 'c1', call: { ...call, type: 'audio', callerName: '' }, tokens: ['t'] });
+    assert.equal(msg.body, 'Incoming voice call');
+    assert.equal(msg.title, 'Someone');
+  });
+
+  it('returns nothing when there are no tokens', () => {
+    assert.deepEqual(buildCallPush({ callId: 'c1', call, tokens: [] }), []);
   });
 });

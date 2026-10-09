@@ -3,8 +3,15 @@
  * Pure decision and formatting logic for the push relay. No I/O, so it is fully unit tested (test/notify.test.js).
  */
 
-/** Android channel created by the app (src/services/pushService.ts). Keep in sync. */
+/** Android channels created by the app (src/services/pushService.ts). Keep in sync. */
 export const MESSAGES_CHANNEL_ID = 'messages';
+export const CALLS_CHANNEL_ID = 'calls';
+
+/** A ringing call older than this is not worth a notification (matches STALE_RING_MS in src/utils/call.ts). */
+export const CALL_PUSH_MAX_AGE_MS = 75_000;
+
+/** How long Expo/the push service keeps trying to deliver a call notification. A late "ring" is just noise. */
+export const CALL_PUSH_TTL_SECONDS = 30;
 
 /** Firestore Timestamp | Date | null -> epoch milliseconds (0 when missing). */
 export function toMillis(value) {
@@ -33,6 +40,14 @@ export function addedMembers(previous, next) {
 export function allowsNotification(settings, conversationId) {
   if (settings?.notificationsEnabled === false) return false;
   return !(settings?.mutedChats ?? []).includes(conversationId);
+}
+
+/**
+ * Calls honour only the account-wide switch. A muted chat should not silence a call: the caller is trying to reach
+ * you right now, and muting is about message noise.
+ */
+export function allowsCallNotification(settings) {
+  return settings?.notificationsEnabled !== false;
 }
 
 /** Unique string tokens stored in a user's settings. */
@@ -108,4 +123,40 @@ export function buildGroupAddedPush({ conversationId, conversation, tokens }) {
   return tokens.map((to) =>
     baseMessage(to, conversationId, 'group', title, `${actor} added you to the group`)
   );
+}
+
+/**
+ * Whether a call document should produce a push: it is still ringing, was created after the relay started, and has
+ * not already been announced. `seenIds` is mutated, so each call is announced at most once.
+ */
+export function shouldAnnounceCall(call, callId, { startedAtMs, nowMs, seenIds }) {
+  if (!call || call.status !== 'ringing') return false;
+  if (seenIds.has(callId)) return false;
+  const created = toMillis(call.createdAt);
+  if (!created || created < startedAtMs) return false;
+  if (nowMs - created > CALL_PUSH_MAX_AGE_MS) return false;
+  seenIds.add(callId);
+  return true;
+}
+
+/**
+ * Notification for an incoming call. Delivered on the high-importance "calls" channel and dropped quickly if the
+ * device is unreachable, because ringing after the caller has given up is worse than not ringing at all.
+ * `conversationId` is included so that tapping the notification opens the chat; the app's own ringing overlay
+ * appears from the live call document if the call is still active.
+ */
+export function buildCallPush({ callId, call, tokens }) {
+  const caller = call.callerName || 'Someone';
+  const kind = call.type === 'video' ? 'video' : 'voice';
+  return tokens.map((to) => ({
+    to,
+    title: caller,
+    body: `Incoming ${kind} call`,
+    sound: 'default',
+    priority: 'high',
+    ttl: CALL_PUSH_TTL_SECONDS,
+    channelId: CALLS_CHANNEL_ID,
+    threadId: call.conversationId,
+    data: { type: 'call', conversationId: call.conversationId, callId },
+  }));
 }
