@@ -1,6 +1,43 @@
-# SYPH Development Journey - Post Mortem
+# SYPH Development Journey
 
-## Session Date: October 4, 2026
+Newest first. The first section is the feature build (October 6 to 9, 2026); the second is the original debugging post-mortem (October 4, 2026).
+
+---
+
+## Part 2: Building the missing features and tidying the repo (Oct 6-9, 2026)
+
+### What was done, in order
+
+1. **Cleanup.** `node_modules` was tracked in git and is no longer. Dependencies were aligned to Expo SDK 57. `.env.example` added. Firestore rules rewritten from "any signed-in user can read everything" to membership-based rules (chats now carry `participantIds`).
+2. **Chat core, read receipts, reply / forward / delete / copy, themes, search and mute, media.** They landed as separate commits (see `git log`), with rules changes and tests alongside where they apply.
+3. **Push notifications.** App side: permission, token registration, Android channel, tap-to-open, badge. Server side: `server/`, a small Node relay using the Admin SDK that only sends to tokens the `pushTokens` registry ties to the recipient.
+4. **Offline indicator and onboarding screen.**
+5. **Calls.** WebRTC with Firestore signalling, an incoming-call overlay, a call screen, call pushes from the relay.
+6. **Generated native folders.** `android/` was tracked even though config plugins only run at prebuild, so edits in `app.json` would not have reached builds. It is now git-ignored and regenerated (`npx expo prebuild`).
+
+### Problems met and how they were settled
+
+| Problem | Resolution |
+|---------|------------|
+| `npm install` dropped connections on large packages | Retry flags: `--maxsockets=4 --fetch-retries=6 --fetch-retry-mintimeout=3000` |
+| `expo install --fix` blocked by the proxy | Took versions from `node_modules/expo/bundledNativeModules.json` |
+| TypeScript: `toDate` missing on `Timestamp \| Date` | Small `toMillis()` helper instead of casting |
+| Firestore emulator could not be downloaded (policy 403) | Not bypassed. Rules tests are written but unexecuted, and every doc says so |
+| Incoming-call query would be rejected by a `participantIds` rule | List rule for `calls` is written in terms of `calleeId` / `callerId`, the fields the query filters on |
+| `react-native-webrtc` typings import a module that is not shipped, so `addEventListener` had no type | Typed the few events we use in `services/webrtc.ts` (`PeerEvents`) rather than loosening types everywhere |
+| Web export fails | Not caused by this work: the project has no `react-native-web` dependency, so web is out of scope |
+
+### Things worth knowing
+
+- Commit `b9b1a543` is titled as if it contained the push and offline work; it only reorders `API.md`. The real work is in the commit before it (`3186ff3c`). It was left alone because it was already pushed.
+- Design choices that were deliberate: calls ignore per-chat mute but obey the global notification switch; a ringing call older than 75 s is never shown; the relay watches `calls` with a single-field range query to avoid needing a composite index.
+- Still open: Google / phone sign-in (needs OAuth client IDs and a dev build), full-history search (needs an external search service), a real two-phone call test, and running the rules tests once.
+
+---
+
+## Part 1: First debugging session, post-mortem (Oct 4, 2026)
+
+
 
 ---
 
