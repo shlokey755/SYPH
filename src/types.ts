@@ -105,3 +105,40 @@ export interface UserSettings {
   notificationsEnabled: boolean;
   expoPushTokens: string[];
 }
+
+// ---------- Calls (calls/{callId}) ----------
+export type CallType = 'audio' | 'video';
+
+export type CallStatus = 'ringing' | 'accepted' | 'declined' | 'cancelled' | 'missed' | 'ended';
+
+/** A WebRTC session description as stored in Firestore. */
+export interface SessionDescriptionData {
+  type: 'offer' | 'answer';
+  sdp: string;
+}
+
+export interface Call {
+  id: string;
+  conversationId: string;
+  callerId: string;
+  callerName: string;
+  calleeId: string;
+  calleeName: string;
+  /** [callerId, calleeId]; used by queries and security rules. */
+  participantIds: string[];
+  type: CallType;
+  status: CallStatus;
+  offer?: SessionDescriptionData;
+  answer?: SessionDescriptionData;
+  createdAt: FirestoreTime;
+  answeredAt?: FirestoreTime;
+  endedAt?: FirestoreTime;
+  endedBy?: string;
+}
+
+/** One trickled ICE candidate (calls/{callId}/candidates/{id}). */
+export interface CallCandidate {
+  candidate: string;
+  sdpMid: string | null;
+  sdpMLineIndex: number | null;
+}

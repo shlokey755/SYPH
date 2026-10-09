@@ -5,6 +5,7 @@ import { ThemeProvider, useTheme } from '../hooks/themeContext';
 import { ToastProvider } from '../hooks/toastNotifications';
 import { AuthProvider } from '../hooks/useAuth';
 import { ConversationsProvider } from '../hooks/useConversations';
+import { IncomingCallsProvider } from '../hooks/useIncomingCalls';
 import { UserSettingsProvider } from '../hooks/useUserSettings';
 
 function RootNav() {
@@ -24,12 +25,14 @@ function RootNav() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="chat/[id]" />
+        {/* No swipe-back: leaving the call screen hangs up, so it should only happen on purpose. */}
+        <Stack.Screen name="call/[id]" options={{ gestureEnabled: false, animation: 'slide_from_bottom' }} />
       </Stack>
     </>
   );
 }
 
-// Provider order matters: settings and conversations read the signed-in user, toasts read the theme.
+// Provider order matters: settings, conversations and incoming calls read the signed-in user; toasts read the theme.
 export default function RootLayout() {
   return (
     <AuthProvider>
@@ -37,7 +40,9 @@ export default function RootLayout() {
         <ToastProvider>
           <UserSettingsProvider>
             <ConversationsProvider>
-              <RootNav />
+              <IncomingCallsProvider>
+                <RootNav />
+              </IncomingCallsProvider>
             </ConversationsProvider>
           </UserSettingsProvider>
         </ToastProvider>

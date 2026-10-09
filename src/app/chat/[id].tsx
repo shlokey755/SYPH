@@ -39,12 +39,15 @@ import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
 import { useMediaSender } from '../../hooks/useMediaSender';
 import { useMessages } from '../../hooks/useMessages';
+import { useIsOffline } from '../../hooks/useOnlineStatus';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import * as chat from '../../services/chatService';
-import { Conversation, Message, ReplyPreview } from '../../types';
+import { isCallingSupported } from '../../services/webrtc';
+import { CallType, Conversation, Message, ReplyPreview } from '../../types';
 import {
   getConversationSubtitle,
   getConversationTitle,
+  getOtherParticipant,
   toMillis,
 } from '../../utils/conversation';
 import { getMessageStatus } from '../../utils/messageStatus';
@@ -69,6 +72,7 @@ export default function ChatScreen() {
   const toast = useToast();
   const { conversations, getConversation, setActiveChat } = useConversations();
   const { isMuted, toggleMute } = useUserSettings();
+  const offline = useIsOffline();
 
   const myUid = currentUser?.uid;
   const conversation = conversationId ? getConversation(conversationId) : undefined;
@@ -240,6 +244,31 @@ export default function ChatScreen() {
     }
   };
 
+  // Calls are 1-to-1 only.
+  const callee = conversation && !conversation.isGroup ? getOtherParticipant(conversation, myUid) : undefined;
+
+  const startCall = (type: CallType) => {
+    if (!conversation || !callee) return;
+    if (!isCallingSupported()) {
+      toast.info('Calls need an installed build', 'They do not work in Expo Go. See API.md for the development build.');
+      return;
+    }
+    if (offline) {
+      toast.error("You're offline", 'Connect to the internet to place a call');
+      return;
+    }
+    router.push({
+      pathname: '/call/[id]',
+      params: {
+        id: 'new',
+        conversationId: conversation.id,
+        type,
+        calleeId: callee.uid,
+        calleeName: callee.username,
+      },
+    });
+  };
+
   const handleToggleMute = async () => {
     if (!conversationId) return;
     try {
@@ -306,6 +335,16 @@ export default function ChatScreen() {
             </Text>
           ) : null}
         </Pressable>
+        {callee && (
+          <>
+            <Pressable onPress={() => startCall('audio')} hitSlop={10} accessibilityLabel="Voice call">
+              <Ionicons name="call-outline" size={22} color={themeColors.text} />
+            </Pressable>
+            <Pressable onPress={() => startCall('video')} hitSlop={10} accessibilityLabel="Video call">
+              <Ionicons name="videocam-outline" size={24} color={themeColors.text} />
+            </Pressable>
+          </>
+        )}
         <Pressable
           onPress={() => {
             setSearchOpen((open) => !open);
@@ -444,7 +483,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: 1,

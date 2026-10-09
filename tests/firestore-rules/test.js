@@ -125,6 +125,71 @@ const no = (n, p) => check(n, p, false);
   await no('registry cannot be read by clients', bob.doc('pushTokens/ExponentPushToken[abc]').get());
   await no('registry cannot be listed', alice.collection('pushTokens').get());
 
+  console.log('\nCalls');
+  const expire = () => firebase.firestore.Timestamp.fromMillis(Date.now() + 3600 * 1000);
+  const offer = { type: 'offer', sdp: 'v=0' };
+  const answer = { type: 'answer', sdp: 'v=0' };
+  const newCall = (caller, callee, extra = {}) => ({
+    conversationId: 'alice_bob', callerId: caller, callerName: caller, calleeId: callee, calleeName: callee,
+    participantIds: [caller, callee], type: 'audio', status: 'ringing', offer,
+    createdAt: FV.serverTimestamp(), expireAt: expire(), ...extra,
+  });
+  const seedCall = (id, status = 'ringing') =>
+    env.withSecurityRulesDisabled((ctx) =>
+      ctx.firestore().doc(`calls/${id}`).set({ ...newCall('alice', 'bob'), status, createdAt: firebase.firestore.Timestamp.now() })
+    );
+
+  await ok('caller starts a call in their 1-on-1 chat', alice.doc('calls/new1').set(newCall('alice', 'bob')));
+  await ok('video call is allowed too', alice.doc('calls/new2').set(newCall('alice', 'bob', { type: 'video' })));
+  await no('cannot start a call as someone else', alice.doc('calls/x1').set(newCall('bob', 'alice')));
+  await no('cannot call yourself', alice.doc('calls/x2').set(newCall('alice', 'alice')));
+  await no('cannot call someone outside the chat', alice.doc('calls/x3').set(newCall('alice', 'carol', { conversationId: 'alice_bob' })));
+  await no('cannot call through a group chat', alice.doc('calls/x4').set(newCall('alice', 'bob', { conversationId: 'g1' })));
+  await no('cannot start a call that is already accepted', alice.doc('calls/x5').set(newCall('alice', 'bob', { status: 'accepted' })));
+  await no('cannot add unexpected fields', alice.doc('calls/x6').set(newCall('alice', 'bob', { admin: true })));
+  await no('cannot backdate a call', alice.doc('calls/x7').set(newCall('alice', 'bob', { createdAt: firebase.firestore.Timestamp.fromMillis(1000) })));
+  await no('call without an offer is rejected', alice.doc('calls/x8').set(newCall('alice', 'bob', { offer: { type: 'answer', sdp: 'v=0' } })));
+
+  await seedCall('c1');
+  await ok('caller reads the call', alice.doc('calls/c1').get());
+  await ok('callee reads the call', bob.doc('calls/c1').get());
+  await no('outsider cannot read the call', carol.doc('calls/c1').get());
+  await ok('callee lists their ringing calls', bob.collection('calls').where('calleeId', '==', 'bob').where('status', '==', 'ringing').get());
+  await ok('caller lists their calls', alice.collection('calls').where('callerId', '==', 'alice').get());
+  await no('cannot list someone else\'s calls', carol.collection('calls').where('calleeId', '==', 'bob').get());
+  await no('unfiltered call list is denied', carol.collection('calls').get());
+
+  await no('caller cannot accept their own call', alice.doc('calls/c1').update({ status: 'accepted', answer, answeredAt: FV.serverTimestamp() }));
+  await no('callee cannot cancel', bob.doc('calls/c1').update({ status: 'cancelled' }));
+  await no('callee cannot mark missed', bob.doc('calls/c1').update({ status: 'missed' }));
+  await no('outsider cannot decline', carol.doc('calls/c1').update({ status: 'declined' }));
+  await no('declining cannot carry an answer', bob.doc('calls/c1').update({ status: 'declined', answer }));
+  await no('callee cannot rewrite the participants', bob.doc('calls/c1').update({ status: 'accepted', answer, calleeId: 'carol' }));
+  await no('ringing call cannot jump straight to ended', alice.doc('calls/c1').update({ status: 'ended' }));
+  await ok('callee accepts with an answer', bob.doc('calls/c1').update({ status: 'accepted', answer, answeredAt: FV.serverTimestamp() }));
+  await no('callee cannot decline after accepting', bob.doc('calls/c1').update({ status: 'declined' }));
+  await ok('caller hangs up an answered call', alice.doc('calls/c1').update({ status: 'ended', endedAt: FV.serverTimestamp(), endedBy: 'alice' }));
+  await no('an ended call cannot be reopened', bob.doc('calls/c1').update({ status: 'accepted', answer }));
+
+  await seedCall('c2');
+  await ok('callee declines', bob.doc('calls/c2').update({ status: 'declined' }));
+  await seedCall('c3');
+  await ok('caller cancels a ringing call', alice.doc('calls/c3').update({ status: 'cancelled' }));
+  await seedCall('c4');
+  await ok('caller marks an unanswered call missed', alice.doc('calls/c4').update({ status: 'missed' }));
+  await seedCall('c5', 'accepted');
+  await ok('callee can also end an answered call', bob.doc('calls/c5').update({ status: 'ended', endedAt: FV.serverTimestamp(), endedBy: 'bob' }));
+  await no('calls cannot be deleted', alice.doc('calls/c5').delete());
+
+  await seedCall('c6');
+  const cand = (from) => ({ from, candidate: 'candidate:1', sdpMid: '0', sdpMLineIndex: 0, createdAt: FV.serverTimestamp(), expireAt: expire() });
+  await ok('participant adds an ICE candidate', alice.collection('calls/c6/candidates').add(cand('alice')));
+  await ok('other participant adds one too', bob.collection('calls/c6/candidates').add(cand('bob')));
+  await no('cannot add a candidate as the other person', alice.collection('calls/c6/candidates').add(cand('bob')));
+  await no('outsider cannot add a candidate', carol.collection('calls/c6/candidates').add(cand('carol')));
+  await ok('participant reads candidates', bob.collection('calls/c6/candidates').get());
+  await no('outsider cannot read candidates', carol.collection('calls/c6/candidates').get());
+
   console.log(`\n${passed} passed, ${failed} failed`);
   await env.cleanup();
   process.exit(failed ? 1 : 0);

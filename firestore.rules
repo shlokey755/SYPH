@@ -122,6 +122,72 @@ service cloud.firestore {
       allow read: if false;
     }
 
+    // ---------------- Calls (1-to-1 signalling) ----------------
+    // Only the two participants can see a call. Who may move it to which status is fixed below, and must match
+    // allowedNextStatuses() in src/utils/call.ts.
+    function validCallMove(before, after) {
+      return (
+        // The callee picks up or declines a ringing call.
+        (request.auth.uid == before.calleeId && before.status == 'ringing' && after.status in ['accepted', 'declined'])
+        // The caller gives up, or the ring times out.
+        || (request.auth.uid == before.callerId && before.status == 'ringing' && after.status in ['cancelled', 'missed'])
+        // Either side hangs up an answered call.
+        || (before.status == 'accepted' && after.status == 'ended')
+      );
+    }
+
+    match /calls/{callId} {
+      allow get: if signedIn() && request.auth.uid in resource.data.participantIds;
+
+      // Queries are checked against the fields they filter on. The incoming-call query filters on calleeId,
+      // so the rule must be expressible in calleeId / callerId (participantIds alone would be rejected).
+      allow list: if signedIn()
+        && (resource.data.calleeId == request.auth.uid || resource.data.callerId == request.auth.uid);
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+             'conversationId', 'callerId', 'callerName', 'calleeId', 'calleeName',
+             'participantIds', 'type', 'status', 'offer', 'createdAt', 'expireAt'
+           ])
+        && request.resource.data.callerId == request.auth.uid
+        && request.resource.data.calleeId != request.auth.uid
+        && request.resource.data.participantIds.size() == 2
+        && request.resource.data.participantIds.hasAll([request.resource.data.callerId, request.resource.data.calleeId])
+        && request.resource.data.status == 'ringing'
+        && request.resource.data.type in ['audio', 'video']
+        && request.resource.data.offer.type == 'offer'
+        && request.resource.data.createdAt == request.time
+        // The two people must already share a 1-on-1 chat.
+        && exists(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId))
+        && get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.isGroup == false
+        && get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data
+             .participantIds.hasAll(request.resource.data.participantIds);
+
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.participantIds
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'answer', 'answeredAt', 'endedAt', 'endedBy'])
+        && validCallMove(resource.data, request.resource.data)
+        // Only the callee writes the answer, and only when picking up.
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['answer', 'answeredAt'])
+          || (request.auth.uid == resource.data.calleeId && request.resource.data.status == 'accepted')
+        );
+
+      allow delete: if false;
+
+      match /candidates/{candidateId} {
+        function callMembers() {
+          return get(/databases/$(database)/documents/calls/$(callId)).data.participantIds;
+        }
+        allow read: if signedIn() && request.auth.uid in callMembers();
+        allow create: if signedIn()
+          && request.auth.uid in callMembers()
+          && request.resource.data.from == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
     // Everything else is closed.
     match /{document=**} {
       allow read, write: if false;

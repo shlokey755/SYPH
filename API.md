@@ -65,6 +65,33 @@ Run **one** relay instance. It must stay running; messages sent while it is down
 
 Nothing to set up. Firestore keeps a local cache, so chats you have already opened stay readable offline and messages you send are queued and delivered when the connection returns (they show a clock icon until then). A slim banner appears on the Chat and conversation screens while the device is offline. Media uploads need a connection and show an error toast if it drops.
 
+### 1.7 Audio and video calls (FR-06)
+
+1-to-1 calls only. Media goes phone to phone over WebRTC; Firestore carries the handshake (`calls/{id}`). Everything else in the app works without any of this.
+
+| Step | How |
+|------|-----|
+| Re-publish `firestore.rules` | It now includes `calls` and `calls/{id}/candidates` (same as 1.1). |
+| Development build | WebRTC is a native module, so calls **do not work in Expo Go** (the call buttons explain this in a toast). `npm install`, then `eas build --profile development --platform android` or `npx expo run:android`. The camera/microphone permissions and the WebRTC config plugin are already in `app.json`. |
+| Regenerate native folders | `android/` and `ios/` are git-ignored and rebuilt from `app.json` (`npx expo prebuild --clean`). EAS does this for you. |
+| TURN server (strongly advised) | STUN alone connects phones on friendly networks only. Mobile data and many Wi-Fi networks need a TURN relay. Options: a hosted service (Twilio Network Traversal, Metered, Cloudflare Realtime TURN) or your own `coturn`. Put the values in `.env`: `EXPO_PUBLIC_TURN_URLS`, `EXPO_PUBLIC_TURN_USERNAME`, `EXPO_PUBLIC_TURN_CREDENTIAL`. Optional `EXPO_PUBLIC_STUN_URLS` replaces the default Google STUN servers. |
+| Ringing while the app is closed | Needs the push relay from 1.5 (re-deploy `server/`: it now watches `calls`) and a build made after this change so the Android "Calls" channel exists. |
+| Optional cleanup | Calls and ICE candidates carry an `expireAt` field (24 h). Firestore Console > Indexes > TTL: add a policy on `expireAt` for collection groups `calls` and `candidates` to have them deleted automatically. Without it they simply stay. |
+
+**Behaviour**
+- Ringing lasts 45 s, then the call is marked missed. A ringing call older than 75 s is ignored, so a caller whose app died never rings forever.
+- A dropped connection gets 15 s to recover before the call ends.
+- If you are on a call, a second caller is declined and you get a toast.
+- Push notifications for calls honour the account-wide notification switch but **not** per-chat mute.
+- Leaving the call screen hangs up.
+
+**Known limits**
+- There is no native call UI (CallKit / Android ConnectionService). A call that arrives while the app is closed shows as a notification; tapping it opens the chat and, if the call is still ringing, the Accept / Decline screen appears. It will not ring like the phone app while the device is locked.
+- No speaker/earpiece toggle, no group calls, and no "missed call" line in the chat history yet.
+- TURN credentials in `EXPO_PUBLIC_*` ship inside the app, so anyone who unpacks it can use your TURN server. Fine for testing; for production have the relay hand out short-lived credentials instead.
+- **Not verified on a device.** The signalling logic and call-state rules are unit tested (`npm run test:unit`, `cd server && npm test`), the app bundles, and the Firestore rules for calls are written but not run against the emulator. Whether audio/video actually connects on react-native-webrtc 124 with React Native 0.86 needs a real two-phone test.
+- Web is not a supported target of this project (it has no `react-native-web` dependency), and calls are not available there.
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
@@ -73,17 +100,17 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 | `users/{uid}/private/settings` | Owner-only: `mutedChats[]`, `notificationsEnabled`, `expoPushTokens[]` |
 | `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `hiddenBy[]`, `readState{uid:{deliveredAt,readAt}}`, `unread{uid:n}` |
 | `pushTokens/{token}` | Which account is signed in on a device (`uid`, `platform`, `updatedAt`). Write-only for clients; read by the push relay |
+| `calls/{id}` | One call: `callerId`, `calleeId`, `participantIds`, `type` (audio/video), `status` (ringing, accepted, declined, cancelled, missed, ended), `offer`, `answer`, `createdAt`, `expireAt` |
+| `calls/{id}/candidates/{id}` | ICE candidates trickled by either side (`from`, `candidate`, `sdpMid`, `sdpMLineIndex`) |
 | `conversations/{id}/messages/{id}` | `type`, `text`, `media`, `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
 
 Storage paths: `chats/{conversationId}/{uid}/{file}`, `avatars/{uid}/{file}`.
 
 1-on-1 chats use the id `<uidA>_<uidB>` (sorted), so two people can never end up with two chats.
 
-## 3. Coming with later features (not needed yet)
+## 3. Still outstanding
 
-Filled in as each feature lands.
-
-| Feature | You will need to provide |
-|---------|--------------------------|
-| Audio / video calls (FR-06) | A development build (WebRTC is not in Expo Go) and a TURN server for calls across networks |
-| Google / phone sign-in (FR-01) | OAuth client IDs and a development build |
+| Feature | What it needs |
+|---------|---------------|
+| Google / phone sign-in (FR-01) | Sign-in is currently username + password (stored as a made-up `@syph.com` email). Google and phone sign-in need OAuth client IDs (Firebase Console > Authentication > Sign-in method), the SHA-1/SHA-256 fingerprints of your build keys, and a development build. Real-email sign-in and password reset need the same console work. Not built yet. |
+| Search across full chat history (FR-11) | In-chat search covers the messages loaded on screen. Firestore has no full-text search; searching all history needs an external service (Algolia, Typesense, Meilisearch) and a small indexing function. |

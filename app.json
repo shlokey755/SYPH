@@ -24,7 +24,10 @@
       "versionCode": 1,
       "permissions": [
         "android.permission.INTERNET",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "web": {
@@ -64,6 +67,13 @@
         {
           "color": "#00E5FF",
           "defaultChannel": "messages"
+        }
+      ],
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "Allow SYPH to use the camera for video calls.",
+          "microphonePermission": "Allow SYPH to use the microphone for voice and video calls."
         }
       ]
     ],
