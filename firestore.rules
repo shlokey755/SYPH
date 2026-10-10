@@ -1,0 +1,196 @@
+rules_version = '2';
+
+// SYPH Firestore rules
+//   users/{uid}                    public profile; any signed-in user may read (needed for search), only the owner writes
+//   users/{uid}/private/settings   owner only (muted chats, push tokens)
+//   conversations/{id}             readable/writable only by members (participantIds)
+//   conversations/{id}/messages    members only; senders cannot spoof senderId or backdate createdAt
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function convData(cid) {
+      return get(/databases/$(database)/documents/conversations/$(cid)).data;
+    }
+
+    function isMemberOf(cid) {
+      return signedIn() && request.auth.uid in convData(cid).participantIds;
+    }
+
+    // A member removing only themselves from a group.
+    function isLeaving() {
+      return request.resource.data.participantIds.toSet()
+        == resource.data.participantIds.toSet().difference([request.auth.uid].toSet());
+    }
+
+    // ---------------- Users ----------------
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isOwner(uid);
+      allow delete: if false;
+
+      match /private/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ---------------- Conversations ----------------
+    match /conversations/{cid} {
+
+      // `get` on a missing document is allowed so clients can check "does this 1-on-1 chat exist yet?".
+      allow get: if signedIn()
+        && (resource == null || request.auth.uid in resource.data.participantIds);
+
+      // Queries must filter on participantIds array-contains <your uid>.
+      allow list: if signedIn() && request.auth.uid in resource.data.participantIds;
+
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.auth.uid in request.resource.data.participantIds
+        && (
+          request.resource.data.isGroup == true
+          || (
+            request.resource.data.participantIds.size() == 2
+            && (
+              cid == request.resource.data.participantIds[0] + '_' + request.resource.data.participantIds[1]
+              || cid == request.resource.data.participantIds[1] + '_' + request.resource.data.participantIds[0]
+            )
+          )
+        );
+
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.participantIds
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.isGroup == resource.data.isGroup
+        // Receipts: a member may only change their own delivered/read watermark.
+        && request.resource.data.readState.diff(resource.data.readState).affectedKeys()
+             .hasOnly([request.auth.uid])
+        // Membership: fixed for 1-on-1 chats; in groups only the creator edits it, or a member leaves.
+        && (
+          request.resource.data.participantIds == resource.data.participantIds
+          || (
+            resource.data.isGroup == true
+            && (request.auth.uid == resource.data.createdBy || isLeaving())
+          )
+        );
+
+      allow delete: if false;
+
+      // ---------------- Messages ----------------
+      match /messages/{mid} {
+        allow read: if isMemberOf(cid);
+
+        allow create: if isMemberOf(cid)
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.createdAt == request.time;
+
+        allow update: if isMemberOf(cid) && (
+          // Any member can hide a message for themselves ("delete for me").
+          (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedFor'])
+            && request.resource.data.deletedFor.toSet()
+                 .difference(resource.data.deletedFor.toSet()).hasOnly([request.auth.uid])
+          )
+          // Only the sender can delete for everyone.
+          || (
+            resource.data.senderId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['deletedForEveryone', 'text', 'media'])
+          )
+        );
+
+        allow delete: if false;
+      }
+    }
+
+    // ---------------- Push token registry ----------------
+    // One entry per device token, naming the account currently signed in on that device. The push relay
+    // (Admin SDK, bypasses rules) only sends to a token whose entry names the recipient.
+    // Clients can claim a token for themselves and delete their own entry; nobody can read the registry.
+    match /pushTokens/{token} {
+      allow create, update: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'platform', 'updatedAt']);
+      allow delete: if signedIn() && (resource == null || resource.data.uid == request.auth.uid);
+      allow read: if false;
+    }
+
+    // ---------------- Calls (1-to-1 signalling) ----------------
+    // Only the two participants can see a call. Who may move it to which status is fixed below, and must match
+    // allowedNextStatuses() in src/utils/call.ts.
+    function validCallMove(before, after) {
+      return (
+        // The callee picks up or declines a ringing call.
+        (request.auth.uid == before.calleeId && before.status == 'ringing' && after.status in ['accepted', 'declined'])
+        // The caller gives up, or the ring times out.
+        || (request.auth.uid == before.callerId && before.status == 'ringing' && after.status in ['cancelled', 'missed'])
+        // Either side hangs up an answered call.
+        || (before.status == 'accepted' && after.status == 'ended')
+      );
+    }
+
+    match /calls/{callId} {
+      allow get: if signedIn() && request.auth.uid in resource.data.participantIds;
+
+      // Queries are checked against the fields they filter on. The incoming-call query filters on calleeId,
+      // so the rule must be expressible in calleeId / callerId (participantIds alone would be rejected).
+      allow list: if signedIn()
+        && (resource.data.calleeId == request.auth.uid || resource.data.callerId == request.auth.uid);
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+             'conversationId', 'callerId', 'callerName', 'calleeId', 'calleeName',
+             'participantIds', 'type', 'status', 'offer', 'createdAt', 'expireAt'
+           ])
+        && request.resource.data.callerId == request.auth.uid
+        && request.resource.data.calleeId != request.auth.uid
+        && request.resource.data.participantIds.size() == 2
+        && request.resource.data.participantIds.hasAll([request.resource.data.callerId, request.resource.data.calleeId])
+        && request.resource.data.status == 'ringing'
+        && request.resource.data.type in ['audio', 'video']
+        && request.resource.data.offer.type == 'offer'
+        && request.resource.data.createdAt == request.time
+        // The two people must already share a 1-on-1 chat.
+        && exists(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId))
+        && get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.isGroup == false
+        && get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data
+             .participantIds.hasAll(request.resource.data.participantIds);
+
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.participantIds
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'answer', 'answeredAt', 'endedAt', 'endedBy'])
+        && validCallMove(resource.data, request.resource.data)
+        // Only the callee writes the answer, and only when picking up.
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['answer', 'answeredAt'])
+          || (request.auth.uid == resource.data.calleeId && request.resource.data.status == 'accepted')
+        );
+
+      allow delete: if false;
+
+      match /candidates/{candidateId} {
+        function callMembers() {
+          return get(/databases/$(database)/documents/calls/$(callId)).data.participantIds;
+        }
+        allow read: if signedIn() && request.auth.uid in callMembers();
+        allow create: if signedIn()
+          && request.auth.uid in callMembers()
+          && request.resource.data.from == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

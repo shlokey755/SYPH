@@ -20,3 +20,17 @@ yarn-error.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Native build output / local tooling
+.expo-shared/
+*.log
+*.tsbuildinfo
+.metro-health-check*
+
+# Firebase Admin service-account keys: full database access, never commit
+serviceAccount*.json
+*-firebase-adminsdk-*.json
+
+# Generated native projects (Expo prebuild / EAS recreate them from app.json, so plugins always apply)
+/android
+/ios

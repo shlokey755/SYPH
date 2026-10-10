@@ -4,21 +4,30 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
-import { ThemeOption, useTheme } from '../../hooks/themeContext';
+import { themeList, useTheme } from '../../hooks/themeContext';
+import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
+import { useUserSettings } from '../../hooks/useUserSettings';
+import { setCachedProfileImage } from '../../hooks/useProfileImages';
+import { avatarPath, friendlyUploadError, uploadFile } from '../../services/mediaService';
+import { isPushSupported, registerForPush } from '../../services/pushService';
+import { updateProfileFields } from '../../services/userService';
 
 export default function MeTab() {
   const { currentUser, logout } = useAuth();
@@ -28,8 +37,82 @@ export default function MeTab() {
   const { selectedTheme, themeColors, setTheme } = useTheme();
   const router = useRouter();
 
+  const toast = useToast();
+  const { settings, setNotifications } = useUserSettings();
+
   const [newUsername, setNewUsername] = useState('');
   const [isChangingUsername, setIsChangingUsername] = useState(false);
+  const [statusText, setStatusText] = useState<string | null>(null);
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const photoUrl = avatarUrl ?? profile?.profileImageUrl;
+  const currentStatus = statusText ?? profile?.status ?? '';
+
+  const handleChangePhoto = async () => {
+    if (!currentUser) return;
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+
+      setIsUploadingAvatar(true);
+      const progressId = toast.progress('Uploading photo', 0);
+      try {
+        const { url } = await uploadFile({
+          uri: asset.uri,
+          path: avatarPath(currentUser.uid, asset.fileName ?? 'avatar.jpg'),
+          mimeType: asset.mimeType ?? 'image/jpeg',
+          onProgress: (p) => toast.update(progressId, { progress: p }),
+        });
+        await updateProfileFields(currentUser.uid, { profileImageUrl: url });
+        setCachedProfileImage(currentUser.uid, url);
+        setAvatarUrl(url);
+        toast.success('Profile photo updated');
+      } finally {
+        toast.dismiss(progressId);
+      }
+    } catch (e) {
+      toast.error('Could not update photo', friendlyUploadError(e));
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleSaveStatus = async () => {
+    if (!currentUser) return;
+    setIsSavingStatus(true);
+    try {
+      await updateProfileFields(currentUser.uid, { status: currentStatus.trim() });
+      toast.success('Status updated');
+    } catch (e) {
+      toast.error('Could not save status', e instanceof Error ? e.message : undefined);
+    } finally {
+      setIsSavingStatus(false);
+    }
+  };
+
+  const handleToggleNotifications = async (enabled: boolean) => {
+    try {
+      await setNotifications(enabled);
+      // Turning alerts on is the moment to ask for the system permission and explain if it is blocked.
+      if (enabled && currentUser && isPushSupported()) {
+        const result = await registerForPush(currentUser.uid, settings.expoPushTokens);
+        if (result.status === 'denied') {
+          toast.info('Notifications are blocked', 'Allow notifications for SYPH in your phone settings.');
+        }
+      }
+    } catch (e) {
+      toast.error('Could not update notifications', e instanceof Error ? e.message : undefined);
+    }
+  };
 
   const handleChangeUsername = async () => {
     if (!newUsername.trim()) {
@@ -83,16 +166,33 @@ export default function MeTab() {
     );
   }
 
-  const themeOptions: { id: ThemeOption; label: string; primary: string; secondary: string }[] = [
-    { id: 'default', label: 'Default', primary: '#121212', secondary: '#03DAC5' },
-    { id: 'beige-purple', label: 'Beige & Purple', primary: '#F5F5DC', secondary: '#800080' },
-    { id: 'white-black', label: 'White & Black', primary: '#FFFFFF', secondary: '#000000' },
-  ];
-
   return (
     <ScrollView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
         <Text style={[styles.headerTitle, { color: themeColors.text }]}>My Profile</Text>
+      </View>
+
+      {/* Profile Photo Section */}
+      <View style={[styles.section, styles.photoSection]}>
+        <TouchableOpacity onPress={handleChangePhoto} disabled={isUploadingAvatar} accessibilityLabel="Change profile photo">
+          {photoUrl ? (
+            <Image source={{ uri: photoUrl }} style={styles.photo} />
+          ) : (
+            <View style={[styles.photo, styles.photoPlaceholder, { backgroundColor: themeColors.accent }]}>
+              <Text style={[styles.photoInitial, { color: themeColors.buttonText }]}>
+                {(profile?.username?.[0] ?? '?').toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={[styles.photoBadge, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.border }]}>
+            {isUploadingAvatar ? (
+              <ActivityIndicator size="small" color={themeColors.accent} />
+            ) : (
+              <Ionicons name="camera" size={16} color={themeColors.accent} />
+            )}
+          </View>
+        </TouchableOpacity>
+        <Text style={{ color: themeColors.subText, fontSize: 12, marginTop: 8 }}>Tap to change photo</Text>
       </View>
 
       {/* Username Section */}
@@ -139,11 +239,61 @@ export default function MeTab() {
         </TouchableOpacity>
       </View>
 
+      {/* Status Section */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: themeColors.subText }]}>Status</Text>
+        <TextInput
+          style={[styles.input, { backgroundColor: themeColors.inputBg, color: themeColors.text, borderColor: themeColors.border }]}
+          placeholder="What's on your mind?"
+          placeholderTextColor={themeColors.subText}
+          value={currentStatus}
+          onChangeText={setStatusText}
+          maxLength={80}
+          editable={!isSavingStatus}
+        />
+        <TouchableOpacity
+          style={[
+            styles.button,
+            { backgroundColor: themeColors.accent },
+            (isSavingStatus || currentStatus.trim() === (profile?.status ?? '')) && { opacity: 0.6 },
+          ]}
+          onPress={handleSaveStatus}
+          disabled={isSavingStatus || currentStatus.trim() === (profile?.status ?? '')}
+        >
+          <Text style={[styles.buttonText, { color: themeColors.buttonText }]}>
+            {isSavingStatus ? 'Saving...' : 'Save Status'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Notifications Section */}
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: themeColors.subText }]}>Notifications</Text>
+        <View style={[styles.switchRow, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.border }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.switchLabel, { color: themeColors.text }]}>Message notifications</Text>
+            <Text style={{ color: themeColors.subText, fontSize: 12 }}>
+              Mute a single chat from its header bell.
+            </Text>
+            {!isPushSupported() && (
+              <Text style={{ color: themeColors.subText, fontSize: 12, marginTop: 4 }}>
+                Alerts while the app is closed need an installed build; in Expo Go you get in-app alerts only.
+              </Text>
+            )}
+          </View>
+          <Switch
+            value={settings.notificationsEnabled}
+            onValueChange={handleToggleNotifications}
+            trackColor={{ true: themeColors.accent, false: themeColors.border }}
+          />
+        </View>
+      </View>
+
       {/* Theme Options Section */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: themeColors.subText }]}>Theme</Text>
         <View style={styles.themeContainer}>
-          {themeOptions.map((item) => {
+          {themeList.map((item) => {
             const isSelected = selectedTheme === item.id;
             return (
               <TouchableOpacity
@@ -156,8 +306,8 @@ export default function MeTab() {
                 onPress={() => setTheme(item.id)}
               >
                 <View style={styles.themePreview}>
-                  <View style={[styles.colorBadge, { backgroundColor: item.primary }]} />
-                  <View style={[styles.colorBadge, { backgroundColor: item.secondary }]} />
+                  <View style={[styles.colorBadge, { backgroundColor: item.colors.background, borderWidth: 1, borderColor: item.colors.border }]} />
+                  <View style={[styles.colorBadge, { backgroundColor: item.colors.accent }]} />
                 </View>
                 <Text style={[styles.themeLabel, { color: themeColors.subText }, isSelected && { color: themeColors.text, fontWeight: '600' }]}>
                   {item.label}
@@ -173,9 +323,9 @@ export default function MeTab() {
 
       {/* Logout Section */}
       <View style={styles.section}>
-        <TouchableOpacity style={[styles.logoutButton, { backgroundColor: themeColors.cardBackground }]} onPress={handleLogout}>
-          <Ionicons name="log-out" size={20} color="#CF6679" />
-          <Text style={styles.logoutText}>Logout</Text>
+        <TouchableOpacity style={[styles.logoutButton, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.danger }]} onPress={handleLogout}>
+          <Ionicons name="log-out" size={20} color={themeColors.danger} />
+          <Text style={[styles.logoutText, { color: themeColors.danger }]}>Logout</Text>
         </TouchableOpacity>
       </View>
 
@@ -293,13 +443,51 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 15,
     borderWidth: 1,
-    borderColor: '#CF6679',
   },
   logoutText: {
-    color: '#CF6679',
     fontWeight: '600',
     fontSize: 16,
     marginLeft: 12,
+  },
+  photoSection: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  photo: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+  },
+  photoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoInitial: {
+    fontSize: 38,
+    fontWeight: '700',
+  },
+  photoBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 1,
+  },
+  switchLabel: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   spacer: {
     height: 30,

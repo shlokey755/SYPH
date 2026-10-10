@@ -1,0 +1,41 @@
+rules_version = '2';
+
+// SYPH Cloud Storage rules
+//   chats/{conversationId}/{uid}/{file}   only members of the chat can upload (as themselves, max 25 MB) or read
+//   avatars/{uid}/{file}                  owner uploads images up to 5 MB; any signed-in user can read
+//
+// Note: download URLs returned by getDownloadURL() contain an access token and work without these read
+// rules, like any share link. Keep them inside chats; do not post them publicly.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isChatMember(conversationId) {
+      return signedIn()
+        && request.auth.uid in firestore.get(/databases/(default)/documents/conversations/$(conversationId)).data.participantIds;
+    }
+
+    match /chats/{conversationId}/{uid}/{fileName} {
+      allow read: if isChatMember(conversationId);
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && isChatMember(conversationId)
+        && request.resource.size <= 25 * 1024 * 1024;
+    }
+
+    match /avatars/{uid}/{fileName} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

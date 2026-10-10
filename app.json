@@ -24,7 +24,10 @@
       "versionCode": 1,
       "permissions": [
         "android.permission.INTERNET",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "web": {
@@ -43,6 +46,34 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow SYPH to access your photos so you can share them in chats and set a profile picture.",
+          "cameraPermission": "Allow SYPH to use the camera so you can take photos and videos for chats."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow SYPH to use the microphone to record voice messages."
+        }
+      ],
+      "expo-video",
+      [
+        "expo-notifications",
+        {
+          "color": "#00E5FF",
+          "defaultChannel": "messages"
+        }
+      ],
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "Allow SYPH to use the camera for video calls.",
+          "microphonePermission": "Allow SYPH to use the microphone for voice and video calls."
         }
       ]
     ],

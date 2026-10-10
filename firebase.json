@@ -1,11 +1,23 @@
 {
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8080
+    },
+    "singleProjectMode": true
+  },
   "hosting": {
-    "public": "dist", 
+    "public": "dist",
     "rewrites": [
       {
         "source": "**",
         "destination": "/index.tsx"
       }
     ]
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }

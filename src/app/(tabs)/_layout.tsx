@@ -3,13 +3,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { PushNotificationsBridge } from '../../components/PushNotificationsBridge';
 import { useTheme } from '../../hooks/themeContext';
+import { useConversations } from '../../hooks/useConversations';
 
 export default function TabsLayout() {
   const { themeColors } = useTheme();
+  const { unreadTotal } = useConversations();
   const insets = useSafeAreaInsets();
 
   return (
+    <>
+    <PushNotificationsBridge />
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -34,6 +39,8 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Chat',
+          tabBarBadge: unreadTotal > 0 ? (unreadTotal > 99 ? '99+' : unreadTotal) : undefined,
+          tabBarBadgeStyle: { backgroundColor: themeColors.accent, color: themeColors.buttonText },
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles" size={size} color={color} />
           ),
@@ -62,5 +69,6 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    </>
   );
 }

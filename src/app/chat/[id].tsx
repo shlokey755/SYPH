@@ -1,230 +1,500 @@
 /**
  * app/chat/[id].tsx
- * Active Chat Screen - Real-time messages for individual & group chats
+ * Conversation screen for 1-on-1 and group chats.
+ * Covers FR-03/05 (text), FR-07 (delivery + read status), FR-08 (reply, forward, delete, copy),
+ * FR-11 (search inside a chat) and FR-12 (mute).
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import * as Clipboard from 'expo-clipboard';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  AppState,
   FlatList,
   KeyboardAvoidingView,
-  Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
-  View
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AttachChoice, AttachSheet } from '../../components/chat/AttachSheet';
+import { ForwardPicker } from '../../components/chat/ForwardPicker';
+import { GifPicker } from '../../components/chat/GifPicker';
+import { GroupInfoModal } from '../../components/chat/GroupInfoModal';
+import { MediaViewer } from '../../components/chat/MediaViewer';
+import { MessageAction, MessageActionSheet } from '../../components/chat/MessageActionSheet';
+import { MessageBubble } from '../../components/chat/MessageBubble';
+import { MessageInput } from '../../components/chat/MessageInput';
+import { StickerPicker } from '../../components/chat/StickerPicker';
+import { OfflineBanner } from '../../components/OfflineBanner';
 import { useTheme } from '../../hooks/themeContext';
+import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
-// Import your custom messaging hooks/services here
-// e.g., import { useMessages } from '../../hooks/useMessages';
+import { useConversations } from '../../hooks/useConversations';
+import { useMediaSender } from '../../hooks/useMediaSender';
+import { useMessages } from '../../hooks/useMessages';
+import { useIsOffline } from '../../hooks/useOnlineStatus';
+import { useUserSettings } from '../../hooks/useUserSettings';
+import * as chat from '../../services/chatService';
+import { isCallingSupported } from '../../services/webrtc';
+import { CallType, Conversation, Message, ReplyPreview } from '../../types';
+import {
+  getConversationSubtitle,
+  getConversationTitle,
+  getOtherParticipant,
+  toMillis,
+} from '../../utils/conversation';
+import { getMessageStatus } from '../../utils/messageStatus';
+
+const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong');
+
+function useAppIsActive() {
+  const [active, setActive] = useState(AppState.currentState === 'active');
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => setActive(s === 'active'));
+    return () => sub.remove();
+  }, []);
+  return active;
+}
 
 export default function ChatScreen() {
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { themeColors } = useTheme();
   const { currentUser } = useAuth();
+  const toast = useToast();
+  const { conversations, getConversation, setActiveChat } = useConversations();
+  const { isMuted, toggleMute } = useUserSettings();
+  const offline = useIsOffline();
 
-  const [messageText, setMessageText] = useState('');
-  const [messages, setMessages] = useState<any[]>([]); // Replace 'any' with your Message type
-  const [loading, setLoading] = useState(false);
+  const myUid = currentUser?.uid;
+  const conversation = conversationId ? getConversation(conversationId) : undefined;
+  const { messages, isLoading, loadMore } = useMessages(conversationId, myUid);
 
-  // 1. Fetch / Subscribe to real-time messages for conversationId
-  useEffect(() => {
-    if (!conversationId) return;
+  const listRef = useRef<FlatList<Message>>(null);
+  const [focused, setFocused] = useState(true);
+  const appActive = useAppIsActive();
 
-    // TODO: Hook up your Firestore / Firebase real-time listener here
-    // Example:
-    // const unsubscribe = subscribeToMessages(conversationId, (newMessages) => {
-    //   setMessages(newMessages);
-    // });
-    // return () => unsubscribe();
-  }, [conversationId]);
+  const [replyTo, setReplyTo] = useState<ReplyPreview | null>(null);
+  const [actionMessage, setActionMessage] = useState<Message | null>(null);
+  const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [groupInfoOpen, setGroupInfoOpen] = useState(false);
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [gifOpen, setGifOpen] = useState(false);
+  const [stickerOpen, setStickerOpen] = useState(false);
+  const [viewerMessage, setViewerMessage] = useState<Message | null>(null);
 
-  // 2. Send Message Handler
-  const handleSendMessage = async () => {
-    if (!messageText.trim() || !currentUser) return;
+  const me = useMemo(
+    () => (currentUser ? { uid: currentUser.uid, username: currentUser.username } : null),
+    [currentUser]
+  );
 
-    const textToSend = messageText.trim();
-    setMessageText('');
+  const media = useMediaSender({
+    conversation,
+    me,
+    replyTo,
+    onReplyConsumed: () => setReplyTo(null),
+  });
 
-    try {
-      // TODO: Call your send message function/hook
-      // await sendMessage(conversationId, currentUser.uid, textToSend);
-    } catch (error) {
-      console.error('Failed to send message:', error);
+  const handleAttach = (choice: AttachChoice) => {
+    setAttachOpen(false);
+    switch (choice) {
+      case 'library':
+        media.pickFromLibrary();
+        break;
+      case 'camera':
+        media.takePhoto();
+        break;
+      case 'document':
+        media.pickDocument();
+        break;
+      case 'gif':
+        setGifOpen(true);
+        break;
+      case 'sticker':
+        setStickerOpen(true);
+        break;
     }
   };
 
-  // 3. Render Message Bubble
-  const renderMessageItem = ({ item }: { item: any }) => {
-    const isMe = item.senderId === currentUser?.uid;
+  // Tell the conversations provider which chat is open (suppresses its toasts).
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      if (conversationId) setActiveChat(conversationId);
+      return () => {
+        setFocused(false);
+        setActiveChat(null);
+      };
+    }, [conversationId, setActiveChat])
+  );
 
-    return (
-      <View
-        style={[
-          styles.messageBubble,
-          isMe
-            ? [styles.myBubble, { backgroundColor: themeColors.accent }]
-            : [styles.theirBubble, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.border }],
-        ]}
-      >
-        <Text
-          style={[
-            styles.messageText,
-            { color: isMe ? themeColors.buttonText : themeColors.text },
-          ]}
-        >
-          {item.text}
-        </Text>
-      </View>
-    );
+  // Read receipts: mark the chat read while it is on screen and the app is in the foreground.
+  const readKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!conversation || !myUid || !focused || !appActive) return;
+    const newestIncoming = messages.find((m) => m.senderId !== myUid && !m.pending);
+    const newestMs = toMillis(newestIncoming?.createdAt);
+    const myReadAt = toMillis(conversation.readState?.[myUid]?.readAt);
+    const unread = conversation.unread?.[myUid] ?? 0;
+    if (!(newestMs > myReadAt) && unread === 0) return;
+
+    const key = `${conversation.id}:${newestMs}:${unread}`;
+    if (readKeyRef.current === key) return;
+    readKeyRef.current = key;
+    chat.markRead(conversation.id, myUid).catch(() => {
+      readKeyRef.current = null;
+    });
+  }, [messages, conversation, myUid, focused, appActive]);
+
+  // ----- derived data -----
+  const title = conversation ? getConversationTitle(conversation, myUid) : 'Chat';
+  const subtitle = conversation ? getConversationSubtitle(conversation) : '';
+  const muted = conversationId ? isMuted(conversationId) : false;
+
+  const visibleMessages = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!searchOpen || !q) return messages;
+    return messages.filter((m) => !m.deletedForEveryone && m.text.toLowerCase().includes(q));
+  }, [messages, searchOpen, searchText]);
+
+  const forwardTargets = useMemo(
+    () => conversations.filter((c) => c.id !== conversationId),
+    [conversations, conversationId]
+  );
+
+  // ----- actions -----
+  const toReplyPreview = (m: Message): ReplyPreview => ({
+    messageId: m.id,
+    senderId: m.senderId,
+    senderUsername: m.senderUsername,
+    type: m.type,
+    text: chat.messagePreview(m.type, m.text) || m.text,
+  });
+
+  const handleSend = (text: string) => {
+    if (!conversation || !me) return;
+    const reply = replyTo;
+    setReplyTo(null);
+    // Not awaited: while offline the write stays queued and the bubble shows as pending (NFR-07).
+    chat
+      .sendMessage(conversation, me, { type: 'text', text, replyTo: reply ?? undefined })
+      .catch((e) => toast.error('Message not sent', errorText(e)));
   };
+
+  const handleAction = async (action: MessageAction, message: Message) => {
+    setActionMessage(null);
+    if (!conversationId || !myUid) return;
+    try {
+      switch (action) {
+        case 'reply':
+          setReplyTo(toReplyPreview(message));
+          break;
+        case 'copy':
+          await Clipboard.setStringAsync(message.text);
+          toast.success('Copied');
+          break;
+        case 'forward':
+          setForwardMessage(message);
+          break;
+        case 'deleteForMe':
+          await chat.deleteMessageForMe(conversationId, message.id, myUid);
+          break;
+        case 'deleteForEveryone':
+          Alert.alert('Delete for everyone?', 'This message will be removed for all members.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: () =>
+                chat
+                  .deleteMessageForEveryone(conversationId, message.id)
+                  .catch((e) => toast.error('Could not delete', errorText(e))),
+            },
+          ]);
+          break;
+      }
+    } catch (e) {
+      toast.error('Action failed', errorText(e));
+    }
+  };
+
+  const handleForward = async (target: Conversation) => {
+    const original = forwardMessage;
+    setForwardMessage(null);
+    if (!original || !me) return;
+    try {
+      await chat.forwardMessage(target, me, {
+        type: original.type,
+        text: original.text,
+        media: original.media,
+      });
+      toast.success('Forwarded', `Sent to ${getConversationTitle(target, myUid)}`);
+    } catch (e) {
+      toast.error('Could not forward', errorText(e));
+    }
+  };
+
+  // Calls are 1-to-1 only.
+  const callee = conversation && !conversation.isGroup ? getOtherParticipant(conversation, myUid) : undefined;
+
+  const startCall = (type: CallType) => {
+    if (!conversation || !callee) return;
+    if (!isCallingSupported()) {
+      toast.info('Calls need an installed build', 'They do not work in Expo Go. See API.md for the development build.');
+      return;
+    }
+    if (offline) {
+      toast.error("You're offline", 'Connect to the internet to place a call');
+      return;
+    }
+    router.push({
+      pathname: '/call/[id]',
+      params: {
+        id: 'new',
+        conversationId: conversation.id,
+        type,
+        calleeId: callee.uid,
+        calleeName: callee.username,
+      },
+    });
+  };
+
+  const handleToggleMute = async () => {
+    if (!conversationId) return;
+    try {
+      await toggleMute(conversationId);
+      toast.info(muted ? 'Notifications on' : 'Chat muted');
+    } catch (e) {
+      toast.error('Could not update mute', errorText(e));
+    }
+  };
+
+  const scrollToMessage = useCallback(
+    (messageId: string) => {
+      const index = visibleMessages.findIndex((m) => m.id === messageId);
+      if (index < 0) {
+        toast.info('Original message is not loaded');
+        return;
+      }
+      listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+    },
+    [visibleMessages, toast]
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: Message }) => {
+      const mine = item.senderId === myUid;
+      return (
+        <MessageBubble
+          message={item}
+          isMine={mine}
+          status={mine ? getMessageStatus(item, conversation) : undefined}
+          showSender={!!conversation?.isGroup}
+          colors={themeColors}
+          onLongPress={setActionMessage}
+          onReplyPress={scrollToMessage}
+          onOpenMedia={setViewerMessage}
+        />
+      );
+    },
+    [myUid, conversation, themeColors, scrollToMessage]
+  );
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: themeColors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={0}
+      style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}
+      behavior="padding"
     >
-      {/* Top Navigation Header */}
+      {/* Header */}
       <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back">
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </TouchableOpacity>
-
-        <View style={styles.headerInfo}>
+        </Pressable>
+        <Pressable
+          style={styles.headerInfo}
+          disabled={!conversation?.isGroup}
+          onPress={() => setGroupInfoOpen(true)}
+          accessibilityLabel={conversation?.isGroup ? 'Group info' : undefined}
+        >
           <Text style={[styles.headerTitle, { color: themeColors.text }]} numberOfLines={1}>
-            Chat Room
+            {title}
           </Text>
-          <Text style={[styles.headerSubtitle, { color: themeColors.subText }]}>
-            ID: {conversationId?.substring(0, 8)}...
-          </Text>
-        </View>
+          {subtitle ? (
+            <Text style={[styles.headerSubtitle, { color: themeColors.subText }]}>
+              {subtitle} - tap for info
+            </Text>
+          ) : null}
+        </Pressable>
+        {callee && (
+          <>
+            <Pressable onPress={() => startCall('audio')} hitSlop={10} accessibilityLabel="Voice call">
+              <Ionicons name="call-outline" size={22} color={themeColors.text} />
+            </Pressable>
+            <Pressable onPress={() => startCall('video')} hitSlop={10} accessibilityLabel="Video call">
+              <Ionicons name="videocam-outline" size={24} color={themeColors.text} />
+            </Pressable>
+          </>
+        )}
+        <Pressable
+          onPress={() => {
+            setSearchOpen((open) => !open);
+            setSearchText('');
+          }}
+          hitSlop={10}
+          accessibilityLabel="Search in chat"
+        >
+          <Ionicons name={searchOpen ? 'close' : 'search'} size={22} color={themeColors.text} />
+        </Pressable>
+        <Pressable onPress={handleToggleMute} hitSlop={10} accessibilityLabel="Mute notifications">
+          <Ionicons
+            name={muted ? 'notifications-off' : 'notifications-outline'}
+            size={22}
+            color={muted ? themeColors.accent : themeColors.text}
+          />
+        </Pressable>
       </View>
 
-      {/* Message List */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
+      <OfflineBanner message="You're offline. Messages you send now are sent when you reconnect." />
+
+      {searchOpen && (
+        <View style={[styles.searchBar, { borderBottomColor: themeColors.border }]}>
+          <TextInput
+            autoFocus
+            style={[
+              styles.searchInput,
+              { backgroundColor: themeColors.inputBg, color: themeColors.text, borderColor: themeColors.border },
+            ]}
+            placeholder="Search messages"
+            placeholderTextColor={themeColors.subText}
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+        </View>
+      )}
+
+      {/* Messages */}
+      {isLoading && messages.length === 0 ? (
+        <View style={styles.center}>
           <ActivityIndicator size="large" color={themeColors.accent} />
         </View>
       ) : (
         <FlatList
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMessageItem}
-          contentContainerStyle={styles.messageList}
-          inverted // Keeps recent messages scrolled to the bottom
+          ref={listRef}
+          data={visibleMessages}
+          keyExtractor={(m) => m.id}
+          renderItem={renderItem}
+          inverted
+          keyboardShouldPersistTaps="handled"
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          initialNumToRender={20}
+          contentContainerStyle={styles.list}
+          onScrollToIndexFailed={() => toast.info('Original message is not loaded')}
+          ListEmptyComponent={
+            <View style={[styles.center, styles.flipped]}>
+              <Text style={{ color: themeColors.subText }}>
+                {searchOpen && searchText ? 'No matching messages' : 'No messages yet. Say hello!'}
+              </Text>
+            </View>
+          }
         />
       )}
 
-      {/* Input Bar */}
-      <View style={[styles.inputContainer, { borderTopColor: themeColors.border, backgroundColor: themeColors.cardBackground }]}>
-        <TextInput
-          style={[
-            styles.textInput,
-            { backgroundColor: themeColors.inputBg, color: themeColors.text, borderColor: themeColors.border },
-          ]}
-          placeholder="Type a message..."
-          placeholderTextColor={themeColors.subText}
-          value={messageText}
-          onChangeText={setMessageText}
-          multiline
+      {/* Composer */}
+      {conversation ? (
+        <MessageInput
+          colors={themeColors}
+          replyTo={replyTo}
+          onCancelReply={() => setReplyTo(null)}
+          onSend={handleSend}
+          onAttach={() => setAttachOpen(true)}
+          onSendVoice={media.sendVoice}
         />
-        <TouchableOpacity
-          style={[
-            styles.sendButton,
-            { backgroundColor: themeColors.accent },
-            !messageText.trim() && { opacity: 0.5 },
-          ]}
-          onPress={handleSendMessage}
-          disabled={!messageText.trim()}
-        >
-          <Ionicons name="send" size={18} color={themeColors.buttonText} />
-        </TouchableOpacity>
-      </View>
+      ) : (
+        <View style={[styles.connecting, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <ActivityIndicator color={themeColors.accent} />
+        </View>
+      )}
+
+      <MessageActionSheet
+        message={actionMessage}
+        isMine={actionMessage?.senderId === myUid}
+        colors={themeColors}
+        onSelect={handleAction}
+        onClose={() => setActionMessage(null)}
+      />
+      <AttachSheet
+        visible={attachOpen}
+        colors={themeColors}
+        onChoose={handleAttach}
+        onClose={() => setAttachOpen(false)}
+      />
+      <StickerPicker
+        visible={stickerOpen}
+        colors={themeColors}
+        onPick={(emoji) => {
+          setStickerOpen(false);
+          media.sendSticker(emoji);
+        }}
+        onClose={() => setStickerOpen(false)}
+      />
+      <GifPicker
+        visible={gifOpen}
+        colors={themeColors}
+        onPick={(url, width, height) => {
+          setGifOpen(false);
+          media.sendGif(url, width, height);
+        }}
+        onClose={() => setGifOpen(false)}
+      />
+      <MediaViewer message={viewerMessage} onClose={() => setViewerMessage(null)} />
+      <GroupInfoModal
+        visible={groupInfoOpen}
+        conversation={conversation}
+        myUid={myUid}
+        colors={themeColors}
+        onClose={() => setGroupInfoOpen(false)}
+        onLeft={() => router.replace('/(tabs)')}
+      />
+      <ForwardPicker
+        visible={!!forwardMessage}
+        conversations={forwardTargets}
+        myUid={myUid}
+        colors={themeColors}
+        onPick={handleForward}
+        onClose={() => setForwardMessage(null)}
+      />
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: Platform.OS === 'ios' ? 40 : 20,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 15,
+    gap: 14,
+    paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
-  backButton: {
-    marginRight: 15,
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  headerSubtitle: {
-    fontSize: 12,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  messageList: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-  },
-  messageBubble: {
-    maxWidth: '75%',
-    padding: 12,
-    borderRadius: 16,
-    marginVertical: 4,
-  },
-  myBubble: {
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: 2,
-  },
-  theirBubble: {
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: 2,
-    borderWidth: 1,
-  },
-  messageText: {
-    fontSize: 15,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    gap: 8,
-  },
-  textInput: {
-    flex: 1,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    maxHeight: 100,
-    fontSize: 15,
-    borderWidth: 1,
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  headerInfo: { flex: 1 },
+  headerTitle: { fontSize: 18, fontWeight: '700' },
+  headerSubtitle: { fontSize: 12, marginTop: 1 },
+  searchBar: { padding: 8, borderBottomWidth: 1 },
+  searchInput: { borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6, fontSize: 14 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  flipped: { transform: [{ scaleY: -1 }] },
+  list: { paddingVertical: 8 },
+  connecting: { alignItems: 'center', paddingTop: 12 },
 });

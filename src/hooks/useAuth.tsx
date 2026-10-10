@@ -10,6 +10,7 @@ import {
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../firebaseConfig';
+import { setAppBadge, unregisterPush } from '../services/pushService';
 import { UserProfile } from '../types';
 
 interface AuthContextType {
@@ -49,7 +50,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               username: userData.username || 'Anonymous',
               usernameLowercase: userData.usernameLowercase || (userData.username ? userData.username.toLowerCase() : 'anonymous'),
               displayName: userData.username || 'Anonymous',
-              walletBalance: 0,
+              profileImageUrl: userData.profileImageUrl,
+              status: userData.status,
+              theme: userData.theme,
               createdAt: new Date(),
             });
           } else {
@@ -59,7 +62,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               username: fallbackUsername,
               usernameLowercase: fallbackUsername.toLowerCase(),
               displayName: fallbackUsername,
-              walletBalance: 0,
               createdAt: new Date(),
             });
           }
@@ -126,6 +128,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
+    // Detach this device first (needs the signed-in session), so a shared phone stops getting this
+    // account's notifications. Bounded by a short timeout so logging out never hangs when offline.
+    const uid = auth.currentUser?.uid;
+    if (uid) await unregisterPush(uid);
+    void setAppBadge(0);
     return signOut(auth);
   };
 
