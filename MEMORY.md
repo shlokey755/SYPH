@@ -43,6 +43,31 @@ Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*
 | Google and phone sign-in, real-email sign-in (FR-01) | **Not built** (API.md section 3) |
 | Search across full history | **Not built**, needs an external search service (API.md section 3) |
 
+## SRS coverage (audit of Oct 10, 2026)
+
+Checked against `DOC-20261002-WA0031.pdf` by reading the code, not by running the app on a device.
+
+| Requirement | State |
+|-------------|-------|
+| FR-01 sign-in by email, phone or Google | **Gap.** Username + password only (made-up `@syph.com` email) |
+| FR-02 profile: name, photo, status, username | **Partial.** Photo, status and username are editable. There is no separate "name"; `displayName` is just the username |
+| FR-03, FR-04 one-to-one chats, groups with add/remove members | Met |
+| FR-05 text, emojis, voice, photos, video, GIFs, stickers, documents | Met. Emojis come from the phone keyboard; stickers are a built-in emoji pack, not image stickers |
+| FR-06 audio and video calls | Met in code, unverified on a device |
+| FR-07 delivery and read status | Met |
+| FR-08 reply, forward, delete, copy | Met |
+| FR-09 toasts for success, errors, updates | Met (themed) |
+| FR-10 push for messages, calls, group activity | **Partial.** Messages, calls and "added to group" are pushed. Removal from a group and group renames are not |
+| FR-11 search chats, contacts, messages | **Partial.** Chat list search, user search in Add, and in-chat search over loaded messages. No search across full history |
+| FR-12 mute chats or disable notifications | Met |
+| FR-13, FR-14, FR-15 themes, Cyan and Black default, saved to profile | Met (six themes; saved to `users/{uid}.theme`) |
+| NFR-01, NFR-04, NFR-05, NFR-08 | Met by design; not measured on small devices |
+| NFR-02 main chat screen in 2 s | **Not measured** |
+| NFR-03 secure auth and data | Rules written but never executed (see below) |
+| NFR-06 upload progress and errors as toasts | Met |
+| NFR-07 usable offline | Met |
+| Splash and onboarding, call screen, settings/theme screen | Met (splash is the native one from `app.json`; theme and settings live on the Me tab) |
+
 ## How much is actually verified
 
 Checked in the build environment: TypeScript is clean, the Android bundle builds, 13 unit tests (call rules) and 41 relay tests pass.
