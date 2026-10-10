@@ -11,8 +11,8 @@ SYPH is a React Native / Expo chat app on Firebase. Expo SDK 57, React Native 0.
 | Goal | Command |
 |------|---------|
 | First time | `npm install`, copy `.env.example` to `.env` and fill the Firebase values (Console > Project settings > Your apps > Web) |
-| Everyday (chat, media, themes, search) | `npx expo start -c` and open in Expo Go |
-| Push while closed, calls | Development build (`eas build --profile development --platform android` or `npx expo run:android`). `android/` and `ios/` are git-ignored and regenerated from `app.json` |
+| Everyday (chat, media, themes, search) | `npx expo start -c --go` and open in Expo Go |
+| Push while closed, calls | Development build (`eas build --profile development --platform android` or `npx expo run:android`), then `npx expo start -c` (dev-client mode). `expo-dev-client` is installed for this. `android/` and `ios/` are git-ignored and regenerated from `app.json` |
 | Checks | `npm run typecheck`, `npm run test:unit`, `cd server && npm test` |
 
 Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*` values are client config, but keep them in `.env`.

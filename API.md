@@ -33,7 +33,9 @@ These ship inside the app bundle, so they are client config, not secrets. Access
 
 ### 1.3 Expo Go
 
-The project is on Expo SDK 57, which matches the current Expo Go from the store. After pulling: `npm install` then `npx expo start -c`.
+The project is on Expo SDK 57, which matches the current Expo Go from the store. After pulling: `npm install` then `npx expo start -c --go` (the `--go` flag opens it in Expo Go).
+
+`expo-dev-client` is installed (needed for the development build in 1.5 and 1.7). Because of it, a plain `npx expo start` now targets the development build; use `--go` whenever you want Expo Go. Expo Go cannot do closed-app push or calls.
 
 ### 1.4 Media (photos, video, voice notes, documents, profile photos)
 
