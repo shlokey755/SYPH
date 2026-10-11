@@ -3,6 +3,7 @@ rules_version = '2';
 // SYPH Firestore rules
 //   users/{uid}                    public profile; any signed-in user may read (needed for search), only the owner writes
 //   users/{uid}/private/settings   owner only (muted chats, push tokens)
+//   usernames/{name}               claim registry: who owns each lower-case username
 //   conversations/{id}             readable/writable only by members (participantIds)
 //   conversations/{id}/messages    members only; senders cannot spoof senderId or backdate createdAt
 service cloud.firestore {
@@ -72,6 +73,14 @@ service cloud.firestore {
         // Receipts: a member may only change their own delivered/read watermark.
         && request.resource.data.readState.diff(resource.data.readState).affectedKeys()
              .hasOnly([request.auth.uid])
+        // A recorded group change must name the person making it and carry the server time (read by the push relay).
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['groupActivity'])
+          || (
+            request.resource.data.groupActivity.by == request.auth.uid
+            && request.resource.data.groupActivity.at == request.time
+          )
+        )
         // Membership: fixed for 1-on-1 chats; in groups only the creator edits it, or a member leaves.
         && (
           request.resource.data.participantIds == resource.data.participantIds
@@ -120,6 +129,21 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['uid', 'platform', 'updatedAt']);
       allow delete: if signedIn() && (resource == null || resource.data.uid == request.auth.uid);
       allow read: if false;
+    }
+
+    // ---------------- Username registry ----------------
+    // One document per claimed username (lower-case id), naming its owner, so two accounts can never take the same
+    // name even when they sign in with different emails. A signed-in user can claim a free name and release their own.
+    match /usernames/{name} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && name.matches('^[a-z0-9][a-z0-9._]{1,18}[a-z0-9]$')
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
 
     // ---------------- Calls (1-to-1 signalling) ----------------

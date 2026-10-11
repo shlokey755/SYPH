@@ -14,6 +14,7 @@ Everything the app depends on that lives outside the code: console steps, keys, 
 | Test (optional) | `cd tests/firestore-rules && npm install && npm test` - starts the local Firestore emulator (needs Java 11+ and network access for the first-run emulator download). |
 
 **Important**
+- **Sign-up and username changes need the latest rules.** They claim the name in a `usernames` registry that only the new `firestore.rules` allow. With old rules published, sign-up stops with "Could not check username availability" instead of creating a half-made account.
 - Chats now use a `participantIds` field. **Conversations created by the old build do not have it and will not appear.** Recreate your test chats from the Add tab.
 - The rules were written and re-reviewed by hand but **have not been executed against the emulator** (the emulator download is blocked in the build environment). Run the rules tests once; if a case fails, tell me which one.
 
@@ -59,6 +60,7 @@ In-app toasts and unread badges work everywhere, including Expo Go. Alerts while
 | APNs key (iOS) | Handled by `eas credentials` when you build for iOS. |
 | Run the relay | `server/` is a small Node 22.9+ service. Steps, hosting options and the delivery rules are in `server/README.md`. |
 | Service account key | Firebase Console > Project settings > Service accounts > Generate new private key. Put it in `server/.env` or the host's secret store. It gives full database access, so never commit it (already git-ignored). |
+| What it announces | New messages, incoming calls, being added to a group, a group being renamed, being removed from a group, and a member leaving (the group's creator only). |
 | Optional | `EXPO_ACCESS_TOKEN` (expo.dev > Account settings > Access tokens) for enhanced push security; `PUSH_HIDE_PREVIEW=1` to hide message text in notifications. |
 
 Run **one** relay instance. It must stay running; messages sent while it is down are not announced later (unread badges still catch the user up).
@@ -89,18 +91,43 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 
 **Known limits**
 - There is no native call UI (CallKit / Android ConnectionService). A call that arrives while the app is closed shows as a notification; tapping it opens the chat and, if the call is still ringing, the Accept / Decline screen appears. It will not ring like the phone app while the device is locked.
-- No speaker/earpiece toggle, no group calls, and no "missed call" line in the chat history yet.
+- No group calls and no "missed call" line in the chat history yet.
+- Speaker/earpiece: voice calls start on the earpiece and video calls on the loudspeaker, with a toggle on the call screen. It uses `react-native-incall-manager` (react-native-webrtc has no audio routing), which is a native module, so it needs a **new development build** and is **unverified on a device**. It also switches to a wired or Bluetooth headset when one is connected and turns the screen off when a voice call is held to the ear. Bluetooth routing on Android 12+ needs the BLUETOOTH_CONNECT permission, which the app does not request yet, so a Bluetooth headset may not be picked up.
 - TURN credentials in `EXPO_PUBLIC_*` ship inside the app, so anyone who unpacks it can use your TURN server. Fine for testing; for production have the relay hand out short-lived credentials instead.
 - **Not verified on a device.** The signalling logic and call-state rules are unit tested (`npm run test:unit`, `cd server && npm test`), the app bundles, and the Firestore rules for calls are written but not run against the emulator. Whether audio/video actually connects on react-native-webrtc 124 with React Native 0.86 needs a real two-phone test.
 - Web is not a supported target of this project (it has no `react-native-web` dependency), and calls are not available there.
+
+### 1.8 Accounts: email sign-in, password reset, names (FR-01, FR-02)
+
+There are two kinds of account, and both keep working:
+
+| Kind | Signs in with | Password reset |
+|------|---------------|----------------|
+| Username-only (all accounts made before this change, and sign-ups that leave the email box empty) | Username + password (the app uses `<username>@syph.com` behind the scenes; that is not a real mailbox) | Not possible |
+| Email account | The email + password | "Forgot password?" on the login screen sends a reset link |
+
+An existing username-only account can add a real email under **Me > Account email**. Firebase mails a confirmation link to the new address and switches the sign-in email only after it is opened, so a typo cannot lock anyone out. After that the person signs in with the email.
+
+| Step | How |
+|------|-----|
+| Email/Password provider | Firebase Console > Authentication > Sign-in method > Email/Password must be **enabled**. It already is if sign-in works today. |
+| Re-publish `firestore.rules` | Adds the `usernames` registry and the group-activity check (same as 1.1). |
+| Optional: email wording | Console > Authentication > Templates lets you edit the verification, reset and email-change messages and the sender name. Mails often land in spam until you set up a custom sender domain. |
+
+Things to know:
+- Usernames are now 3-20 letters, digits, `.` or `_`, and unique across both kinds of account. Existing usernames are not re-checked until someone changes theirs.
+- A **name** (display name, up to 40 characters) can be set under Me. Contacts see it in chat lists, chat headers and user search instead of the `@username`. It is read live, so a change shows up everywhere within a few minutes. Group member lists and message senders still show usernames.
+- If Firebase's "email enumeration protection" is on (the default for new projects), it refuses to switch a username-only account's hidden email when that person changes their username. The app then asks them to add a real email first. Email accounts can change their username freely.
+- **Not built:** Google and phone sign-in. See section 3.
 
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
 |------|---------|
-| `users/{uid}` | Public profile: `username`, `usernameLowercase`, `profileImageUrl`, `status`, `theme` |
+| `users/{uid}` | Public profile: `username`, `usernameLowercase`, `displayName` (optional), `profileImageUrl`, `status`, `theme` |
 | `users/{uid}/private/settings` | Owner-only: `mutedChats[]`, `notificationsEnabled`, `expoPushTokens[]` |
-| `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `hiddenBy[]`, `readState{uid:{deliveredAt,readAt}}`, `unread{uid:n}` |
+| `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `groupActivity` (latest rename / removal / leave, read by the push relay), `hiddenBy[]`, `readState{uid:{deliveredAt,readAt}}`, `unread{uid:n}` |
+| `usernames/{lowercase name}` | Claim registry: `uid`, `createdAt`. One document per name, create-once, so two accounts cannot take the same name. Readable one at a time, never listed |
 | `pushTokens/{token}` | Which account is signed in on a device (`uid`, `platform`, `updatedAt`). Write-only for clients; read by the push relay |
 | `calls/{id}` | One call: `callerId`, `calleeId`, `participantIds`, `type` (audio/video), `status` (ringing, accepted, declined, cancelled, missed, ended), `offer`, `answer`, `createdAt`, `expireAt` |
 | `calls/{id}/candidates/{id}` | ICE candidates trickled by either side (`from`, `candidate`, `sdpMid`, `sdpMLineIndex`) |
@@ -114,5 +141,6 @@ Storage paths: `chats/{conversationId}/{uid}/{file}`, `avatars/{uid}/{file}`.
 
 | Feature | What it needs |
 |---------|---------------|
-| Google / phone sign-in (FR-01) | Sign-in is currently username + password (stored as a made-up `@syph.com` email). Google and phone sign-in need OAuth client IDs (Firebase Console > Authentication > Sign-in method), the SHA-1/SHA-256 fingerprints of your build keys, and a development build. Real-email sign-in and password reset need the same console work. Not built yet. |
+| Google sign-in (FR-01) | OAuth client IDs (Firebase Console > Authentication > Sign-in method > Google, plus Web/Android/iOS client IDs from Google Cloud), the SHA-1/SHA-256 fingerprints of your build keys, and a development build. Not built yet. |
+| Phone sign-in (FR-01) | Firebase's JS SDK cannot do phone sign-in cleanly in React Native (it needs reCAPTCHA or the native Firebase SDK), and SMS may need a paid plan. Decide whether it is required before anyone builds it. Not built. |
 | Search across full chat history (FR-11) | In-chat search covers the messages loaded on screen. Firestore has no full-text search; searching all history needs an external service (Algolia, Typesense, Meilisearch) and a small indexing function. |

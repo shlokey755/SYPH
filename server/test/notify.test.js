@@ -9,9 +9,12 @@ import {
   allowsCallNotification,
   allowsNotification,
   buildCallPush,
+  buildGroupActivityPush,
   buildGroupAddedPush,
   buildMessagePush,
   createDeduper,
+  planGroupActivity,
+  removedMembers,
   recipientsOf,
   shouldAnnounceCall,
   splitTokensByOwner,
@@ -272,5 +275,131 @@ describe('buildCallPush', () => {
 
   it('returns nothing when there are no tokens', () => {
     assert.deepEqual(buildCallPush({ callId: 'c1', call, tokens: [] }), []);
+  });
+});
+
+describe('removedMembers', () => {
+  it('returns members who were there before and are gone now', () => {
+    assert.deepEqual(removedMembers(['a', 'b', 'c'], ['a', 'c']), ['b']);
+    assert.deepEqual(removedMembers(['a', 'b'], ['a', 'b', 'c']), []);
+    assert.deepEqual(removedMembers(undefined, ['a']), []);
+    assert.deepEqual(removedMembers(['a'], undefined), ['a']);
+  });
+});
+
+describe('planGroupActivity', () => {
+  const base = {
+    isGroup: true,
+    groupName: 'Weekend plans',
+    createdBy: 'alice',
+    participantIds: ['alice', 'bob', 'carol'],
+  };
+  const activity = (type, extra = {}) => ({ ...base, groupActivity: { type, by: 'alice', byName: 'Alice', ...extra } });
+
+  it('tells every other member about a rename', () => {
+    assert.deepEqual(planGroupActivity(activity('renamed'), base.participantIds), {
+      uids: ['bob', 'carol'],
+      body: 'Alice renamed the group',
+      openChat: true,
+    });
+  });
+
+  it('tells nobody about a rename when the actor is alone', () => {
+    const solo = { ...activity('renamed'), participantIds: ['alice'] };
+    assert.equal(planGroupActivity(solo, ['alice']), null);
+  });
+
+  it('tells removed people, found from the member list, and does not let the chat open', () => {
+    const conversation = { ...activity('removed', { targets: ['bob'] }), participantIds: ['alice', 'carol'] };
+    assert.deepEqual(planGroupActivity(conversation, ['alice', 'bob', 'carol']), {
+      uids: ['bob'],
+      body: 'Alice removed you from the group',
+      openChat: false,
+    });
+  });
+
+  it('ignores the targets a client wrote, so it cannot notify arbitrary people', () => {
+    const conversation = { ...activity('removed', { targets: ['mallory', 'dave'] }), participantIds: ['alice', 'carol'] };
+    const plan = planGroupActivity(conversation, ['alice', 'bob', 'carol']);
+    assert.deepEqual(plan.uids, ['bob']);
+  });
+
+  it('covers two removals that arrived in one snapshot', () => {
+    const conversation = { ...activity('removed'), participantIds: ['alice'] };
+    assert.deepEqual(planGroupActivity(conversation, ['alice', 'bob', 'carol']).uids, ['bob', 'carol']);
+  });
+
+  it('skips removals for a group the relay has not seen before', () => {
+    const conversation = { ...activity('removed'), participantIds: ['alice'] };
+    assert.equal(planGroupActivity(conversation, undefined), null);
+  });
+
+  it('tells only the creator when someone leaves', () => {
+    const conversation = {
+      ...base,
+      participantIds: ['alice', 'carol'],
+      groupActivity: { type: 'left', by: 'bob', byName: 'Bob' },
+    };
+    assert.deepEqual(planGroupActivity(conversation, base.participantIds), {
+      uids: ['alice'],
+      body: 'Bob left the group',
+      openChat: true,
+    });
+  });
+
+  it('does not tell the creator that they left themselves, or that a departed creator left', () => {
+    const creatorLeft = { ...base, participantIds: ['bob', 'carol'], groupActivity: { type: 'left', by: 'alice' } };
+    assert.equal(planGroupActivity(creatorLeft, base.participantIds), null);
+  });
+
+  it('returns null with no activity, an unknown type or a missing actor', () => {
+    assert.equal(planGroupActivity(base, base.participantIds), null);
+    assert.equal(planGroupActivity(activity('exploded'), base.participantIds), null);
+    assert.equal(planGroupActivity({ ...base, groupActivity: { type: 'renamed' } }, base.participantIds), null);
+  });
+
+  it('falls back to "Someone" when the actor name is missing', () => {
+    const conversation = { ...base, groupActivity: { type: 'renamed', by: 'alice' } };
+    assert.equal(planGroupActivity(conversation, base.participantIds).body, 'Someone renamed the group');
+  });
+});
+
+describe('buildGroupActivityPush', () => {
+  const conversation = { groupName: 'Weekend plans' };
+
+  it('opens the chat when allowed', () => {
+    const [msg] = buildGroupActivityPush({
+      conversationId: 'g1',
+      conversation,
+      body: 'Alice renamed the group',
+      openChat: true,
+      tokens: ['t1'],
+    });
+    assert.equal(msg.title, 'Weekend plans');
+    assert.equal(msg.body, 'Alice renamed the group');
+    assert.deepEqual(msg.data, { type: 'group', conversationId: 'g1' });
+  });
+
+  it('carries no conversationId for people who were removed', () => {
+    const [msg] = buildGroupActivityPush({
+      conversationId: 'g1',
+      conversation,
+      body: 'Alice removed you from the group',
+      openChat: false,
+      tokens: ['t1'],
+    });
+    assert.deepEqual(msg.data, { type: 'group' });
+  });
+
+  it('uses a default title and one message per token', () => {
+    const msgs = buildGroupActivityPush({
+      conversationId: 'g1',
+      conversation: {},
+      body: 'x',
+      openChat: true,
+      tokens: ['t1', 't2'],
+    });
+    assert.equal(msgs.length, 2);
+    assert.equal(msgs[0].title, 'Group');
   });
 });

@@ -1,16 +1,31 @@
 /**
- * useUserProfile.ts (FIXED - Updates Auth Email on Username Change)
- * Manage user profile updates with username change limit
- * 
- * KEY: When username changes, Firebase auth email is updated
- * Old username can no longer login
+ * useUserProfile.ts
+ * The signed-in user's profile, plus username changes (once per day).
+ *
+ * Username-only accounts sign in as `<username>@syph.com`, so changing the username also changes that Firebase
+ * email and the old username stops working. Accounts with a real email sign in with the email, so their
+ * username is just a handle and the Firebase email is left alone. Either way the new name is claimed in the
+ * username registry first, so it cannot clash with anyone else's.
  */
 
 import { updateEmail } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { auth, db } from '../firebaseConfig';
+import {
+  RegistryUnavailableError,
+  claimUsername,
+  isUsernameAvailable,
+  releaseUsername,
+} from '../services/accountService';
 import { UserProfile } from '../types';
+import {
+  friendlyAuthError,
+  isLegacyEmail,
+  normalizeUsername,
+  usernameOnlyEmail,
+  validateUsername,
+} from '../utils/auth';
 import { toMillis } from '../utils/conversation';
 
 export const useUserProfile = (uid: string | undefined) => {
@@ -53,37 +68,70 @@ export const useUserProfile = (uid: string | undefined) => {
     fetchProfile();
   }, [uid]);
 
-  // Update username (once per day)
-  // IMPORTANT: This also updates Firebase auth email
+  /** Merges fields that were just saved elsewhere, so the screen shows them without another read. */
+  const patchProfile = useCallback((fields: Partial<UserProfile>) => {
+    setProfile((prev) => (prev ? { ...prev, ...fields } : prev));
+  }, []);
+
   const updateUsername = async (newUsername: string) => {
     if (!uid || !canChangeUsername) {
       return { success: false, error: 'Cannot change username now' };
     }
 
-    if (!auth.currentUser) {
+    const user = auth.currentUser;
+    if (!user) {
       return { success: false, error: 'No user logged in' };
     }
 
+    const problem = validateUsername(newUsername);
+    if (problem) return { success: false, error: problem };
+
+    const trimmed = newUsername.trim();
+    const lower = normalizeUsername(trimmed);
+    const oldLower = profile?.usernameLowercase || normalizeUsername(profile?.username ?? '');
+    const sameName = lower === oldLower; // only the capitalisation changes
+    const legacy = isLegacyEmail(user.email);
+
+    const oldEmail = user.email;
+    let claimed = false;
+    let emailMoved = false;
     try {
-      const newEmail = `${newUsername.trim().toLowerCase()}@syph.com`;
+      if (!sameName) {
+        if (!(await isUsernameAvailable(lower, uid)) || !(await claimUsername(uid, lower))) {
+          return { success: false, error: 'That username is taken.' };
+        }
+        claimed = true;
 
-      // Step 1: Update Firebase auth email
-      await updateEmail(auth.currentUser, newEmail);
+        // Username-only accounts sign in with the username, so the Firebase email has to follow it.
+        if (legacy) {
+          await updateEmail(user, usernameOnlyEmail(lower));
+          emailMoved = true;
+        }
+      }
 
-      // Step 2: Update Firestore profile
       await updateDoc(doc(db, 'users', uid), {
-        username: newUsername.trim(),
+        username: trimmed,
+        usernameLowercase: lower, // user search and uniqueness checks read this field
         lastUsernameChange: serverTimestamp(),
       });
 
-      // Step 3: Update local state
-      setProfile(prev => prev ? { ...prev, username: newUsername.trim() } : null);
+      if (!sameName) await releaseUsername(uid, oldLower);
+
+      setProfile((prev) => (prev ? { ...prev, username: trimmed, usernameLowercase: lower } : null));
       setCanChangeUsername(false);
       setTimeUntilCanChange('24h 0m');
-
       return { success: true, error: null };
     } catch (error: any) {
-      return { success: false, error: error.message };
+      if (emailMoved && oldEmail) await updateEmail(user, oldEmail).catch(() => {}); // keep sign-in and profile in step
+      if (claimed) await releaseUsername(uid, lower);
+      if (error instanceof RegistryUnavailableError) return { success: false, error: error.message };
+      if (legacy && error?.code === 'auth/operation-not-allowed') {
+        return {
+          success: false,
+          error: 'Firebase does not allow this change on a username-only account. Add an email under Account email first.',
+        };
+      }
+      return { success: false, error: friendlyAuthError(error?.code, 'email') ?? error?.message ?? 'Could not change username' };
     }
   };
 
@@ -93,5 +141,6 @@ export const useUserProfile = (uid: string | undefined) => {
     canChangeUsername,
     timeUntilCanChange,
     updateUsername,
+    patchProfile,
   };
 };

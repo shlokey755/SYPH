@@ -8,11 +8,20 @@ export function getOtherParticipant(
   return conv.participant1?.uid === myUid ? conv.participant2 : conv.participant1;
 }
 
-export function getConversationTitle(conv: Conversation, myUid: string | undefined): string {
+/**
+ * Chat title. For 1-on-1 chats `nameOf` (optional) supplies the other person's current display name; without it the
+ * username saved in the conversation is used, which may be out of date.
+ */
+export function getConversationTitle(
+  conv: Conversation,
+  myUid: string | undefined,
+  nameOf?: (uid: string | undefined) => string | undefined
+): string {
   if (conv.isGroup) {
     return conv.groupName || `Group (${conv.participantIds?.length ?? conv.participants?.length ?? 0})`;
   }
-  return getOtherParticipant(conv, myUid)?.username || 'Chat';
+  const other = getOtherParticipant(conv, myUid);
+  return nameOf?.(other?.uid) || other?.username || 'Chat';
 }
 
 export function getConversationSubtitle(conv: Conversation): string {

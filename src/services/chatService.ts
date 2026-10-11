@@ -139,8 +139,18 @@ export async function createGroupConversation(
   return ref.id;
 }
 
-export async function renameGroup(conversationId: string, groupName: string) {
-  await updateDoc(doc(db, 'conversations', conversationId), { groupName: groupName.trim() });
+/** Who performed a group change; shown in the notification ("Sam renamed the group..."). */
+export interface Actor {
+  uid: string;
+  username: string;
+}
+
+export async function renameGroup(conversationId: string, groupName: string, actor: Actor) {
+  const name = groupName.trim();
+  await updateDoc(doc(db, 'conversations', conversationId), {
+    groupName: name,
+    groupActivity: { type: 'renamed', by: actor.uid, byName: actor.username, at: serverTimestamp() },
+  });
 }
 
 export async function addGroupMembers(conversationId: string, newMembers: Member[]) {
@@ -151,15 +161,19 @@ export async function addGroupMembers(conversationId: string, newMembers: Member
   });
 }
 
-/** Removes a member (creator removing someone) or lets a member leave. */
-export async function removeGroupMember(conversationId: string, uid: string) {
+/** Removes a member (creator removing someone) or lets a member leave (`uid` is the actor's own id). */
+export async function removeGroupMember(conversationId: string, uid: string, actor: Actor) {
   const ref = doc(db, 'conversations', conversationId);
   const snap = await getDoc(ref);
   if (!snap.exists()) return;
   const data = snap.data() as Conversation;
+  const leaving = uid === actor.uid;
   await updateDoc(ref, {
     participantIds: (data.participantIds ?? []).filter((id) => id !== uid),
     participants: (data.participants ?? []).filter((p) => p.uid !== uid),
+    groupActivity: leaving
+      ? { type: 'left', by: actor.uid, byName: actor.username, at: serverTimestamp() }
+      : { type: 'removed', by: actor.uid, byName: actor.username, targets: [uid], at: serverTimestamp() },
   });
 }
 

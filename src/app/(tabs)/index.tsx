@@ -23,7 +23,7 @@ import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
-import { useProfileImages } from '../../hooks/useProfileImages';
+import { useProfiles } from '../../hooks/useProfileImages';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import { Conversation } from '../../types';
 import {
@@ -51,17 +51,17 @@ export default function ChatTab() {
         .filter((uid): uid is string => !!uid),
     [conversations, myUid]
   );
-  const photoOf = useProfileImages(otherUids);
+  const { photoOf, nameOf } = useProfiles(otherUids);
 
   const filtered = useMemo(() => {
     const q = searchText.trim().toLowerCase();
     if (!q) return conversations;
     return conversations.filter(
       (c) =>
-        getConversationTitle(c, myUid).toLowerCase().includes(q) ||
+        getConversationTitle(c, myUid, nameOf).toLowerCase().includes(q) ||
         (c.lastMessage ?? '').toLowerCase().includes(q)
     );
-  }, [conversations, searchText, myUid]);
+  }, [conversations, searchText, myUid, nameOf]);
 
   const openChat = (id: string) => router.push({ pathname: '/chat/[id]', params: { id } });
 
@@ -82,7 +82,7 @@ export default function ChatTab() {
   };
 
   const renderItem = ({ item }: { item: Conversation }) => {
-    const title = getConversationTitle(item, myUid);
+    const title = getConversationTitle(item, myUid, nameOf);
     const other = getOtherParticipant(item, myUid);
     const unread = myUid ? (item.unread?.[myUid] ?? 0) : 0;
     const muted = isMuted(item.id);
