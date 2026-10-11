@@ -12,19 +12,20 @@ import {
 } from 'react-native';
 import { useTheme } from '../../hooks/themeContext';
 import { useAuth } from '../../hooks/useAuth';
+import { looksLikeEmail } from '../../utils/auth';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, resetPassword } = useAuth();
   const { themeColors } = useTheme();
   const router = useRouter();
 
   const handleLogin = async () => {
     if (!username.trim() || !password) {
-      Alert.alert('Error', 'Please enter your username and password.');
+      Alert.alert('Error', 'Please enter your username or email, and your password.');
       return;
     }
 
@@ -34,17 +35,29 @@ export default function LoginScreen() {
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('Login error:', error);
-      let errorMessage = 'An error occurred during login.';
-      if (
-        error.code === 'auth/invalid-credential' ||
-        error.code === 'auth/user-not-found' ||
-        error.code === 'auth/wrong-password'
-      ) {
-        errorMessage = 'Invalid username or password.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      Alert.alert('Login Failed', errorMessage);
+      Alert.alert('Login Failed', error.message || 'An error occurred during login.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!looksLikeEmail(username)) {
+      Alert.alert(
+        'Reset your password',
+        'Type the email address of your account in the first box, then tap "Forgot password?" again.\n\n' +
+          'Accounts made with only a username have no email, so they cannot be reset. If you are still signed in ' +
+          'somewhere, add an email under Me > Account email.'
+      );
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await resetPassword(username);
+      Alert.alert('Check your email', `If an account exists for ${username.trim()}, a reset link is on its way.`);
+    } catch (error: any) {
+      Alert.alert('Could not send reset email', error.message || 'Try again in a moment.');
     } finally {
       setIsLoading(false);
     }
@@ -69,11 +82,13 @@ export default function LoginScreen() {
             borderColor: themeColors.border,
           },
         ]}
-        placeholder="Enter Username"
+        placeholder="Username or email"
         placeholderTextColor={themeColors.subText}
         value={username}
         onChangeText={setUsername}
         autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
         editable={!isLoading}
       />
 
@@ -111,6 +126,10 @@ export default function LoginScreen() {
             Login
           </Text>
         )}
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={handleForgotPassword} disabled={isLoading}>
+        <Text style={[styles.toggleText, { color: themeColors.subText }]}>Forgot password?</Text>
       </TouchableOpacity>
 
       <TouchableOpacity

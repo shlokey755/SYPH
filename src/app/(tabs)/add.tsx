@@ -326,11 +326,11 @@ export default function AddTab() {
 
           <View style={styles.userDetails}>
 
-            <Text style={[styles.username, { color: themeColors.text }]}>{item.username}</Text>
+            <Text style={[styles.username, { color: themeColors.text }]}>{item.displayName || item.username}</Text>
 
             <Text style={[styles.userId, { color: themeColors.subText }]}>
 
-              User ID: {item.uid.substring(0, 8)}...
+              {item.displayName ? `@${item.username}` : `User ID: ${item.uid.substring(0, 8)}...`}
 
             </Text>
 

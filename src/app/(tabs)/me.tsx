@@ -25,13 +25,15 @@ import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import { setCachedProfileImage } from '../../hooks/useProfileImages';
+import { AccountEmailSection } from '../../components/profile/AccountEmailSection';
+import { NameSection } from '../../components/profile/NameSection';
 import { avatarPath, friendlyUploadError, uploadFile } from '../../services/mediaService';
 import { isPushSupported, registerForPush } from '../../services/pushService';
 import { updateProfileFields } from '../../services/userService';
 
 export default function MeTab() {
   const { currentUser, logout } = useAuth();
-  const { profile, canChangeUsername, timeUntilCanChange, updateUsername } =
+  const { profile, canChangeUsername, timeUntilCanChange, updateUsername, patchProfile } =
     useUserProfile(currentUser?.uid);
 
   const { selectedTheme, themeColors, setTheme } = useTheme();
@@ -195,6 +197,14 @@ export default function MeTab() {
         <Text style={{ color: themeColors.subText, fontSize: 12, marginTop: 8 }}>Tap to change photo</Text>
       </View>
 
+      {/* Name Section (optional display name, FR-02) */}
+      <NameSection
+        uid={currentUser!.uid}
+        username={profile.username}
+        savedName={profile.displayName ?? ''}
+        onSaved={(name) => patchProfile({ displayName: name })}
+      />
+
       {/* Username Section */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: themeColors.subText }]}>Username</Text>
@@ -238,6 +248,9 @@ export default function MeTab() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Sign-in email (FR-01) */}
+      <AccountEmailSection />
 
       {/* Status Section */}
       <View style={styles.section}>

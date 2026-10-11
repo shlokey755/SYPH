@@ -30,7 +30,7 @@ Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*
 
 | Feature | State |
 |---------|-------|
-| Username + password sign-in, onboarding, 3-tab layout, default Cyan and Black theme | Built |
+| Username or email sign-in, password reset, optional display name, onboarding, 3-tab layout, default Cyan and Black theme | Built |
 | Chat core: 1-on-1 and group chats, real-time messages | Built, membership-based rules |
 | Read receipts (sent / delivered / read) | Built |
 | Reply, forward, delete for me / for everyone, copy | Built |
@@ -40,7 +40,7 @@ Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*
 | Push notifications while closed | Built (app + `server/` relay), needs dev build, FCM and a running relay (API.md 1.5) |
 | Offline banner, queued sends (NFR-07) | Built |
 | Audio and video calls (FR-06) | Built, 1-to-1 only, needs dev build and TURN (API.md 1.7) |
-| Google and phone sign-in, real-email sign-in (FR-01) | **Not built** (API.md section 3) |
+| Google and phone sign-in (FR-01) | **Not built** (API.md section 3) |
 | Search across full history | **Not built**, needs an external search service (API.md section 3) |
 
 ## SRS coverage (audit of Oct 10, 2026)
@@ -49,15 +49,15 @@ Checked against `DOC-20261002-WA0031.pdf` by reading the code, not by running th
 
 | Requirement | State |
 |-------------|-------|
-| FR-01 sign-in by email, phone or Google | **Gap.** Username + password only (made-up `@syph.com` email) |
-| FR-02 profile: name, photo, status, username | **Partial.** Photo, status and username are editable. There is no separate "name"; `displayName` is just the username |
+| FR-01 sign-in by email, phone or Google | **Partial.** Email sign-in, sign-up with email, password reset and verification are built (username-only accounts still work). Google and phone sign-in are not built |
+| FR-02 profile: name, photo, status, username | Met. Optional display name added; shown in chat lists, headers and user search |
 | FR-03, FR-04 one-to-one chats, groups with add/remove members | Met |
 | FR-05 text, emojis, voice, photos, video, GIFs, stickers, documents | Met. Emojis come from the phone keyboard; stickers are a built-in emoji pack, not image stickers |
 | FR-06 audio and video calls | Met in code, unverified on a device |
 | FR-07 delivery and read status | Met |
 | FR-08 reply, forward, delete, copy | Met |
 | FR-09 toasts for success, errors, updates | Met (themed) |
-| FR-10 push for messages, calls, group activity | **Partial.** Messages, calls and "added to group" are pushed. Removal from a group and group renames are not |
+| FR-10 push for messages, calls, group activity | Met in code: messages, calls, added / removed / renamed / left (relay must be redeployed) |
 | FR-11 search chats, contacts, messages | **Partial.** Chat list search, user search in Add, and in-chat search over loaded messages. No search across full history |
 | FR-12 mute chats or disable notifications | Met |
 | FR-13, FR-14, FR-15 themes, Cyan and Black default, saved to profile | Met (six themes; saved to `users/{uid}.theme`) |
