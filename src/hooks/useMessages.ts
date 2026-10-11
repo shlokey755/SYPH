@@ -15,6 +15,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { db } from '../firebaseConfig';
 import { Message } from '../types';
+import { reuseUnchanged } from '../utils/messages';
 
 const PAGE_SIZE = 40;
 
@@ -63,9 +64,9 @@ export const useMessages = (conversationId: string | undefined, myUid: string | 
     return onSnapshot(
       q,
       (snapshot) => {
-        setMessages(
-          snapshot.docs.map(toMessage).filter((m) => !myUid || !m.deletedFor.includes(myUid))
-        );
+        const next = snapshot.docs.map(toMessage).filter((m) => !myUid || !m.deletedFor.includes(myUid));
+        // Keep the old objects for unchanged messages so only new or edited rows re-render.
+        setMessages((previous) => reuseUnchanged(previous, next));
         setHasMore(snapshot.size >= windowSize);
         setIsLoading(false);
       },

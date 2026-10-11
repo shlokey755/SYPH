@@ -32,7 +32,7 @@ import { isPushSupported, registerForPush } from '../../services/pushService';
 import { updateProfileFields } from '../../services/userService';
 
 export default function MeTab() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, refreshCurrentUser } = useAuth();
   const { profile, canChangeUsername, timeUntilCanChange, updateUsername, patchProfile } =
     useUserProfile(currentUser?.uid);
 
@@ -132,6 +132,7 @@ export default function MeTab() {
 
     if (result.success) {
       Alert.alert('Success', 'Username updated!');
+      void refreshCurrentUser(); // so messages and calls from now on use the new name
       setNewUsername('');
     } else {
       Alert.alert('Error', result.error || 'Failed to update username');
@@ -202,7 +203,10 @@ export default function MeTab() {
         uid={currentUser!.uid}
         username={profile.username}
         savedName={profile.displayName ?? ''}
-        onSaved={(name) => patchProfile({ displayName: name })}
+        onSaved={(name) => {
+          patchProfile({ displayName: name });
+          void refreshCurrentUser();
+        }}
       />
 
       {/* Username Section */}

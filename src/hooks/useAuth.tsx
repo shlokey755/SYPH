@@ -12,6 +12,7 @@ import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { auth, db } from '../firebaseConfig';
 import { claimUsername, isUsernameAvailable, releaseUsername, requestPasswordReset } from '../services/accountService';
+import { clearCachedProfile, readCachedProfile, writeCachedProfile } from '../services/profileCache';
 import { setAppBadge, unregisterPush } from '../services/pushService';
 import { UserProfile } from '../types';
 import {
@@ -33,6 +34,8 @@ interface AuthContextType {
   /** `identifier` is a username or an email address. */
   login: (identifier: string, password: string) => Promise<any>;
   resetPassword: (email: string) => Promise<void>;
+  /** Re-reads the profile from the server, e.g. after the username, name or photo changed. */
+  refreshCurrentUser: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -47,12 +50,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // read the profile yet; register() loads it itself when it is done.
   const registering = useRef(false);
 
-  const loadProfile = useCallback(async (user: User) => {
+  /** Reads the profile from the server, shows it, and keeps a copy on the device for the next launch. */
+  const fetchProfile = useCallback(async (user: User) => {
     const userDocSnap = await getDoc(doc(db, 'users', user.uid));
 
+    let profile: UserProfile;
     if (userDocSnap.exists()) {
       const userData = userDocSnap.data();
-      setCurrentUser({
+      profile = {
         uid: user.uid,
         username: userData.username || 'Anonymous',
         usernameLowercase: userData.usernameLowercase || (userData.username ? userData.username.toLowerCase() : 'anonymous'),
@@ -61,19 +66,53 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         status: userData.status,
         theme: userData.theme,
         createdAt: new Date(),
-      });
+      };
+      void writeCachedProfile(profile);
     } else {
       const fallbackUsername = user.email?.split('@')[0] || 'Anonymous';
-      setCurrentUser({
+      profile = {
         uid: user.uid,
         username: fallbackUsername,
         usernameLowercase: fallbackUsername.toLowerCase(),
         displayName: fallbackUsername,
         createdAt: new Date(),
-      });
+      };
     }
+    // The person may have signed out while the request was in flight.
+    if (auth.currentUser?.uid !== user.uid) return;
+    setCurrentUser(profile);
     setFirebaseUser(user);
   }, []);
+
+  /**
+   * Signs the user in to the app. When a copy of their profile is on the device it is shown immediately and the
+   * server copy is fetched in the background; otherwise this waits for the server, as it always did.
+   */
+  const loadProfile = useCallback(
+    async (user: User, { allowCached = false }: { allowCached?: boolean } = {}) => {
+      const cached = allowCached ? await readCachedProfile(user.uid) : null;
+      if (cached) {
+        if (auth.currentUser?.uid !== user.uid) return;
+        setCurrentUser({ ...cached, createdAt: new Date() });
+        setFirebaseUser(user);
+        setIsLoading(false);
+        fetchProfile(user).catch((err) => console.warn('Could not refresh profile:', err?.message ?? err));
+        return;
+      }
+      await fetchProfile(user);
+    },
+    [fetchProfile]
+  );
+
+  const refreshCurrentUser = useCallback(async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      await fetchProfile(user);
+    } catch (err: any) {
+      console.warn('Could not refresh profile:', err?.message ?? err);
+    }
+  }, [fetchProfile]);
 
   useEffect(() => {
     // Safety fallback: force loading to false after 3 seconds if Firebase hangs
@@ -87,7 +126,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       try {
         if (user) {
-          await loadProfile(user);
+          await loadProfile(user, { allowCached: true });
         } else {
           setCurrentUser(null);
           setFirebaseUser(null);
@@ -181,7 +220,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Detach this device first (needs the signed-in session), so a shared phone stops getting this
     // account's notifications. Bounded by a short timeout so logging out never hangs when offline.
     const uid = auth.currentUser?.uid;
-    if (uid) await unregisterPush(uid);
+    if (uid) {
+      await unregisterPush(uid);
+      void clearCachedProfile(uid);
+    }
     void setAppBadge(0);
     return signOut(auth);
   };
@@ -195,6 +237,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         register,
         login,
         resetPassword,
+        refreshCurrentUser,
         logout,
       }}
     >

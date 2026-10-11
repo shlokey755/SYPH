@@ -24,6 +24,8 @@ Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*
 - `src/services/*` talk to Firebase; `src/hooks/*` hold state; `src/utils/*` hold pure logic that is unit tested (`tests/unit`).
 - 1-on-1 conversation id is `<uidA>_<uidB>` (sorted). Data model is in `API.md` section 2.
 - Security is the rules: `firestore.rules`, `storage.rules`. List queries must filter on the fields the rules use (for example `participantIds array-contains <uid>`).
+- Startup: the signed-in profile is cached on the device (`services/profileCache.ts`) so the app opens straight into the chat list, and the server copy is fetched right after. The cache is cleared at sign-out. Message objects are kept stable between snapshots (`utils/messages.ts`) so a new message does not re-render every bubble.
+- CI: `.github/workflows/ci.yml` runs typecheck, unit tests, an Android bundle and the relay tests on every PR. Run the same checks locally with `npm run typecheck`, `npm run test:unit`, `cd server && npm test`.
 - `server/` is the push relay (Node, Firebase Admin, Expo push). Optional; the app works without it.
 
 ## Feature status
@@ -62,7 +64,7 @@ Checked against `DOC-20261002-WA0031.pdf` by reading the code, not by running th
 | FR-12 mute chats or disable notifications | Met |
 | FR-13, FR-14, FR-15 themes, Cyan and Black default, saved to profile | Met (six themes; saved to `users/{uid}.theme`) |
 | NFR-01, NFR-04, NFR-05, NFR-08 | Met by design; not measured on small devices |
-| NFR-02 main chat screen in 2 s | **Not measured** |
+| NFR-02 main chat screen in 2 s | **Not measured.** The startup path no longer waits for the network (device-cached profile), which is the main thing in its way |
 | NFR-03 secure auth and data | Rules written but never executed (see below) |
 | NFR-06 upload progress and errors as toasts | Met |
 | NFR-07 usable offline | Met |
