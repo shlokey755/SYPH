@@ -81,7 +81,7 @@ Checked in the build environment: TypeScript is clean, the Android bundle builds
 
 ## Known limits
 
-- Calls have no native call screen (CallKit / ConnectionService): a call while the app is closed arrives as a notification.
+- Calls have no native call screen (CallKit / ConnectionService): a call while the app is closed arrives as a notification. The speaker/earpiece toggle uses `react-native-incall-manager` (native, dev build only) and has not been tried on a device.
 - TURN credentials in `EXPO_PUBLIC_*` are visible inside the app. Fine for testing, replace with short-lived credentials for production.
 - Run exactly one push relay instance. Messages sent while it is down are not announced later.
 - Web is not a supported target (no `react-native-web` dependency).

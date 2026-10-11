@@ -4,6 +4,7 @@ import {
   RING_TIMEOUT_MS,
   STALE_RING_MS,
   allowedNextStatuses,
+  defaultSpeakerOn,
   canTransition,
   endReasonFromStatus,
   endReasonText,
@@ -95,5 +96,12 @@ describe('formatCallClock', () => {
   it('never goes negative or shows fractions', () => {
     assert.equal(formatCallClock(-5), '00:00');
     assert.equal(formatCallClock(59.9), '00:59');
+  });
+});
+
+describe('defaultSpeakerOn', () => {
+  it('starts video calls on the speaker and voice calls on the earpiece', () => {
+    assert.equal(defaultSpeakerOn('video'), true);
+    assert.equal(defaultSpeakerOn('audio'), false);
   });
 });
