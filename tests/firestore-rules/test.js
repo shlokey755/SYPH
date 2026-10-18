@@ -33,6 +33,7 @@ const no = (n, p) => check(n, p, false);
   const bob = env.authenticatedContext('bob').firestore();
   const carol = env.authenticatedContext('carol').firestore();
   const anon = env.unauthenticatedContext().firestore();
+  const updateGroupAs = (e, uid, data) => e.authenticatedContext(uid).firestore().doc('conversations/g1').update(data);
 
   const direct = (uid, other) => ({
     isGroup: false, createdBy: uid, participantIds: [uid, other],
@@ -113,6 +114,21 @@ const no = (n, p) => check(n, p, false);
   await no('removed member can no longer read', carol.doc('conversations/g1').get());
   await ok('creator renames group', alice.doc('conversations/g1').update({ groupName: 'New' }));
 
+  console.log('\nGroup activity (read by the push relay)');
+  const act = (type, by, extra = {}) => ({ type, by, byName: by, at: FV.serverTimestamp(), ...extra });
+  await ok('rename can record who did it', alice.doc('conversations/g1').update({ groupName: 'Third', groupActivity: act('renamed', 'alice') }));
+  await no('activity cannot name someone else as the actor', alice.doc('conversations/g1').update({ groupName: 'Fourth', groupActivity: act('renamed', 'bob') }));
+  await no('activity cannot carry a made-up time', alice.doc('conversations/g1').update({
+    groupName: 'Fifth', groupActivity: { type: 'renamed', by: 'alice', byName: 'alice', at: firebase.firestore.Timestamp.fromMillis(1000) },
+  }));
+  await no('an outsider cannot record activity', carol.doc('conversations/g1').update({ groupActivity: act('renamed', 'carol') }));
+  await ok('creator adds a member again', alice.doc('conversations/g1').update({ participantIds: ['alice', 'bob', 'dave'] }));
+  await ok('creator removal can be recorded', alice.doc('conversations/g1').update({
+    participantIds: ['alice', 'bob'], groupActivity: act('removed', 'alice', { targets: ['dave'] }),
+  }));
+  await ok('creator adds a member once more', alice.doc('conversations/g1').update({ participantIds: ['alice', 'bob', 'dave'] }));
+  await ok('a member leaving can be recorded', updateGroupAs(env, 'dave', { participantIds: ['alice', 'bob'], groupActivity: act('left', 'dave') }));
+
   console.log('\nPush token registry');
   const tok = (uid) => ({ uid, platform: 'android', updatedAt: FV.serverTimestamp() });
   await ok('user claims a device token for themselves', alice.doc('pushTokens/ExponentPushToken[abc]').set(tok('alice')));
@@ -124,6 +140,24 @@ const no = (n, p) => check(n, p, false);
   await ok('deleting a missing entry is harmless', alice.doc('pushTokens/ExponentPushToken[gone]').delete());
   await no('registry cannot be read by clients', bob.doc('pushTokens/ExponentPushToken[abc]').get());
   await no('registry cannot be listed', alice.collection('pushTokens').get());
+
+  console.log('\nUsername registry');
+  const claim = (db, name, uid) => db.doc(`usernames/${name}`).set({ uid, createdAt: FV.serverTimestamp() });
+  await ok('can claim a free username for yourself', claim(alice, 'alice_01', 'alice'));
+  await no('cannot claim a name that is already taken', claim(bob, 'alice_01', 'bob'));
+  await no('cannot claim a name on behalf of someone else', claim(bob, 'bobs_name', 'alice'));
+  await no('cannot claim a name that is too short', claim(bob, 'ab', 'bob'));
+  await no('cannot claim a name with upper-case letters', claim(bob, 'Bobby', 'bob'));
+  await no('cannot claim a name ending in a dot', claim(bob, 'bobby.', 'bob'));
+  await no('cannot add extra fields to a claim', bob.doc('usernames/bobby').set({ uid: 'bob', createdAt: FV.serverTimestamp(), admin: true }));
+  await no('anonymous cannot claim', claim(anon, 'anon_name', 'alice'));
+  await ok('signed-in users can check who owns a name', carol.doc('usernames/alice_01').get());
+  await no('anonymous cannot read the registry', anon.doc('usernames/alice_01').get());
+  await no('the registry cannot be listed', carol.collection('usernames').get());
+  await no('the owner cannot rewrite a claim', alice.doc('usernames/alice_01').update({ uid: 'bob' }));
+  await no('others cannot release your name', bob.doc('usernames/alice_01').delete());
+  await ok('the owner can release their name', alice.doc('usernames/alice_01').delete());
+  await ok('a released name can be claimed by someone else', claim(bob, 'alice_01', 'bob'));
 
   console.log('\nCalls');
   const expire = () => firebase.firestore.Timestamp.fromMillis(Date.now() + 3600 * 1000);

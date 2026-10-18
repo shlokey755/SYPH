@@ -39,6 +39,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
 import { useMediaSender } from '../../hooks/useMediaSender';
 import { useMessages } from '../../hooks/useMessages';
+import { useProfiles } from '../../hooks/useProfileImages';
 import { useIsOffline } from '../../hooks/useOnlineStatus';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import * as chat from '../../services/chatService';
@@ -157,7 +158,12 @@ export default function ChatScreen() {
   }, [messages, conversation, myUid, focused, appActive]);
 
   // ----- derived data -----
-  const title = conversation ? getConversationTitle(conversation, myUid) : 'Chat';
+  const otherUidList = useMemo(() => {
+    const other = conversation && !conversation.isGroup ? getOtherParticipant(conversation, myUid)?.uid : undefined;
+    return other ? [other] : [];
+  }, [conversation, myUid]);
+  const { nameOf } = useProfiles(otherUidList); // the other person's current name, not the one saved when the chat began
+  const title = conversation ? getConversationTitle(conversation, myUid, nameOf) : 'Chat';
   const subtitle = conversation ? getConversationSubtitle(conversation) : '';
   const muted = conversationId ? isMuted(conversationId) : false;
 
@@ -238,7 +244,7 @@ export default function ChatScreen() {
         text: original.text,
         media: original.media,
       });
-      toast.success('Forwarded', `Sent to ${getConversationTitle(target, myUid)}`);
+      toast.success('Forwarded', `Sent to ${getConversationTitle(target, myUid, nameOf)}`);
     } catch (e) {
       toast.error('Could not forward', errorText(e));
     }

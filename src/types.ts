@@ -73,6 +73,17 @@ export interface ReadReceipt {
   readAt?: FirestoreTime;
 }
 
+/** The latest change to a group, recorded so the push relay can announce it (FR-10). */
+export interface GroupActivity {
+  type: 'renamed' | 'removed' | 'left';
+  /** Who did it. Set to the signed-in user and enforced by the rules. */
+  by: string;
+  byName: string;
+  /** For 'removed': the people who were removed. */
+  targets?: string[];
+  at: FirestoreTime;
+}
+
 export interface Conversation {
   id: string;
   isGroup: boolean;
@@ -96,6 +107,8 @@ export interface Conversation {
   readState?: Record<string, ReadReceipt>;
   /** Per-user unread message counters, keyed by uid. */
   unread?: Record<string, number>;
+  /** Latest rename / removal / leave in a group. */
+  groupActivity?: GroupActivity;
   createdAt: FirestoreTime;
 }
 

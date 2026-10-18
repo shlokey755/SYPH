@@ -15,6 +15,15 @@ Newest first. The first section is the feature build (October 6 to 9, 2026); the
 5. **Calls.** WebRTC with Firestore signalling, an incoming-call overlay, a call screen, call pushes from the relay.
 6. **Generated native folders.** `android/` was tracked even though config plugins only run at prebuild, so edits in `app.json` would not have reached builds. It is now git-ignored and regenerated (`npx expo prebuild`).
 
+### Second round (Oct 10-11)
+
+- Email sign-in, sign-up with an email, password reset, email verification, and Me > Account email. Username-only accounts keep working; usernames are unique across both kinds through a `usernames` registry.
+- Optional display name (FR-02), shown in chat lists, headers and search.
+- Group rename / removal / leave are recorded as `groupActivity` and announced by the relay (FR-10). The relay works out who was removed from the member list, never from client-written targets.
+- Efficiency: stable message objects between snapshots, a device-cached profile so startup does not wait on the network, and `refreshCurrentUser` so a changed username or name is used straight away.
+- CI workflow added. A dead `updateUsernameInAuth` that would have rewritten a real email to a made-up one was removed.
+- Found along the way: the EAS development profile needed `expo-dev-client`, which had been removed during the first Expo Go debugging.
+
 ### Problems met and how they were settled
 
 | Problem | Resolution |
