@@ -138,8 +138,22 @@ const no = (n, p) => check(n, p, false);
   await no('previous owner cannot delete the entry after takeover', alice.doc('pushTokens/ExponentPushToken[abc]').delete());
   await ok('current owner deletes the entry', bob.doc('pushTokens/ExponentPushToken[abc]').delete());
   await ok('deleting a missing entry is harmless', alice.doc('pushTokens/ExponentPushToken[gone]').delete());
-  await no('registry cannot be read by clients', bob.doc('pushTokens/ExponentPushToken[abc]').get());
+  await ok('a signed-in user can look up one token owner', alice.doc('pushTokens/ExponentPushToken[abc]').get());
+  await no('anonymous cannot look up a token', anon.doc('pushTokens/ExponentPushToken[abc]').get());
   await no('registry cannot be listed', alice.collection('pushTokens').get());
+
+  console.log('\nPush mirror (userPush)');
+  const mirror = (extra = {}) => ({ tokens: ['ExponentPushToken[a]'], notificationsEnabled: true, mutedChats: [], updatedAt: FV.serverTimestamp(), ...extra });
+  await ok('owner writes own mirror', alice.doc('userPush/alice').set(mirror()));
+  await no('others cannot write someone else\'s mirror', carol.doc('userPush/alice').set(mirror()));
+  await ok('a signed-in user can read one mirror', bob.doc('userPush/alice').get());
+  await no('anonymous cannot read a mirror', anon.doc('userPush/alice').get());
+  await no('mirrors cannot be listed', bob.collection('userPush').get());
+  await no('more than 5 devices is refused', alice.doc('userPush/alice').set(mirror({ tokens: ['1', '2', '3', '4', '5', '6'] })));
+  await no('unexpected fields are refused', alice.doc('userPush/alice').set(mirror({ admin: true })));
+  await no('notificationsEnabled must be a boolean', alice.doc('userPush/alice').set(mirror({ notificationsEnabled: 'yes' })));
+  await ok('owner deletes own mirror', alice.doc('userPush/alice').delete());
+  await no('others cannot delete a mirror', carol.doc('userPush/alice').delete());
 
   console.log('\nUsername registry');
   const claim = (db, name, uid) => db.doc(`usernames/${name}`).set({ uid, createdAt: FV.serverTimestamp() });

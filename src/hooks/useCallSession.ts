@@ -24,6 +24,7 @@ import {
   subscribeRemoteCandidates,
 } from '../services/callService';
 import { setCallSpeaker, startCallAudio, stopCallAudio } from '../services/callAudio';
+import { notifyCall } from '../services/pushSender';
 import { getIceServers, getWebRTC, PeerEvents } from '../services/webrtc';
 import { Call, CallCandidate, CallStatus, CallType } from '../types';
 import {
@@ -365,6 +366,15 @@ export function useCallSession({ callId, outgoing, me }: Params) {
         ]);
         // Hung up while the call was being placed: the hang-up path has already queued the cancel.
         if (disposed || finished) return;
+
+        // The call is on the server, so ring the callee's phone in case their app is closed (best effort).
+        void notifyCall({
+          callId: id,
+          conversationId: plan.conversationId,
+          callerName: self.username,
+          type: plan.type,
+          calleeUid: plan.callee.uid,
+        });
 
         while (pendingLocal.length > 0) sendCandidate(pendingLocal.shift()!);
         setPhase('ringing');

@@ -12,13 +12,10 @@ import { isRunningInExpoGo } from 'expo';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import { CALLS_CHANNEL_ID, MESSAGES_CHANNEL_ID } from '../utils/push';
 import { addPushToken, removePushToken } from './userService';
 
 type NotificationsModule = typeof import('expo-notifications');
-
-/** Android notification channels the relay targets (channelId in the push payload). Keep in sync with server/src/notify.js. */
-export const MESSAGES_CHANNEL_ID = 'messages';
-export const CALLS_CHANNEL_ID = 'calls';
 
 export type PushRegistration =
   | { status: 'registered'; token: string }

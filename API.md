@@ -50,20 +50,28 @@ Limits: 25 MB per chat file, 5 MB per profile photo (enforced in `storage.rules`
 
 ### 1.5 Push notifications while the app is closed (FR-10)
 
-In-app toasts and unread badges work everywhere, including Expo Go. Alerts while the app is closed need all of the steps below; skip them and nothing else breaks.
+In-app toasts and unread badges work everywhere, including Expo Go. Alerts while the app is **closed** need the steps below. No server, hosting or payment is involved: when you send a message or place a call, your phone asks Expo's free push service to notify the other person's phone (default `EXPO_PUBLIC_PUSH_MODE=client`).
 
-| Step | How |
-|------|-----|
-| Re-publish `firestore.rules` | It now includes the `pushTokens` registry (same as 1.1). |
-| Development build | Remote push does not work in Expo Go or on simulators. `eas build --profile development --platform android` (iOS needs an Apple developer account). |
-| FCM credentials (Android) | Firebase Console > Project settings > Cloud Messaging, then `eas credentials` > Android > Google Service Account key for FCM V1. Expo guide: https://docs.expo.dev/push-notifications/fcm-credentials/ |
-| APNs key (iOS) | Handled by `eas credentials` when you build for iOS. |
-| Run the relay | `server/` is a small Node 22.9+ service. Steps, hosting options and the delivery rules are in `server/README.md`. |
-| Service account key | Firebase Console > Project settings > Service accounts > Generate new private key. Put it in `server/.env` or the host's secret store. It gives full database access, so never commit it (already git-ignored). |
-| What it announces | New messages, incoming calls, being added to a group, a group being renamed, being removed from a group, and a member leaving (the group's creator only). |
-| Optional | `EXPO_ACCESS_TOKEN` (expo.dev > Account settings > Access tokens) for enhanced push security; `PUSH_HIDE_PREVIEW=1` to hide message text in notifications. |
+| Step | How | Cost |
+|------|-----|------|
+| Re-publish `firestore.rules` | Adds `userPush` and lets signed-in users look up one `pushTokens` entry (same as 1.1). Without it, push silently does nothing. | Free |
+| Build the app (not Expo Go) | Remote push does not work in Expo Go or on simulators. `eas build --profile development --platform android` for testing, or `--profile preview` for an installable APK. iOS needs an Apple developer account. | Free (EAS free tier queues builds) |
+| FCM credentials (Android) | Firebase Console > Project settings > Service accounts > Generate new private key, then `eas credentials` > Android > Google Service Account Key for FCM V1 and upload it. Guide: https://docs.expo.dev/push-notifications/fcm-credentials/ . Without this the build installs fine but no push arrives. | Free |
+| Allow notifications | Both people sign in once on the new build and accept the notification permission (Android 13+ asks). The app saves the device at that point. | Free |
+| Phone settings | On some phones (Xiaomi, Oppo, Vivo, Samsung power saving) set SYPH battery use to "Unrestricted" or allow auto-start, otherwise the system kills delivery when the app is closed. | Free |
 
-Run **one** relay instance. It must stay running; messages sent while it is down are not announced later (unread badges still catch the user up).
+**Limits of the free approach (accepted trade-offs)**
+- The *sender's* phone must be online at the moment of sending. A message written offline is pushed when it finally uploads.
+- Any signed-in user can read another user's device tokens (one document at a time, never a list). That is what lets a phone notify another phone without a server. A malicious signed-in user could spam someone's notifications. Fine for friends and family, not for a public app.
+- Calls ring as a notification with the ringtone and vibration of the "Calls" channel, not as a full-screen ringing screen. Tapping it opens the chat, and the Accept / Decline screen appears if the call is still ringing (30 seconds).
+- A caller who hangs up leaves the notification in the tray until it is dismissed. No "missed call" push is sent.
+- Group changes (added, renamed, removed, left) do not push in this mode. New group *messages* do.
+- Notification text includes the message preview. There is no hide-preview switch in this mode.
+- Not yet tested on a real phone: Expo's push endpoint could not be reached from the build environment, so the first real test is yours (send a message to a second phone with the app swiped away).
+
+**Optional relay (not needed, needs a host that stays on).** `server/` is a Node 22.9+ service that watches Firestore and pushes for everything, including group changes. Only use it if you have a free always-on host. Set `EXPO_PUBLIC_PUSH_MODE="relay"` in `.env` so the app stops sending pushes itself, otherwise every notification arrives twice. Steps and delivery rules: `server/README.md`. Needs a Firebase service-account key in `server/.env` (full database access, never commit it) and optionally `EXPO_ACCESS_TOKEN` and `PUSH_HIDE_PREVIEW=1`. Run **one** instance.
+
+`EXPO_PUBLIC_PUSH_MODE`: `client` (default) / `relay` / `off`.
 
 ### 1.6 Offline use (NFR-07)
 
@@ -79,7 +87,7 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 | Development build | WebRTC is a native module, so calls **do not work in Expo Go** (the call buttons explain this in a toast). `npm install`, then `eas build --profile development --platform android` or `npx expo run:android`. The camera/microphone permissions and the WebRTC config plugin are already in `app.json`. |
 | Regenerate native folders | `android/` and `ios/` are git-ignored and rebuilt from `app.json` (`npx expo prebuild --clean`). EAS does this for you. |
 | TURN server (strongly advised) | STUN alone connects phones on friendly networks only. Mobile data and many Wi-Fi networks need a TURN relay. Options: a hosted service (Twilio Network Traversal, Metered, Cloudflare Realtime TURN) or your own `coturn`. Put the values in `.env`: `EXPO_PUBLIC_TURN_URLS`, `EXPO_PUBLIC_TURN_USERNAME`, `EXPO_PUBLIC_TURN_CREDENTIAL`. Optional `EXPO_PUBLIC_STUN_URLS` replaces the default Google STUN servers. |
-| Ringing while the app is closed | Needs the push relay from 1.5 (re-deploy `server/`: it now watches `calls`) and a build made after this change so the Android "Calls" channel exists. |
+| Ringing while the app is closed | Works through the push set-up in 1.5 (a build that has the Android "Calls" channel). |
 | Optional cleanup | Calls and ICE candidates carry an `expireAt` field (24 h). Firestore Console > Indexes > TTL: add a policy on `expireAt` for collection groups `calls` and `candidates` to have them deleted automatically. Without it they simply stay. |
 
 **Behaviour**
@@ -128,7 +136,8 @@ Things to know:
 | `users/{uid}/private/settings` | Owner-only: `mutedChats[]`, `notificationsEnabled`, `expoPushTokens[]` |
 | `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `groupActivity` (latest rename / removal / leave, read by the push relay), `hiddenBy[]`, `readState{uid:{deliveredAt,readAt}}`, `unread{uid:n}` |
 | `usernames/{lowercase name}` | Claim registry: `uid`, `createdAt`. One document per name, create-once, so two accounts cannot take the same name. Readable one at a time, never listed |
-| `pushTokens/{token}` | Which account is signed in on a device (`uid`, `platform`, `updatedAt`). Write-only for clients; read by the push relay |
+| `pushTokens/{token}` | Which account is signed in on a device (`uid`, `platform`, `updatedAt`). A sender checks it before using a token; readable one at a time, never listed |
+| `userPush/{uid}` | Copy of the push-relevant settings: `tokens[]` (newest 5), `notificationsEnabled`, `mutedChats[]`. Written only by the owner, readable one at a time by signed-in users so a sender's phone can notify them |
 | `calls/{id}` | One call: `callerId`, `calleeId`, `participantIds`, `type` (audio/video), `status` (ringing, accepted, declined, cancelled, missed, ended), `offer`, `answer`, `createdAt`, `expireAt` |
 | `calls/{id}/candidates/{id}` | ICE candidates trickled by either side (`from`, `candidate`, `sdpMid`, `sdpMLineIndex`) |
 | `conversations/{id}/messages/{id}` | `type`, `text`, `media`, `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |

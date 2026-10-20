@@ -13,6 +13,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { auth, db } from '../firebaseConfig';
 import { claimUsername, isUsernameAvailable, releaseUsername, requestPasswordReset } from '../services/accountService';
 import { clearCachedProfile, readCachedProfile, writeCachedProfile } from '../services/profileCache';
+import { clearPushTargetCache } from '../services/pushTargets';
 import { setAppBadge, unregisterPush } from '../services/pushService';
 import { UserProfile } from '../types';
 import {
@@ -225,6 +226,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       void clearCachedProfile(uid);
     }
     void setAppBadge(0);
+    clearPushTargetCache();
     return signOut(auth);
   };
 
