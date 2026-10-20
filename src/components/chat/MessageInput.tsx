@@ -10,11 +10,13 @@ interface Props {
   replyTo: ReplyPreview | null;
   onCancelReply: () => void;
   onSend: (text: string) => void;
+  /** Called with the new text on every edit (drives the "typing…" indicator). */
+  onTextChange?: (text: string) => void;
   onOpenSticker: () => void;
   onOpenGif: () => void;
 }
 
-export function MessageInput({ colors, replyTo, onCancelReply, onSend, onOpenSticker, onOpenGif }: Props) {
+export function MessageInput({ colors, replyTo, onCancelReply, onSend, onTextChange, onOpenSticker, onOpenGif }: Props) {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const canSend = text.trim().length > 0;
@@ -66,7 +68,10 @@ export function MessageInput({ colors, replyTo, onCancelReply, onSend, onOpenSti
           placeholder="Message"
           placeholderTextColor={colors.subText}
           value={text}
-          onChangeText={setText}
+          onChangeText={(value) => {
+            setText(value);
+            onTextChange?.(value);
+          }}
           multiline
           maxLength={4000}
         />

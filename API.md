@@ -128,6 +128,14 @@ Things to know:
 - If Firebase's "email enumeration protection" is on (the default for new projects), it refuses to switch a username-only account's hidden email when that person changes their username. The app then asks them to add a real email first. Email accounts can change their username freely.
 - **Not built:** Google and phone sign-in. See section 3.
 
+### 1.9 Typing indicator
+
+Shows "typing…" under the name in a 1-on-1 chat and "Bob is typing…" / "3 people are typing…" in a group, while that chat is open. Nothing to set up beyond re-publishing `firestore.rules` (1.1); it works in Expo Go.
+
+- Cost: while someone types, their phone writes one tiny document at most every 3 seconds and deletes it when they stop or send. Roughly 10 writes per typed message against Firestore's free 20,000 writes per day, so a few hundred typed messages a day is fine, thousands is not.
+- It only runs while the chat is open, the app is in the foreground and the phone is online. Someone who loses signal or closes the app stops showing after about 6 seconds.
+- Not shown in the chat list, and there is no switch to turn it off yet.
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
@@ -141,6 +149,7 @@ Things to know:
 | `calls/{id}` | One call: `callerId`, `calleeId`, `participantIds`, `type` (audio/video), `status` (ringing, accepted, declined, cancelled, missed, ended), `offer`, `answer`, `createdAt`, `expireAt` |
 | `calls/{id}/candidates/{id}` | ICE candidates trickled by either side (`from`, `candidate`, `sdpMid`, `sdpMLineIndex`) |
 | `conversations/{id}/messages/{id}` | `type` (`text`, `gif`, `sticker`; the rules refuse anything else), `text`, `media` (GIF link only), `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
+| `conversations/{id}/typing/{uid}` | "I am typing" marker: `typing: true`, `at` (server time). Members read, each writes only their own, deleted when they stop |
 
 
 1-on-1 chats use the id `<uidA>_<uidB>` (sorted), so two people can never end up with two chats.

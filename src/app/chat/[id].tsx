@@ -36,6 +36,7 @@ import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
 import { useGifStickerSender } from '../../hooks/useGifStickerSender';
+import { useTypingPeers, useTypingReporter } from '../../hooks/useTyping';
 import { useMessages } from '../../hooks/useMessages';
 import { useProfiles } from '../../hooks/useProfiles';
 import { useIsOffline } from '../../hooks/useOnlineStatus';
@@ -50,6 +51,7 @@ import {
   toMillis,
 } from '../../utils/conversation';
 import { getMessageStatus } from '../../utils/messageStatus';
+import { typingLabel } from '../../utils/typing';
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong');
 
@@ -142,6 +144,17 @@ export default function ChatScreen() {
   const subtitle = conversation ? getConversationSubtitle(conversation) : '';
   const muted = conversationId ? isMuted(conversationId) : false;
 
+  // "typing…": others are shown while this chat is on screen and online; your own typing is reported under the same rule.
+  const typingEnabled = !!conversation && !offline && focused && appActive;
+  const typingUids = useTypingPeers(conversationId, myUid, typingEnabled);
+  const typingReporter = useTypingReporter(conversationId, myUid, typingEnabled);
+  const typingText = typingLabel(
+    typingUids.map(
+      (uid) => nameOf(uid) ?? conversation?.participants?.find((p) => p.uid === uid)?.username ?? 'Someone'
+    ),
+    !!conversation?.isGroup
+  );
+
   const visibleMessages = useMemo(() => {
     const q = searchText.trim().toLowerCase();
     if (!searchOpen || !q) return messages;
@@ -164,6 +177,7 @@ export default function ChatScreen() {
 
   const handleSend = (text: string) => {
     if (!conversation || !me) return;
+    typingReporter.stop();
     const reply = replyTo;
     setReplyTo(null);
     // Not awaited: while offline the write stays queued and the bubble shows as pending (NFR-07).
@@ -309,7 +323,15 @@ export default function ChatScreen() {
           <Text style={[styles.headerTitle, { color: themeColors.text }]} numberOfLines={1}>
             {title}
           </Text>
-          {subtitle ? (
+          {typingText ? (
+            <Text
+              style={[styles.headerSubtitle, { color: themeColors.accent }]}
+              numberOfLines={1}
+              accessibilityLiveRegion="polite"
+            >
+              {typingText}
+            </Text>
+          ) : subtitle ? (
             <Text style={[styles.headerSubtitle, { color: themeColors.subText }]}>
               {subtitle} - tap for info
             </Text>
@@ -397,6 +419,7 @@ export default function ChatScreen() {
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
           onSend={handleSend}
+          onTextChange={typingReporter.onTextChange}
           onOpenSticker={() => setStickerOpen(true)}
           onOpenGif={() => setGifOpen(true)}
         />

@@ -97,6 +97,21 @@ const no = (n, p) => check(n, p, false);
   await no('cannot edit message text', m1(alice).update({ text: 'edited' }));
   await no('cannot delete a message document', m1(alice).delete());
 
+  console.log('\nTyping indicator');
+  const marker = (extra = {}) => ({ typing: true, at: FV.serverTimestamp(), ...extra });
+  await ok('member writes own typing marker', alice.doc('conversations/alice_bob/typing/alice').set(marker()));
+  await ok('member refreshes own typing marker', alice.doc('conversations/alice_bob/typing/alice').set(marker()));
+  await no('cannot fake someone else typing', alice.doc('conversations/alice_bob/typing/bob').set(marker()));
+  await no('outsider cannot write a typing marker', carol.doc('conversations/alice_bob/typing/carol').set(marker()));
+  await no('cannot backdate the marker', alice.doc('conversations/alice_bob/typing/alice').set(marker({ at: firebase.firestore.Timestamp.fromMillis(1000) })));
+  await no('typing must be true (stop = delete)', alice.doc('conversations/alice_bob/typing/alice').set(marker({ typing: false })));
+  await no('unexpected fields are refused', alice.doc('conversations/alice_bob/typing/alice').set(marker({ note: 'hi' })));
+  await ok('the other member can read markers', bob.collection('conversations/alice_bob/typing').get());
+  await no('outsider cannot read markers', carol.collection('conversations/alice_bob/typing').get());
+  await no('cannot delete someone else\'s marker', bob.doc('conversations/alice_bob/typing/alice').delete());
+  await ok('member deletes own marker', alice.doc('conversations/alice_bob/typing/alice').delete());
+  await ok('deleting a marker that is already gone is harmless', alice.doc('conversations/alice_bob/typing/alice').delete());
+
   console.log('\nReceipts and conversation updates');
   await ok('bob writes own readState', bob.doc('conversations/alice_bob').update({ 'readState.bob.readAt': FV.serverTimestamp(), 'readState.bob.deliveredAt': FV.serverTimestamp(), 'unread.bob': 0 }));
   await no('bob cannot write alice\'s readState', bob.doc('conversations/alice_bob').update({ 'readState.alice.readAt': FV.serverTimestamp() }));

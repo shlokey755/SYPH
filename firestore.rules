@@ -121,6 +121,19 @@ service cloud.firestore {
 
         allow delete: if false;
       }
+
+      // ---------------- Typing indicator ----------------
+      // One short-lived marker per member: "I am typing". Members read them; each member writes only their own,
+      // so nobody can fake someone else typing. Markers are deleted when the person stops.
+      match /typing/{uid} {
+        allow read: if isMemberOf(cid);
+        allow create, update: if isMemberOf(cid)
+          && uid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['typing', 'at'])
+          && request.resource.data.typing == true
+          && request.resource.data.at == request.time;
+        allow delete: if isMemberOf(cid) && uid == request.auth.uid;
+      }
     }
 
     // ---------------- Push token registry ----------------
