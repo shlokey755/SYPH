@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -23,7 +22,7 @@ import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
-import { useProfiles } from '../../hooks/useProfileImages';
+import { useProfiles } from '../../hooks/useProfiles';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import { Conversation } from '../../types';
 import {
@@ -51,7 +50,7 @@ export default function ChatTab() {
         .filter((uid): uid is string => !!uid),
     [conversations, myUid]
   );
-  const { photoOf, nameOf } = useProfiles(otherUids);
+  const { nameOf } = useProfiles(otherUids);
 
   const filtered = useMemo(() => {
     const q = searchText.trim().toLowerCase();
@@ -99,19 +98,15 @@ export default function ChatTab() {
           pressed && { backgroundColor: themeColors.cardBackground },
         ]}
       >
-        {photoOf(other?.uid) || other?.profileImageUrl ? (
-          <Image source={{ uri: photoOf(other?.uid) || other?.profileImageUrl }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: themeColors.accent }]}>
-            {item.isGroup ? (
-              <Ionicons name="people" size={22} color={themeColors.buttonText} />
-            ) : (
-              <Text style={[styles.avatarText, { color: themeColors.buttonText }]}>
-                {title[0]?.toUpperCase() ?? '?'}
-              </Text>
-            )}
-          </View>
-        )}
+        <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: themeColors.accent }]}>
+          {item.isGroup ? (
+            <Ionicons name="people" size={22} color={themeColors.buttonText} />
+          ) : (
+            <Text style={[styles.avatarText, { color: themeColors.buttonText }]}>
+              {title[0]?.toUpperCase() ?? '?'}
+            </Text>
+          )}
+        </View>
 
         <View style={styles.body}>
           <View style={styles.line}>

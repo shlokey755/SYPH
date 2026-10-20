@@ -25,7 +25,6 @@ Everything the app depends on that lives outside the code: console steps, keys, 
 | `EXPO_PUBLIC_FIREBASE_API_KEY` | Console > Project settings > Your apps > Web app |
 | `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN` | same |
 | `EXPO_PUBLIC_FIREBASE_PROJECT_ID` | same |
-| `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET` | same |
 | `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | same |
 | `EXPO_PUBLIC_FIREBASE_APP_ID` | same |
 | `EXPO_PUBLIC_GIPHY_API_KEY` (optional) | https://developers.giphy.com/ > Create an app (SDK/API). Without it the GIF picker shows a "not set up" message; everything else works. |
@@ -38,15 +37,16 @@ The project is on Expo SDK 57, which matches the current Expo Go from the store.
 
 `expo-dev-client` is installed (needed for the development build in 1.5 and 1.7). Because of it, a plain `npx expo start` now targets the development build; use `--go` whenever you want Expo Go. Expo Go cannot do closed-app push or calls.
 
-### 1.4 Media (photos, video, voice notes, documents, profile photos)
+### 1.4 Media (removed)
 
-| Step | How |
-|------|-----|
-| Enable Storage | Firebase Console > Storage > Get started. New projects may require the pay-as-you-go (Blaze) plan to create a bucket; free-tier quotas still apply. Without Storage, text chat is unaffected and uploads show a clear error toast. |
-| Publish `storage.rules` | Console > Storage > Rules > paste `storage.rules` > Publish (or `firebase deploy --only storage`). These rules read the chat's member list from Firestore, so the console may ask you to grant Storage permission to read Firestore - accept. |
-| Permissions | Camera, photo library and microphone prompts are configured in `app.json` (expo-image-picker, expo-audio). Config-plugin changes need a new development build; Expo Go already includes these modules. |
+SYPH no longer uploads files, so **no Firebase Storage, no bucket and no billing plan are needed**. Chats carry text, stickers (emoji) and GIFs (a Giphy link, see `EXPO_PUBLIC_GIPHY_API_KEY` in 1.2). Profiles show an initial instead of a photo and have no status line.
 
-Limits: 25 MB per chat file, 5 MB per profile photo (enforced in `storage.rules`).
+| Left over from before | What to do |
+|-----------------------|------------|
+| Old photo / video / voice / document messages | They stay in the chat as a grey "Photo (no longer available)" line. Nothing to do. |
+| Storage bucket or rules in the Firebase Console | Can be ignored or deleted. The app never touches them. |
+| Camera and microphone permissions | Still requested, but only for audio and video calls (1.7). |
+| `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET` | No longer read. Delete it from `.env` / EAS secrets if you like. |
 
 ### 1.5 Push notifications while the app is closed (FR-10)
 
@@ -75,7 +75,7 @@ In-app toasts and unread badges work everywhere, including Expo Go. Alerts while
 
 ### 1.6 Offline use (NFR-07)
 
-Nothing to set up. Firestore keeps a local cache, so chats you have already opened stay readable offline and messages you send are queued and delivered when the connection returns (they show a clock icon until then). A slim banner appears on the Chat and conversation screens while the device is offline. Media uploads need a connection and show an error toast if it drops.
+Nothing to set up. Firestore keeps a local cache, so chats you have already opened stay readable offline and messages you send are queued and delivered when the connection returns (they show a clock icon until then). A slim banner appears on the Chat and conversation screens while the device is offline.
 
 ### 1.7 Audio and video calls (FR-06)
 
@@ -132,7 +132,7 @@ Things to know:
 
 | Path | Purpose |
 |------|---------|
-| `users/{uid}` | Public profile: `username`, `usernameLowercase`, `displayName` (optional), `profileImageUrl`, `status`, `theme` |
+| `users/{uid}` | Public profile: `username`, `usernameLowercase`, `displayName` (optional), `theme`. Old `profileImageUrl` / `status` fields may still exist on accounts and are ignored |
 | `users/{uid}/private/settings` | Owner-only: `mutedChats[]`, `notificationsEnabled`, `expoPushTokens[]` |
 | `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `groupActivity` (latest rename / removal / leave, read by the push relay), `hiddenBy[]`, `readState{uid:{deliveredAt,readAt}}`, `unread{uid:n}` |
 | `usernames/{lowercase name}` | Claim registry: `uid`, `createdAt`. One document per name, create-once, so two accounts cannot take the same name. Readable one at a time, never listed |
@@ -140,9 +140,8 @@ Things to know:
 | `userPush/{uid}` | Copy of the push-relevant settings: `tokens[]` (newest 5), `notificationsEnabled`, `mutedChats[]`. Written only by the owner, readable one at a time by signed-in users so a sender's phone can notify them |
 | `calls/{id}` | One call: `callerId`, `calleeId`, `participantIds`, `type` (audio/video), `status` (ringing, accepted, declined, cancelled, missed, ended), `offer`, `answer`, `createdAt`, `expireAt` |
 | `calls/{id}/candidates/{id}` | ICE candidates trickled by either side (`from`, `candidate`, `sdpMid`, `sdpMLineIndex`) |
-| `conversations/{id}/messages/{id}` | `type`, `text`, `media`, `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
+| `conversations/{id}/messages/{id}` | `type` (`text`, `gif`, `sticker`; the rules refuse anything else), `text`, `media` (GIF link only), `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
 
-Storage paths: `chats/{conversationId}/{uid}/{file}`, `avatars/{uid}/{file}`.
 
 1-on-1 chats use the id `<uidA>_<uidB>` (sorted), so two people can never end up with two chats.
 

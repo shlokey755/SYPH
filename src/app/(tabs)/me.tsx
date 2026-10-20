@@ -1,16 +1,15 @@
 /**
  * me.tsx
- * Me Tab - Profile editor with username change (1x per day) and profile picture upload
+ * Me Tab - Profile editor: name, username change (1x per day), sign-in email, notifications, theme.
+ * The avatar is always the user's initial: there is no photo upload because the app has no file storage.
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
   StyleSheet,
   Switch,
@@ -24,12 +23,9 @@ import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useUserSettings } from '../../hooks/useUserSettings';
-import { setCachedProfileImage } from '../../hooks/useProfileImages';
 import { AccountEmailSection } from '../../components/profile/AccountEmailSection';
 import { NameSection } from '../../components/profile/NameSection';
-import { avatarPath, friendlyUploadError, uploadFile } from '../../services/mediaService';
 import { isPushSupported, registerForPush } from '../../services/pushService';
-import { updateProfileFields } from '../../services/userService';
 
 export default function MeTab() {
   const { currentUser, logout, refreshCurrentUser } = useAuth();
@@ -44,62 +40,6 @@ export default function MeTab() {
 
   const [newUsername, setNewUsername] = useState('');
   const [isChangingUsername, setIsChangingUsername] = useState(false);
-  const [statusText, setStatusText] = useState<string | null>(null);
-  const [isSavingStatus, setIsSavingStatus] = useState(false);
-
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-
-  const photoUrl = avatarUrl ?? profile?.profileImageUrl;
-  const currentStatus = statusText ?? profile?.status ?? '';
-
-  const handleChangePhoto = async () => {
-    if (!currentUser) return;
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7,
-      });
-      if (result.canceled || !result.assets[0]) return;
-      const asset = result.assets[0];
-
-      setIsUploadingAvatar(true);
-      const progressId = toast.progress('Uploading photo', 0);
-      try {
-        const { url } = await uploadFile({
-          uri: asset.uri,
-          path: avatarPath(currentUser.uid, asset.fileName ?? 'avatar.jpg'),
-          mimeType: asset.mimeType ?? 'image/jpeg',
-          onProgress: (p) => toast.update(progressId, { progress: p }),
-        });
-        await updateProfileFields(currentUser.uid, { profileImageUrl: url });
-        setCachedProfileImage(currentUser.uid, url);
-        setAvatarUrl(url);
-        toast.success('Profile photo updated');
-      } finally {
-        toast.dismiss(progressId);
-      }
-    } catch (e) {
-      toast.error('Could not update photo', friendlyUploadError(e));
-    } finally {
-      setIsUploadingAvatar(false);
-    }
-  };
-
-  const handleSaveStatus = async () => {
-    if (!currentUser) return;
-    setIsSavingStatus(true);
-    try {
-      await updateProfileFields(currentUser.uid, { status: currentStatus.trim() });
-      toast.success('Status updated');
-    } catch (e) {
-      toast.error('Could not save status', e instanceof Error ? e.message : undefined);
-    } finally {
-      setIsSavingStatus(false);
-    }
-  };
 
   const handleToggleNotifications = async (enabled: boolean) => {
     try {
@@ -175,27 +115,13 @@ export default function MeTab() {
         <Text style={[styles.headerTitle, { color: themeColors.text }]}>My Profile</Text>
       </View>
 
-      {/* Profile Photo Section */}
+      {/* Avatar: initial only (no photos, the app has no file storage) */}
       <View style={[styles.section, styles.photoSection]}>
-        <TouchableOpacity onPress={handleChangePhoto} disabled={isUploadingAvatar} accessibilityLabel="Change profile photo">
-          {photoUrl ? (
-            <Image source={{ uri: photoUrl }} style={styles.photo} />
-          ) : (
-            <View style={[styles.photo, styles.photoPlaceholder, { backgroundColor: themeColors.accent }]}>
-              <Text style={[styles.photoInitial, { color: themeColors.buttonText }]}>
-                {(profile?.username?.[0] ?? '?').toUpperCase()}
-              </Text>
-            </View>
-          )}
-          <View style={[styles.photoBadge, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.border }]}>
-            {isUploadingAvatar ? (
-              <ActivityIndicator size="small" color={themeColors.accent} />
-            ) : (
-              <Ionicons name="camera" size={16} color={themeColors.accent} />
-            )}
-          </View>
-        </TouchableOpacity>
-        <Text style={{ color: themeColors.subText, fontSize: 12, marginTop: 8 }}>Tap to change photo</Text>
+        <View style={[styles.photo, styles.photoPlaceholder, { backgroundColor: themeColors.accent }]}>
+          <Text style={[styles.photoInitial, { color: themeColors.buttonText }]}>
+            {(profile?.username?.[0] ?? '?').toUpperCase()}
+          </Text>
+        </View>
       </View>
 
       {/* Name Section (optional display name, FR-02) */}
@@ -255,33 +181,6 @@ export default function MeTab() {
 
       {/* Sign-in email (FR-01) */}
       <AccountEmailSection />
-
-      {/* Status Section */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: themeColors.subText }]}>Status</Text>
-        <TextInput
-          style={[styles.input, { backgroundColor: themeColors.inputBg, color: themeColors.text, borderColor: themeColors.border }]}
-          placeholder="What's on your mind?"
-          placeholderTextColor={themeColors.subText}
-          value={currentStatus}
-          onChangeText={setStatusText}
-          maxLength={80}
-          editable={!isSavingStatus}
-        />
-        <TouchableOpacity
-          style={[
-            styles.button,
-            { backgroundColor: themeColors.accent },
-            (isSavingStatus || currentStatus.trim() === (profile?.status ?? '')) && { opacity: 0.6 },
-          ]}
-          onPress={handleSaveStatus}
-          disabled={isSavingStatus || currentStatus.trim() === (profile?.status ?? '')}
-        >
-          <Text style={[styles.buttonText, { color: themeColors.buttonText }]}>
-            {isSavingStatus ? 'Saving...' : 'Save Status'}
-          </Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Notifications Section */}
       <View style={styles.section}>
@@ -482,17 +381,6 @@ const styles = StyleSheet.create({
   photoInitial: {
     fontSize: 38,
     fontWeight: '700',
-  },
-  photoBadge: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   switchRow: {
     flexDirection: 'row',

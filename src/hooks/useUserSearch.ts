@@ -7,7 +7,6 @@ export interface SearchResult {
   username: string;
   /** Optional display name; shown before the @username when set. */
   displayName?: string;
-  profileImageUrl?: string;
 }
 
 export const useUserSearch = () => {
@@ -44,7 +43,6 @@ export const useUserSearch = () => {
             uid: data.uid,
             username: data.username, // Display intact username
             displayName: (data.displayName as string | undefined)?.trim() || undefined,
-            profileImageUrl: data.profileImageUrl,
           });
         }
       });

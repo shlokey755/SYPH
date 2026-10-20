@@ -36,7 +36,6 @@ import { notifyMessage } from './pushSender';
 export interface Member {
   uid: string;
   username: string;
-  profileImageUrl?: string;
 }
 
 export interface OutgoingMessage {
@@ -50,7 +49,6 @@ export interface OutgoingMessage {
 const toParticipant = (m: Member): ConversationParticipant => ({
   uid: m.uid,
   username: m.username,
-  profileImageUrl: m.profileImageUrl ?? '',
 });
 
 /** Deterministic id so two people always share exactly one 1-on-1 conversation. */

@@ -74,6 +74,11 @@ const no = (n, p) => check(n, p, false);
   await no('outsider cannot send', sendAs(carol, 'carol'));
   await no('cannot spoof senderId', sendAs(alice, 'bob'));
   await no('cannot backdate createdAt', sendAs(alice, 'alice', { createdAt: firebase.firestore.Timestamp.fromMillis(1000) }));
+  await ok('a sticker can be sent', sendAs(alice, 'alice', { type: 'sticker', text: '🔥' }));
+  await ok('a GIF link can be sent', sendAs(alice, 'alice', { type: 'gif', text: '', media: { url: 'https://media.giphy.com/x.gif' } }));
+  await no('a photo can no longer be sent', sendAs(alice, 'alice', { type: 'image', media: { url: 'https://x/y.jpg' } }));
+  await no('a voice note can no longer be sent', sendAs(alice, 'alice', { type: 'audio' }));
+  await no('a document can no longer be sent', sendAs(alice, 'alice', { type: 'document' }));
   await ok('member reads messages', bob.collection('conversations/alice_bob/messages').get());
   await no('outsider cannot read messages', carol.collection('conversations/alice_bob/messages').get());
 

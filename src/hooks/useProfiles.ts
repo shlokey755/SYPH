@@ -1,8 +1,8 @@
 /**
- * useProfileImages.ts
- * Looks up the current photo and name of a set of users.
- * Conversations store a copy of each member's username and photo from when the chat was created, which goes stale
- * as soon as someone changes either - so lists and headers resolve the live values here.
+ * useProfiles.ts
+ * Looks up the current name of a set of users.
+ * Conversations store a copy of each member's username from when the chat was created, which goes stale as soon as
+ * someone changes it (or sets a display name), so lists and headers resolve the live value here.
  * Results are cached and refreshed after CACHE_TTL_MS.
  */
 
@@ -11,7 +11,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { db } from '../firebaseConfig';
 
 interface CachedProfile {
-  photo: string;
   /** Display name when set, otherwise the username. */
   name: string;
   at: number;
@@ -39,7 +38,6 @@ export function useProfiles(uids: string[]) {
         try {
           const data = (await getDoc(doc(db, 'users', uid))).data();
           cache.set(uid, {
-            photo: (data?.profileImageUrl as string | undefined) ?? '',
             name: ((data?.displayName as string | undefined)?.trim() || (data?.username as string | undefined)) ?? '',
             at: Date.now(),
           });
@@ -57,20 +55,11 @@ export function useProfiles(uids: string[]) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  const photoOf = useCallback((uid: string | undefined) => (uid ? cache.get(uid)?.photo || undefined : undefined), []);
   const nameOf = useCallback((uid: string | undefined) => (uid ? cache.get(uid)?.name || undefined : undefined), []);
-  return { photoOf, nameOf };
+  return { nameOf };
 }
 
-/** Photo lookup only (kept for existing callers). */
-export function useProfileImages(uids: string[]) {
-  return useProfiles(uids).photoOf;
+/** Lets the profile screen publish a freshly saved name to the cache. */
+export function setCachedProfile(uid: string, patch: { name: string }) {
+  cache.set(uid, { name: patch.name, at: Date.now() });
 }
-
-/** Lets the profile screen publish a freshly saved photo or name to the cache. */
-export function setCachedProfile(uid: string, patch: { photo?: string; name?: string }) {
-  const hit = cache.get(uid);
-  cache.set(uid, { photo: hit?.photo ?? '', name: hit?.name ?? '', ...patch, at: Date.now() });
-}
-
-export const setCachedProfileImage = (uid: string, url: string) => setCachedProfile(uid, { photo: url });
