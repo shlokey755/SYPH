@@ -5,6 +5,8 @@
  *
  *   calls/{callId}                    status, offer, answer, who is calling whom
  *   calls/{callId}/candidates/{id}    trickled ICE candidates from either side (`from` says which)
+ *   calls/{callId}/media/{uid}        that person's own media state: `cameraOff` (the other side then shows a panel
+ *                                     instead of a frozen last frame) and `muted` (shows a muted-microphone icon)
  *
  * Both collections carry `expireAt` so a Firestore TTL policy can clear them (optional, see API.md).
  */
@@ -23,6 +25,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Call, CallCandidate, CallType, SessionDescriptionData } from '../types';
+import { MediaState } from '../utils/call';
 
 export interface CallParty {
   uid: string;
@@ -126,6 +129,29 @@ export function subscribeRemoteCandidates(
       });
     },
     (error) => console.warn('Candidate listener error:', error.message)
+  );
+}
+
+// ---------- Camera state ----------
+
+/** Tells the other side whether your camera is off and your microphone is muted. Each person writes only their own. */
+export function publishMediaState(callId: string, uid: string, state: MediaState) {
+  return setDoc(doc(db, 'calls', callId, 'media', uid), {
+    cameraOff: state.cameraOff,
+    muted: state.muted,
+    expireAt: expireAt(),
+  });
+}
+
+/** Calls back with `uid`'s camera and microphone state, now and on every change. A missing document means "on". */
+export function subscribeMediaState(callId: string, uid: string, onChange: (state: MediaState) => void): () => void {
+  return onSnapshot(
+    doc(db, 'calls', callId, 'media', uid),
+    (snap) => {
+      const data = snap.exists() ? snap.data() : null;
+      onChange({ cameraOff: data?.cameraOff === true, muted: data?.muted === true });
+    },
+    (error) => console.warn('Media state listener error:', error.message)
   );
 }
 

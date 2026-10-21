@@ -106,3 +106,48 @@ export function formatCallClock(totalSeconds: number): string {
  * to the ear, so it starts on the earpiece. The person can switch either way during the call.
  */
 export const defaultSpeakerOn = (type: CallType): boolean => type === 'video';
+
+/** One person's own media state, shared through calls/{id}/media/{uid}. A missing document means both are false. */
+export interface MediaState {
+  cameraOff: boolean;
+  muted: boolean;
+}
+
+export const DEFAULT_MEDIA_STATE: MediaState = { cameraOff: false, muted: false };
+
+/**
+ * Where the "muted" microphone icon goes for the other person. Over the corner of their video when it is showing,
+ * otherwise on their profile panel (their camera is off, or it is a voice call). Nothing when they are not muted
+ * or the call is over.
+ */
+export function muteIndicator(input: { remoteMuted: boolean; ended: boolean; remoteTile: CallTiles['remote'] }): 'corner' | 'panel' | 'none' {
+  if (!input.remoteMuted || input.ended) return 'none';
+  return input.remoteTile === 'video' ? 'corner' : 'panel';
+}
+
+/** What each video tile on the call screen shows. */
+export interface CallTiles {
+  /** The other person: their live video, or an opaque panel with their username (never a frozen frame). */
+  remote: 'video' | 'panel';
+  /** Your own preview: live video, an opaque panel with your username when your camera is off, or nothing. */
+  local: 'video' | 'panel' | 'none';
+}
+
+/**
+ * A camera that is switched off stops sending frames, so the last frame would stay on screen (it looks frozen).
+ * The person turning it off says so (calls/{id}/media/{uid}), and both sides then replace the video with a panel.
+ * Voice calls have no video, so they never show the preview.
+ */
+export function callTiles(input: {
+  isVideo: boolean;
+  ended: boolean;
+  hasLocalStream: boolean;
+  cameraOff: boolean;
+  hasRemoteVideo: boolean;
+  remoteCameraOff: boolean;
+}): CallTiles {
+  const remote = input.isVideo && !input.ended && input.hasRemoteVideo && !input.remoteCameraOff ? 'video' : 'panel';
+  let local: CallTiles['local'] = 'none';
+  if (input.isVideo && !input.ended && input.hasLocalStream) local = input.cameraOff ? 'panel' : 'video';
+  return { remote, local };
+}
