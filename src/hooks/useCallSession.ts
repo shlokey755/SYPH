@@ -20,7 +20,9 @@ import {
   declineCall,
   endCall,
   markCallMissed,
+  publishMediaState,
   subscribeCall,
+  subscribeMediaState,
   subscribeRemoteCandidates,
 } from '../services/callService';
 import { setCallSpeaker, startCallAudio, stopCallAudio } from '../services/callAudio';
@@ -29,9 +31,11 @@ import { getIceServers, getWebRTC, PeerEvents } from '../services/webrtc';
 import { Call, CallCandidate, CallStatus, CallType } from '../types';
 import {
   CallEndReason,
+  DEFAULT_MEDIA_STATE,
   defaultSpeakerOn,
   endReasonFromStatus,
   isTerminalStatus,
+  MediaState,
   RECONNECT_GRACE_MS,
   RING_TIMEOUT_MS,
 } from '../utils/call';
@@ -74,6 +78,7 @@ export function useCallSession({ callId, outgoing, me }: Params) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [remoteMedia, setRemoteMedia] = useState<MediaState>(DEFAULT_MEDIA_STATE);
   const [frontCamera, setFrontCamera] = useState(true);
   const [speakerOn, setSpeakerOn] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
@@ -101,6 +106,9 @@ export function useCallSession({ callId, outgoing, me }: Params) {
     let connectedOnce = false;
     let speaker = false; // where audio currently comes out
     let audioRouted = false; // true once this call has taken over audio routing, so it is handed back afterwards
+    let cameraIsOff = false; // mirror the camera / mute state for code that runs outside React
+    let micMuted = false;
+    let mediaWatched = false; // the other person's media-state listener is attached
 
     let pc: InstanceType<NonNullable<ReturnType<typeof getWebRTC>>['RTCPeerConnection']> | null = null;
     let stream: MediaStream | null = null;
@@ -144,6 +152,13 @@ export function useCallSession({ callId, outgoing, me }: Params) {
       setReconnecting(false);
       setEndReason(reason);
       setPhase('ended');
+    };
+
+    /** Tells the other person whether my camera is off (they show a panel, not a frozen frame) and whether I am muted. */
+    const shareMediaState = () => {
+      if (activeCallId) {
+        publishMediaState(activeCallId, self.uid, { cameraOff: cameraIsOff, muted: micMuted }).catch(warn('share media state'));
+      }
     };
 
     /** Writes the right "I am leaving" status for wherever the call currently is. */
@@ -308,6 +323,15 @@ export function useCallSession({ callId, outgoing, me }: Params) {
         return;
       }
 
+      // First time the call is known: follow the other person's camera and microphone, and say so if mine was
+      // already off or muted.
+      if (!mediaWatched) {
+        mediaWatched = true;
+        const otherUid = next.callerId === self.uid ? next.calleeId : next.callerId;
+        unsubs.push(subscribeMediaState(next.id, otherUid, setRemoteMedia));
+        if (cameraIsOff || micMuted) shareMediaState();
+      }
+
       if (isCaller) {
         if (next.status === 'accepted' && next.answer && !remoteDescriptionSet && pc) {
           setPhase('connecting');
@@ -406,13 +430,18 @@ export function useCallSession({ callId, outgoing, me }: Params) {
         const tracks = stream?.getAudioTracks() ?? [];
         const nextMuted = tracks.some((t) => t.enabled);
         tracks.forEach((t) => (t.enabled = !nextMuted));
+        micMuted = nextMuted;
         setMuted(nextMuted);
+        shareMediaState();
       },
       toggleCamera: () => {
         const tracks = stream?.getVideoTracks() ?? [];
+        if (tracks.length === 0) return; // voice call
         const nextOff = tracks.some((t) => t.enabled);
         tracks.forEach((t) => (t.enabled = !nextOff));
+        cameraIsOff = nextOff;
         setCameraOff(nextOff);
+        shareMediaState();
       },
       toggleSpeaker: () => {
         const wanted = !speaker;
@@ -477,6 +506,8 @@ export function useCallSession({ callId, outgoing, me }: Params) {
     remoteStream,
     muted,
     cameraOff,
+    remoteCameraOff: remoteMedia.cameraOff,
+    remoteMuted: remoteMedia.muted,
     frontCamera,
     speakerOn,
     reconnecting,

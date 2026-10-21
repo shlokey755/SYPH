@@ -236,15 +236,28 @@ service cloud.firestore {
 
       allow delete: if false;
 
+      function callMembers() {
+        return get(/databases/$(database)/documents/calls/$(callId)).data.participantIds;
+      }
+
       match /candidates/{candidateId} {
-        function callMembers() {
-          return get(/databases/$(database)/documents/calls/$(callId)).data.participantIds;
-        }
         allow read: if signedIn() && request.auth.uid in callMembers();
         allow create: if signedIn()
           && request.auth.uid in callMembers()
           && request.resource.data.from == request.auth.uid;
         allow update, delete: if false;
+      }
+
+      // Each person's own media state (camera off, microphone muted). Members read; each member writes only their own.
+      match /media/{uid} {
+        allow read: if signedIn() && request.auth.uid in callMembers();
+        allow create, update: if signedIn()
+          && uid == request.auth.uid
+          && request.auth.uid in callMembers()
+          && request.resource.data.keys().hasOnly(['cameraOff', 'muted', 'expireAt'])
+          && request.resource.data.cameraOff is bool
+          && request.resource.data.muted is bool;
+        allow delete: if false;
       }
     }
 

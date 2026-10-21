@@ -5,12 +5,14 @@ import {
   STALE_RING_MS,
   allowedNextStatuses,
   defaultSpeakerOn,
+  callTiles,
   canTransition,
   endReasonFromStatus,
   endReasonText,
   formatCallClock,
   isRingingFresh,
   isTerminalStatus,
+  muteIndicator,
 } from '../../src/utils/call.ts';
 
 describe('call status moves (must mirror firestore.rules validCallMove)', () => {
@@ -103,5 +105,60 @@ describe('defaultSpeakerOn', () => {
   it('starts video calls on the speaker and voice calls on the earpiece', () => {
     assert.equal(defaultSpeakerOn('video'), true);
     assert.equal(defaultSpeakerOn('audio'), false);
+  });
+});
+
+describe('video tiles (camera off must never leave a frozen frame)', () => {
+  const live = { isVideo: true, ended: false, hasLocalStream: true, cameraOff: false, hasRemoteVideo: true, remoteCameraOff: false };
+
+  it('both cameras on: live video both ways', () => {
+    assert.deepEqual(callTiles(live), { remote: 'video', local: 'video' });
+  });
+
+  it('their camera off: their video is replaced by the panel', () => {
+    assert.deepEqual(callTiles({ ...live, remoteCameraOff: true }), { remote: 'panel', local: 'video' });
+  });
+
+  it('my camera off: my preview becomes a panel with my username instead of disappearing', () => {
+    assert.deepEqual(callTiles({ ...live, cameraOff: true }), { remote: 'video', local: 'panel' });
+  });
+
+  it('both off: panels on both tiles', () => {
+    assert.deepEqual(callTiles({ ...live, cameraOff: true, remoteCameraOff: true }), { remote: 'panel', local: 'panel' });
+  });
+
+  it('no remote video yet (still connecting): panel until it arrives', () => {
+    assert.equal(callTiles({ ...live, hasRemoteVideo: false }).remote, 'panel');
+  });
+
+  it('no local stream yet: no preview', () => {
+    assert.equal(callTiles({ ...live, hasLocalStream: false }).local, 'none');
+  });
+
+  it('voice calls never show a preview or remote video', () => {
+    assert.deepEqual(callTiles({ ...live, isVideo: false }), { remote: 'panel', local: 'none' });
+  });
+
+  it('after the call ends nothing is drawn', () => {
+    assert.deepEqual(callTiles({ ...live, ended: true }), { remote: 'panel', local: 'none' });
+  });
+});
+
+describe('muted icon placement', () => {
+  it('over their video corner when their video is showing', () => {
+    assert.equal(muteIndicator({ remoteMuted: true, ended: false, remoteTile: 'video' }), 'corner');
+  });
+
+  it('on their profile panel when there is no video (camera off, voice call or not arrived yet)', () => {
+    assert.equal(muteIndicator({ remoteMuted: true, ended: false, remoteTile: 'panel' }), 'panel');
+  });
+
+  it('nothing when they are not muted', () => {
+    assert.equal(muteIndicator({ remoteMuted: false, ended: false, remoteTile: 'video' }), 'none');
+    assert.equal(muteIndicator({ remoteMuted: false, ended: false, remoteTile: 'panel' }), 'none');
+  });
+
+  it('nothing once the call has ended', () => {
+    assert.equal(muteIndicator({ remoteMuted: true, ended: true, remoteTile: 'panel' }), 'none');
   });
 });
