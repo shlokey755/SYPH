@@ -14,6 +14,7 @@
     "@config-plugins/react-native-webrtc": "^15.0.2",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@variant-systems/expo-dynamic-app-icon": "^1.0.2",
     "expo": "~57.0.0",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.20",
