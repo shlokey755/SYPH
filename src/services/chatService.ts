@@ -31,11 +31,11 @@ import {
   MessageType,
   ReplyPreview,
 } from '../types';
+import { notifyMessage } from './pushSender';
 
 export interface Member {
   uid: string;
   username: string;
-  profileImageUrl?: string;
 }
 
 export interface OutgoingMessage {
@@ -49,7 +49,6 @@ export interface OutgoingMessage {
 const toParticipant = (m: Member): ConversationParticipant => ({
   uid: m.uid,
   username: m.username,
-  profileImageUrl: m.profileImageUrl ?? '',
 });
 
 /** Deterministic id so two people always share exactly one 1-on-1 conversation. */
@@ -187,9 +186,10 @@ export async function hideConversation(conversationId: string, uid: string) {
 /**
  * Writes the message and updates the conversation summary atomically.
  * Resolves when the server acknowledges; while offline the write is queued and the UI shows it as pending.
+ * After that it sends the closed-app push notification (see pushSender.ts).
  */
 export function sendMessage(
-  conversation: Pick<Conversation, 'id' | 'participantIds'>,
+  conversation: Pick<Conversation, 'id' | 'participantIds'> & Partial<Pick<Conversation, 'isGroup' | 'groupName'>>,
   sender: Member,
   message: OutgoingMessage
 ): Promise<void> {
@@ -226,12 +226,20 @@ export function sendMessage(
   }
   batch.update(convRef, summary);
 
-  return batch.commit();
+  // Once the server has the message, wake the recipients' phones in case their app is closed (best effort, never fails the send).
+  return batch.commit().then(() => {
+    void notifyMessage({
+      conversation,
+      senderUid: sender.uid,
+      senderName: sender.username,
+      preview: messagePreview(message.type, text),
+    });
+  });
 }
 
 /** Re-sends an existing message into another conversation (FR-08 forward). */
 export function forwardMessage(
-  target: Pick<Conversation, 'id' | 'participantIds'>,
+  target: Pick<Conversation, 'id' | 'participantIds'> & Partial<Pick<Conversation, 'isGroup' | 'groupName'>>,
   sender: Member,
   original: { type: MessageType; text: string; media?: MessageMedia }
 ) {

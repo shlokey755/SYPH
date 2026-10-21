@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { setCachedProfile } from '../../hooks/useProfileImages';
+import { setCachedProfile } from '../../hooks/useProfiles';
 import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { updateProfileFields } from '../../services/userService';

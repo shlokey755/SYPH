@@ -9,7 +9,7 @@ import type { UserProfile } from '../types';
 /** The fields the app needs before the network has answered. */
 export type CachedProfile = Pick<
   UserProfile,
-  'uid' | 'username' | 'usernameLowercase' | 'displayName' | 'profileImageUrl' | 'status' | 'theme'
+  'uid' | 'username' | 'usernameLowercase' | 'displayName' | 'theme'
 >;
 
 /** Bump when the shape changes, so an older copy is ignored instead of misread. */
@@ -26,8 +26,6 @@ export function serializeProfile(profile: UserProfile): string {
     username: profile.username,
     usernameLowercase: profile.usernameLowercase,
     displayName: profile.displayName,
-    profileImageUrl: profile.profileImageUrl,
-    status: profile.status,
     theme: profile.theme,
   };
   return JSON.stringify(cached);
@@ -50,8 +48,6 @@ export function parseCachedProfile(raw: string | null | undefined, uid: string):
       username,
       usernameLowercase: optionalString(data.usernameLowercase),
       displayName: optionalString(data.displayName) || username,
-      profileImageUrl: optionalString(data.profileImageUrl),
-      status: optionalString(data.status),
       theme: optionalString(data.theme),
     };
   } catch {

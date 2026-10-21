@@ -3,6 +3,7 @@ rules_version = '2';
 // SYPH Firestore rules
 //   users/{uid}                    public profile; any signed-in user may read (needed for search), only the owner writes
 //   users/{uid}/private/settings   owner only (muted chats, push tokens)
+//   userPush/{uid}                 owner writes, signed-in users get one (push targets for closed-app notifications)
 //   usernames/{name}               claim registry: who owns each lower-case username
 //   conversations/{id}             readable/writable only by members (participantIds)
 //   conversations/{id}/messages    members only; senders cannot spoof senderId or backdate createdAt
@@ -96,8 +97,11 @@ service cloud.firestore {
       match /messages/{mid} {
         allow read: if isMemberOf(cid);
 
+        // Only text, stickers and GIFs can be sent. Photos, video, voice notes and documents were removed with
+        // file storage; old ones stay readable.
         allow create: if isMemberOf(cid)
           && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.type in ['text', 'gif', 'sticker']
           && request.resource.data.createdAt == request.time;
 
         allow update: if isMemberOf(cid) && (
@@ -117,18 +121,50 @@ service cloud.firestore {
 
         allow delete: if false;
       }
+
+      // ---------------- Typing indicator ----------------
+      // One short-lived marker per member: "I am typing". Members read them; each member writes only their own,
+      // so nobody can fake someone else typing. Markers are deleted when the person stops.
+      match /typing/{uid} {
+        allow read: if isMemberOf(cid);
+        allow create, update: if isMemberOf(cid)
+          && uid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['typing', 'at'])
+          && request.resource.data.typing == true
+          && request.resource.data.at == request.time;
+        allow delete: if isMemberOf(cid) && uid == request.auth.uid;
+      }
     }
 
     // ---------------- Push token registry ----------------
-    // One entry per device token, naming the account currently signed in on that device. The push relay
-    // (Admin SDK, bypasses rules) only sends to a token whose entry names the recipient.
-    // Clients can claim a token for themselves and delete their own entry; nobody can read the registry.
+    // One entry per device token, naming the account currently signed in on that device. Whoever sends a push
+    // (the sender's phone, or the optional relay) only uses a token whose entry names the recipient.
+    // Clients can claim a token for themselves and delete their own entry. A signed-in user can read one entry by
+    // exact token (that is how a sender checks the owner) but nobody can list the registry.
     match /pushTokens/{token} {
       allow create, update: if signedIn()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.keys().hasOnly(['uid', 'platform', 'updatedAt']);
       allow delete: if signedIn() && (resource == null || resource.data.uid == request.auth.uid);
-      allow read: if false;
+      allow get: if signedIn();
+      allow list: if false;
+    }
+
+    // ---------------- Push mirror ----------------
+    // The part of a user's private settings that a sender's phone needs to wake the recipient's phone: their device
+    // tokens, the notifications switch and muted chats. Only the owner writes it; any signed-in user can read one
+    // document by uid but nobody can list them. Without a server, this is what lets closed-app push work for free.
+    match /userPush/{uid} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['tokens', 'notificationsEnabled', 'mutedChats', 'updatedAt'])
+        && request.resource.data.tokens is list
+        && request.resource.data.tokens.size() <= 5
+        && request.resource.data.notificationsEnabled is bool
+        && request.resource.data.mutedChats is list
+        && request.resource.data.mutedChats.size() <= 200;
+      allow delete: if isOwner(uid);
     }
 
     // ---------------- Username registry ----------------

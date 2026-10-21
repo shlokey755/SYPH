@@ -81,7 +81,7 @@ export function GroupInfoModal({ visible, conversation, myUid, colors, onClose, 
     });
   };
 
-  const handleAdd = (user: { uid: string; username: string; profileImageUrl?: string }) =>
+  const handleAdd = (user: { uid: string; username: string }) =>
     run('Could not add member', async () => {
       await chat.addGroupMembers(conversation.id, [user]);
       setSearch('');

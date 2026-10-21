@@ -23,11 +23,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AttachChoice, AttachSheet } from '../../components/chat/AttachSheet';
 import { ForwardPicker } from '../../components/chat/ForwardPicker';
 import { GifPicker } from '../../components/chat/GifPicker';
 import { GroupInfoModal } from '../../components/chat/GroupInfoModal';
-import { MediaViewer } from '../../components/chat/MediaViewer';
 import { MessageAction, MessageActionSheet } from '../../components/chat/MessageActionSheet';
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { MessageInput } from '../../components/chat/MessageInput';
@@ -37,9 +35,10 @@ import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
-import { useMediaSender } from '../../hooks/useMediaSender';
+import { useGifStickerSender } from '../../hooks/useGifStickerSender';
+import { useTypingPeers, useTypingReporter } from '../../hooks/useTyping';
 import { useMessages } from '../../hooks/useMessages';
-import { useProfiles } from '../../hooks/useProfileImages';
+import { useProfiles } from '../../hooks/useProfiles';
 import { useIsOffline } from '../../hooks/useOnlineStatus';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import * as chat from '../../services/chatService';
@@ -52,6 +51,7 @@ import {
   toMillis,
 } from '../../utils/conversation';
 import { getMessageStatus } from '../../utils/messageStatus';
+import { typingLabel } from '../../utils/typing';
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong');
 
@@ -89,43 +89,20 @@ export default function ChatScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
-  const [attachOpen, setAttachOpen] = useState(false);
   const [gifOpen, setGifOpen] = useState(false);
   const [stickerOpen, setStickerOpen] = useState(false);
-  const [viewerMessage, setViewerMessage] = useState<Message | null>(null);
 
   const me = useMemo(
     () => (currentUser ? { uid: currentUser.uid, username: currentUser.username } : null),
     [currentUser]
   );
 
-  const media = useMediaSender({
+  const sender = useGifStickerSender({
     conversation,
     me,
     replyTo,
     onReplyConsumed: () => setReplyTo(null),
   });
-
-  const handleAttach = (choice: AttachChoice) => {
-    setAttachOpen(false);
-    switch (choice) {
-      case 'library':
-        media.pickFromLibrary();
-        break;
-      case 'camera':
-        media.takePhoto();
-        break;
-      case 'document':
-        media.pickDocument();
-        break;
-      case 'gif':
-        setGifOpen(true);
-        break;
-      case 'sticker':
-        setStickerOpen(true);
-        break;
-    }
-  };
 
   // Tell the conversations provider which chat is open (suppresses its toasts).
   useFocusEffect(
@@ -167,6 +144,17 @@ export default function ChatScreen() {
   const subtitle = conversation ? getConversationSubtitle(conversation) : '';
   const muted = conversationId ? isMuted(conversationId) : false;
 
+  // "typing…": others are shown while this chat is on screen and online; your own typing is reported under the same rule.
+  const typingEnabled = !!conversation && !offline && focused && appActive;
+  const typingUids = useTypingPeers(conversationId, myUid, typingEnabled);
+  const typingReporter = useTypingReporter(conversationId, myUid, typingEnabled);
+  const typingText = typingLabel(
+    typingUids.map(
+      (uid) => nameOf(uid) ?? conversation?.participants?.find((p) => p.uid === uid)?.username ?? 'Someone'
+    ),
+    !!conversation?.isGroup
+  );
+
   const visibleMessages = useMemo(() => {
     const q = searchText.trim().toLowerCase();
     if (!searchOpen || !q) return messages;
@@ -189,6 +177,7 @@ export default function ChatScreen() {
 
   const handleSend = (text: string) => {
     if (!conversation || !me) return;
+    typingReporter.stop();
     const reply = replyTo;
     setReplyTo(null);
     // Not awaited: while offline the write stays queued and the bubble shows as pending (NFR-07).
@@ -309,7 +298,6 @@ export default function ChatScreen() {
           colors={themeColors}
           onLongPress={setActionMessage}
           onReplyPress={scrollToMessage}
-          onOpenMedia={setViewerMessage}
         />
       );
     },
@@ -335,7 +323,15 @@ export default function ChatScreen() {
           <Text style={[styles.headerTitle, { color: themeColors.text }]} numberOfLines={1}>
             {title}
           </Text>
-          {subtitle ? (
+          {typingText ? (
+            <Text
+              style={[styles.headerSubtitle, { color: themeColors.accent }]}
+              numberOfLines={1}
+              accessibilityLiveRegion="polite"
+            >
+              {typingText}
+            </Text>
+          ) : subtitle ? (
             <Text style={[styles.headerSubtitle, { color: themeColors.subText }]}>
               {subtitle} - tap for info
             </Text>
@@ -423,8 +419,9 @@ export default function ChatScreen() {
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
           onSend={handleSend}
-          onAttach={() => setAttachOpen(true)}
-          onSendVoice={media.sendVoice}
+          onTextChange={typingReporter.onTextChange}
+          onOpenSticker={() => setStickerOpen(true)}
+          onOpenGif={() => setGifOpen(true)}
         />
       ) : (
         <View style={[styles.connecting, { paddingBottom: Math.max(insets.bottom, 12) }]}>
@@ -439,18 +436,12 @@ export default function ChatScreen() {
         onSelect={handleAction}
         onClose={() => setActionMessage(null)}
       />
-      <AttachSheet
-        visible={attachOpen}
-        colors={themeColors}
-        onChoose={handleAttach}
-        onClose={() => setAttachOpen(false)}
-      />
       <StickerPicker
         visible={stickerOpen}
         colors={themeColors}
         onPick={(emoji) => {
           setStickerOpen(false);
-          media.sendSticker(emoji);
+          sender.sendSticker(emoji);
         }}
         onClose={() => setStickerOpen(false)}
       />
@@ -459,11 +450,10 @@ export default function ChatScreen() {
         colors={themeColors}
         onPick={(url, width, height) => {
           setGifOpen(false);
-          media.sendGif(url, width, height);
+          sender.sendGif(url, width, height);
         }}
         onClose={() => setGifOpen(false)}
       />
-      <MediaViewer message={viewerMessage} onClose={() => setViewerMessage(null)} />
       <GroupInfoModal
         visible={groupInfoOpen}
         conversation={conversation}

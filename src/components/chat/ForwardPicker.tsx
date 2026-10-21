@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
-import { useProfiles } from '../../hooks/useProfileImages';
+import { useProfiles } from '../../hooks/useProfiles';
 import { Conversation } from '../../types';
 import { getConversationTitle, getOtherParticipant } from '../../utils/conversation';
 

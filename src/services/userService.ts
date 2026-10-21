@@ -2,8 +2,9 @@
  * userService.ts
  * Profile and private-settings writes (FR-02, FR-12, FR-13, FR-15).
  *
- *   users/{uid}                     public profile (username, photo, status, theme)
+ *   users/{uid}                     public profile (username, display name, theme)
  *   users/{uid}/private/settings    only the owner (and the server) can read: muted chats, push tokens
+ *   userPush/{uid}                  the part of those settings a sender needs to notify this user (see syncPushMirror)
  */
 
 import {
@@ -17,6 +18,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { PushMirror } from '../utils/push';
 
 const settingsRef = (uid: string) => doc(db, 'users', uid, 'private', 'settings');
 
@@ -53,13 +55,19 @@ export async function removePushToken(uid: string, token: string) {
   await deleteDoc(tokenRef(token)).catch(() => {});
 }
 
+/**
+ * Copies the push-relevant settings (devices, master switch, muted chats) to userPush/{uid}, which other signed-in
+ * users may read one document at a time. A sender's phone needs them to wake this user's phone, and the private
+ * settings document is owner-only. Written in full each time, so removed devices and unmuted chats disappear.
+ */
+export function syncPushMirror(uid: string, mirror: PushMirror) {
+  return setDoc(doc(db, 'userPush', uid), { ...mirror, updatedAt: serverTimestamp() });
+}
+
 export function saveTheme(uid: string, theme: string) {
   return setDoc(doc(db, 'users', uid), { theme }, { merge: true });
 }
 
-export function updateProfileFields(
-  uid: string,
-  fields: { status?: string; profileImageUrl?: string; displayName?: string }
-) {
+export function updateProfileFields(uid: string, fields: { displayName?: string }) {
   return updateDoc(doc(db, 'users', uid), fields);
 }

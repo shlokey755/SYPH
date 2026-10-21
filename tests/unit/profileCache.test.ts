@@ -7,8 +7,6 @@ const profile = {
   username: 'Alice',
   usernameLowercase: 'alice',
   displayName: 'Alice A',
-  profileImageUrl: 'https://example.com/a.jpg',
-  status: 'hi',
   theme: 'ocean',
   createdAt: new Date(),
 };
@@ -22,8 +20,6 @@ describe('profile cache', () => {
       username: 'Alice',
       usernameLowercase: 'alice',
       displayName: 'Alice A',
-      profileImageUrl: 'https://example.com/a.jpg',
-      status: 'hi',
       theme: 'ocean',
     });
   });
@@ -43,16 +39,22 @@ describe('profile cache', () => {
   });
 
   it('falls back to the username when there is no display name, and drops wrongly typed fields', () => {
-    const raw = JSON.stringify({ uid: 'u1', username: 'bob', displayName: 5, theme: 7, status: null });
+    const raw = JSON.stringify({ uid: 'u1', username: 'bob', displayName: 5, theme: 7 });
     assert.deepEqual(parseCachedProfile(raw, 'u1'), {
       uid: 'u1',
       username: 'bob',
       usernameLowercase: undefined,
       displayName: 'bob',
-      profileImageUrl: undefined,
-      status: undefined,
       theme: undefined,
     });
+  });
+
+  it('still reads a copy saved before photos and status were removed, without the removed fields', () => {
+    const raw = JSON.stringify({ uid: 'u1', username: 'bob', displayName: 'Bob', profileImageUrl: 'https://x/y.jpg', status: 'hi' });
+    const parsed = parseCachedProfile(raw, 'u1');
+    assert.equal(parsed?.username, 'bob');
+    assert.equal('profileImageUrl' in (parsed ?? {}), false);
+    assert.equal('status' in (parsed ?? {}), false);
   });
 
   it('uses a per-account, versioned storage key', () => {

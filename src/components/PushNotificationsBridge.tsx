@@ -2,6 +2,7 @@
  * PushNotificationsBridge.tsx
  * Renders nothing. While a user is signed in it:
  *   - registers this device for push (once settings say notifications are on),
+ *   - mirrors the push-relevant settings to userPush/{uid} so other people's phones can notify this one,
  *   - opens the right chat when a notification is tapped (including a cold start from a notification),
  *   - mirrors the unread total on the app icon.
  * Mounted inside the tabs layout, which only exists for signed-in users once navigation is ready.
@@ -19,6 +20,8 @@ import {
   registerForPush,
   setAppBadge,
 } from '../services/pushService';
+import { syncPushMirror } from '../services/userService';
+import { mirrorFromSettings, mirrorKey } from '../utils/push';
 
 // Module scope so a remount in the same session never re-opens a notification that was already handled.
 let lastHandledNotificationId: string | null = null;
@@ -39,6 +42,22 @@ export function PushNotificationsBridge() {
   useEffect(() => {
     configureForegroundBehavior();
   }, []);
+
+  // Keep the shared copy of the push settings current. Covers devices added or removed, the master switch and mutes,
+  // and accounts that predate the mirror. The key skips writes when nothing changed.
+  const mirror = mirrorFromSettings(settings);
+  const key = mirrorKey(mirror);
+  const syncedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!uid || !isLoaded || syncedKeyRef.current === `${uid}:${key}`) return;
+    syncedKeyRef.current = `${uid}:${key}`;
+    syncPushMirror(uid, mirror).catch((error) => {
+      syncedKeyRef.current = null; // try again on the next change or launch
+      console.warn('Push settings sync failed:', error?.message ?? error);
+    });
+    // `mirror` is derived from `key`, so the key alone decides when to write.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, isLoaded, key]);
 
   useEffect(() => {
     if (!uid || !isLoaded || !enabled) return;
