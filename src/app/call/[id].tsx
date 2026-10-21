@@ -20,7 +20,7 @@ import { useCallSession } from '../../hooks/useCallSession';
 import { useIncomingCalls } from '../../hooks/useIncomingCalls';
 import { getWebRTC } from '../../services/webrtc';
 import { CallType } from '../../types';
-import { endReasonText, formatCallClock } from '../../utils/call';
+import { callTiles, endReasonText, formatCallClock } from '../../utils/call';
 
 /** How long the "Call ended" line stays up before the screen closes by itself. */
 const CLOSE_DELAY_MS = 1800;
@@ -95,9 +95,18 @@ export default function CallScreen() {
   else status = session.isCaller ? 'Calling…' : 'Answering…';
 
   const RTCView = getWebRTC()?.RTCView;
-  const remoteHasVideo = isVideo && !!session.remoteStream && session.remoteStream.getVideoTracks().length > 0;
-  const showLocalVideo = isVideo && !!session.localStream && !session.cameraOff && phase !== 'ended';
   const ended = phase === 'ended';
+  // A camera that is switched off must not leave its last frame on screen: show an opaque panel with the name instead.
+  const tiles = callTiles({
+    isVideo,
+    ended,
+    hasLocalStream: !!session.localStream,
+    cameraOff: session.cameraOff,
+    hasRemoteVideo: !!session.remoteStream && session.remoteStream.getVideoTracks().length > 0,
+    remoteCameraOff: session.remoteCameraOff,
+  });
+  const remoteHasVideo = tiles.remote === 'video';
+  const remoteCameraOff = isVideo && !ended && session.remoteCameraOff;
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -127,9 +136,15 @@ export default function CallScreen() {
         >
           {status}
         </Text>
+        {remoteCameraOff && (
+          <View style={styles.cameraOffRow}>
+            <Ionicons name="videocam-off" size={16} color={themeColors.subText} />
+            <Text style={[styles.cameraOffText, { color: themeColors.subText }]}>Camera off</Text>
+          </View>
+        )}
       </View>
 
-      {RTCView && showLocalVideo && (
+      {RTCView && tiles.local === 'video' && (
         <View style={[styles.pip, { top: insets.top + 16, borderColor: themeColors.border }]}>
           <RTCView
             streamURL={session.localStream!.toURL()}
@@ -138,6 +153,23 @@ export default function CallScreen() {
             mirror={session.frontCamera}
             zOrder={1}
           />
+        </View>
+      )}
+
+      {/* Own camera off: an opaque tile with my username instead of a frozen frame or an empty gap. */}
+      {tiles.local === 'panel' && (
+        <View
+          style={[
+            styles.pip,
+            styles.pipOff,
+            { top: insets.top + 16, borderColor: themeColors.border, backgroundColor: themeColors.cardBackground },
+          ]}
+          accessibilityLabel="Your camera is off"
+        >
+          <Ionicons name="videocam-off" size={22} color={themeColors.subText} />
+          <Text style={[styles.pipName, { color: themeColors.text }]} numberOfLines={2}>
+            {currentUser?.username ?? ''}
+          </Text>
         </View>
       )}
 
@@ -265,4 +297,8 @@ const styles = StyleSheet.create({
   hangUpIcon: { transform: [{ rotate: '135deg' }] },
   pill: { paddingHorizontal: 36, paddingVertical: 14, borderRadius: 28 },
   pillText: { fontSize: 16, fontWeight: '600' },
+  cameraOffRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  cameraOffText: { fontSize: 14 },
+  pipOff: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 8 },
+  pipName: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
 });

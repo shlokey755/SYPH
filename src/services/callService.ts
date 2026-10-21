@@ -5,6 +5,8 @@
  *
  *   calls/{callId}                    status, offer, answer, who is calling whom
  *   calls/{callId}/candidates/{id}    trickled ICE candidates from either side (`from` says which)
+ *   calls/{callId}/media/{uid}        that person's own media state, so far just `cameraOff` (the other side then
+ *                                     shows a panel instead of a frozen last frame)
  *
  * Both collections carry `expireAt` so a Firestore TTL policy can clear them (optional, see API.md).
  */
@@ -126,6 +128,22 @@ export function subscribeRemoteCandidates(
       });
     },
     (error) => console.warn('Candidate listener error:', error.message)
+  );
+}
+
+// ---------- Camera state ----------
+
+/** Tells the other side whether your camera is off. Each person writes only their own document. */
+export function publishCameraOff(callId: string, uid: string, off: boolean) {
+  return setDoc(doc(db, 'calls', callId, 'media', uid), { cameraOff: off, expireAt: expireAt() });
+}
+
+/** Calls back with whether `uid` has their camera off, now and on every change. A missing document means "on". */
+export function subscribeCameraOff(callId: string, uid: string, onChange: (off: boolean) => void): () => void {
+  return onSnapshot(
+    doc(db, 'calls', callId, 'media', uid),
+    (snap) => onChange(snap.exists() && snap.data().cameraOff === true),
+    (error) => console.warn('Camera state listener error:', error.message)
   );
 }
 

@@ -20,7 +20,9 @@ import {
   declineCall,
   endCall,
   markCallMissed,
+  publishCameraOff,
   subscribeCall,
+  subscribeCameraOff,
   subscribeRemoteCandidates,
 } from '../services/callService';
 import { setCallSpeaker, startCallAudio, stopCallAudio } from '../services/callAudio';
@@ -74,6 +76,7 @@ export function useCallSession({ callId, outgoing, me }: Params) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [remoteCameraOff, setRemoteCameraOff] = useState(false);
   const [frontCamera, setFrontCamera] = useState(true);
   const [speakerOn, setSpeakerOn] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
@@ -101,6 +104,8 @@ export function useCallSession({ callId, outgoing, me }: Params) {
     let connectedOnce = false;
     let speaker = false; // where audio currently comes out
     let audioRouted = false; // true once this call has taken over audio routing, so it is handed back afterwards
+    let cameraIsOff = false; // mirrors the cameraOff state for code that runs outside React
+    let cameraWatched = false; // the other person's camera-state listener is attached
 
     let pc: InstanceType<NonNullable<ReturnType<typeof getWebRTC>>['RTCPeerConnection']> | null = null;
     let stream: MediaStream | null = null;
@@ -144,6 +149,11 @@ export function useCallSession({ callId, outgoing, me }: Params) {
       setReconnecting(false);
       setEndReason(reason);
       setPhase('ended');
+    };
+
+    /** Tells the other person whether my camera is off, so they show a panel instead of a frozen last frame. */
+    const shareCameraState = () => {
+      if (activeCallId) publishCameraOff(activeCallId, self.uid, cameraIsOff).catch(warn('share camera state'));
     };
 
     /** Writes the right "I am leaving" status for wherever the call currently is. */
@@ -308,6 +318,14 @@ export function useCallSession({ callId, outgoing, me }: Params) {
         return;
       }
 
+      // First time the call is known: follow the other person's camera, and say so if mine was already off.
+      if (!cameraWatched) {
+        cameraWatched = true;
+        const otherUid = next.callerId === self.uid ? next.calleeId : next.callerId;
+        unsubs.push(subscribeCameraOff(next.id, otherUid, setRemoteCameraOff));
+        if (cameraIsOff) shareCameraState();
+      }
+
       if (isCaller) {
         if (next.status === 'accepted' && next.answer && !remoteDescriptionSet && pc) {
           setPhase('connecting');
@@ -410,9 +428,12 @@ export function useCallSession({ callId, outgoing, me }: Params) {
       },
       toggleCamera: () => {
         const tracks = stream?.getVideoTracks() ?? [];
+        if (tracks.length === 0) return; // voice call
         const nextOff = tracks.some((t) => t.enabled);
         tracks.forEach((t) => (t.enabled = !nextOff));
+        cameraIsOff = nextOff;
         setCameraOff(nextOff);
+        shareCameraState();
       },
       toggleSpeaker: () => {
         const wanted = !speaker;
@@ -477,6 +498,7 @@ export function useCallSession({ callId, outgoing, me }: Params) {
     remoteStream,
     muted,
     cameraOff,
+    remoteCameraOff,
     frontCamera,
     speakerOn,
     reconnecting,

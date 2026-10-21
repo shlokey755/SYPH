@@ -256,6 +256,16 @@ const no = (n, p) => check(n, p, false);
   await no('cannot add a candidate as the other person', alice.collection('calls/c6/candidates').add(cand('bob')));
   await no('outsider cannot add a candidate', carol.collection('calls/c6/candidates').add(cand('carol')));
   await ok('participant reads candidates', bob.collection('calls/c6/candidates').get());
+  console.log('\nCall camera state');
+  await ok('participant says their camera is off', alice.doc('calls/c6/media/alice').set({ cameraOff: true }));
+  await ok('other participant reads it', bob.doc('calls/c6/media/alice').get());
+  await ok('participant turns the camera back on', alice.doc('calls/c6/media/alice').set({ cameraOff: false }));
+  await no('cannot write the other person\'s camera state', alice.doc('calls/c6/media/bob').set({ cameraOff: true }));
+  await no('outsider cannot read camera state', carol.doc('calls/c6/media/alice').get());
+  await no('outsider cannot write camera state', carol.doc('calls/c6/media/carol').set({ cameraOff: true }));
+  await no('camera state must be a boolean', alice.doc('calls/c6/media/alice').set({ cameraOff: 'yes' }));
+  await no('unexpected fields are refused', alice.doc('calls/c6/media/alice').set({ cameraOff: true, admin: true }));
+  await no('camera state cannot be deleted', alice.doc('calls/c6/media/alice').delete());
   await no('outsider cannot read candidates', carol.collection('calls/c6/candidates').get());
 
   console.log(`\n${passed} passed, ${failed} failed`);
