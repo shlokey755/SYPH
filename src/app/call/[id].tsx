@@ -159,6 +159,12 @@ export default function CallScreen() {
               active={session.muted}
               onPress={session.toggleMute}
             />
+            <ControlButton
+              icon={session.speakerOn ? 'volume-high' : 'ear'}
+              label={session.speakerOn ? 'Switch to earpiece' : 'Switch to speaker'}
+              active={session.speakerOn}
+              onPress={session.toggleSpeaker}
+            />
             {isVideo && (
               <>
                 <ControlButton
@@ -176,7 +182,7 @@ export default function CallScreen() {
               onPress={session.hangUp}
               style={[styles.round, { backgroundColor: themeColors.danger }]}
             >
-              <Ionicons name="call" size={28} color="#FFFFFF" style={styles.hangUpIcon} />
+              <Ionicons name="call" size={26} color="#FFFFFF" style={styles.hangUpIcon} />
             </Pressable>
           </>
         )}
@@ -209,7 +215,7 @@ function ControlButton({
         styles.bordered,
       ]}
     >
-      <Ionicons name={icon} size={26} color={active ? themeColors.buttonText : themeColors.text} />
+      <Ionicons name={icon} size={24} color={active ? themeColors.buttonText : themeColors.text} />
     </Pressable>
   );
 }
@@ -246,12 +252,14 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     flexDirection: 'row',
+    flexWrap: 'wrap', // very narrow screens wrap onto a second row instead of clipping
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 18,
+    gap: 10,
     paddingHorizontal: 16,
   },
-  round: { width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center' },
+  // Five buttons (mute, speaker, camera, switch camera, hang up) must fit a 360dp-wide screen: 5 x 56 + 4 x 10 = 320.
+  round: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   bordered: { borderWidth: 1 },
   // The phone glyph points up-right; turned over it reads as "hang up".
   hangUpIcon: { transform: [{ rotate: '135deg' }] },

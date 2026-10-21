@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
+import { useProfiles } from '../../hooks/useProfiles';
 import { Conversation } from '../../types';
-import { getConversationTitle } from '../../utils/conversation';
+import { getConversationTitle, getOtherParticipant } from '../../utils/conversation';
 
 interface Props {
   visible: boolean;
@@ -17,6 +18,11 @@ interface Props {
 
 export function ForwardPicker({ visible, conversations, myUid, colors, onPick, onClose }: Props) {
   const insets = useSafeAreaInsets();
+  const otherUids = useMemo(
+    () => conversations.map((c) => getOtherParticipant(c, myUid)?.uid).filter((uid): uid is string => !!uid),
+    [conversations, myUid]
+  );
+  const { nameOf } = useProfiles(otherUids);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -36,7 +42,7 @@ export function ForwardPicker({ visible, conversations, myUid, colors, onPick, o
             <Text style={[styles.empty, { color: colors.subText }]}>No other chats to forward to.</Text>
           }
           renderItem={({ item }) => {
-            const title = getConversationTitle(item, myUid);
+            const title = getConversationTitle(item, myUid, nameOf);
             return (
               <Pressable
                 onPress={() => onPick(item)}

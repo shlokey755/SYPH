@@ -4,6 +4,7 @@
  * Watches Firestore with the Admin SDK and sends Expo push notifications:
  *   - a new message in a conversation  -> every other member (honouring mute + the notification switch)
  *   - being added to a group           -> the new member
+ *   - a group renamed / member removed / member left -> see planGroupActivity in notify.js
  *   - an incoming call (calls/{id})    -> the callee (honours the notification switch, not chat mute)
  *
  * It reads only the conversation summary (lastMessage, lastMessageTime, ...) that the app already writes with
@@ -22,9 +23,11 @@ import {
   allowsCallNotification,
   allowsNotification,
   buildCallPush,
+  buildGroupActivityPush,
   buildGroupAddedPush,
   buildMessagePush,
   createDeduper,
+  planGroupActivity,
   recipientsOf,
   shouldAnnounceCall,
   splitTokensByOwner,
@@ -181,8 +184,9 @@ listen(
   }
 );
 
-// Group invites: remember each group's members, notify when someone is added.
+// Group changes: remember each group's members, notify when someone is added, removed or the group is renamed.
 const groupMembers = new Map(); // conversationId -> uid[]
+const activityDeduper = createDeduper();
 let groupsBootstrapped = false;
 
 listen(
@@ -200,16 +204,28 @@ listen(
       const known = groupMembers.get(id);
       groupMembers.set(id, members);
 
+      // Recorded for every change, including the first load, so an old activity is never announced later just
+      // because an unrelated update (a new message, a read receipt) touched the same document.
+      const activityAt = toMillis(conversation.groupActivity?.at);
+      const activityIsNew = activityAt > startedAt.toMillis() && activityDeduper.isNew(id, activityAt);
+
       if (!groupsBootstrapped) continue; // very first load: just learn the current members
 
       // Unknown group = created while we were watching; only the creator already knows about it.
       const added =
         known === undefined ? members.filter((uid) => uid !== conversation.createdBy) : addedMembers(known, members);
-      if (added.length === 0) continue;
+      if (added.length > 0) {
+        await notifyUsers(added, id, (tokens) => buildGroupAddedPush({ conversationId: id, conversation, tokens }));
+      }
 
-      await notifyUsers(added, id, (tokens) =>
-        buildGroupAddedPush({ conversationId: id, conversation, tokens })
-      );
+      if (activityIsNew) {
+        const plan = planGroupActivity(conversation, known);
+        if (plan) {
+          await notifyUsers(plan.uids, id, (tokens) =>
+            buildGroupActivityPush({ conversationId: id, conversation, body: plan.body, openChat: plan.openChat, tokens })
+          );
+        }
+      }
     }
     groupsBootstrapped = true;
   }

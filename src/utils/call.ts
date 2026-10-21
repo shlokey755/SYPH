@@ -5,7 +5,7 @@
  * The status moves here must match the `calls` rules in firestore.rules.
  */
 
-import type { CallStatus } from '../types';
+import type { CallStatus, CallType } from '../types';
 
 /** How long the caller waits for an answer before marking the call missed. */
 export const RING_TIMEOUT_MS = 45_000;
@@ -100,3 +100,9 @@ export function formatCallClock(totalSeconds: number): string {
   const ss = String(seconds).padStart(2, '0');
   return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
 }
+
+/**
+ * Where call audio starts. A video call is held at arm's length, so it starts on the loudspeaker; a voice call is held
+ * to the ear, so it starts on the earpiece. The person can switch either way during the call.
+ */
+export const defaultSpeakerOn = (type: CallType): boolean => type === 'video';

@@ -5,7 +5,8 @@ import { db } from '../firebaseConfig';
 export interface SearchResult {
   uid: string;
   username: string;
-  profileImageUrl?: string;
+  /** Optional display name; shown before the @username when set. */
+  displayName?: string;
 }
 
 export const useUserSearch = () => {
@@ -41,7 +42,7 @@ export const useUserSearch = () => {
           searchResults.push({
             uid: data.uid,
             username: data.username, // Display intact username
-            profileImageUrl: data.profileImageUrl,
+            displayName: (data.displayName as string | undefined)?.trim() || undefined,
           });
         }
       });

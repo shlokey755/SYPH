@@ -23,10 +23,13 @@ import {
   subscribeCall,
   subscribeRemoteCandidates,
 } from '../services/callService';
+import { setCallSpeaker, startCallAudio, stopCallAudio } from '../services/callAudio';
+import { notifyCall } from '../services/pushSender';
 import { getIceServers, getWebRTC, PeerEvents } from '../services/webrtc';
 import { Call, CallCandidate, CallStatus, CallType } from '../types';
 import {
   CallEndReason,
+  defaultSpeakerOn,
   endReasonFromStatus,
   isTerminalStatus,
   RECONNECT_GRACE_MS,
@@ -57,6 +60,7 @@ interface Controls {
   toggleMute: () => void;
   toggleCamera: () => void;
   switchCamera: () => void;
+  toggleSpeaker: () => void;
 }
 
 const warn = (what: string) => (error: unknown) =>
@@ -71,6 +75,7 @@ export function useCallSession({ callId, outgoing, me }: Params) {
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [frontCamera, setFrontCamera] = useState(true);
+  const [speakerOn, setSpeakerOn] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const [seconds, setSeconds] = useState(0);
 
@@ -94,6 +99,8 @@ export function useCallSession({ callId, outgoing, me }: Params) {
     let remoteDescriptionSet = false;
     let answeringStarted = false;
     let connectedOnce = false;
+    let speaker = false; // where audio currently comes out
+    let audioRouted = false; // true once this call has taken over audio routing, so it is handed back afterwards
 
     let pc: InstanceType<NonNullable<ReturnType<typeof getWebRTC>>['RTCPeerConnection']> | null = null;
     let stream: MediaStream | null = null;
@@ -112,6 +119,10 @@ export function useCallSession({ callId, outgoing, me }: Params) {
     };
 
     const releaseMedia = () => {
+      if (audioRouted) {
+        audioRouted = false;
+        stopCallAudio();
+      }
       stream?.getTracks().forEach((t) => t.stop());
       try {
         pc?.close();
@@ -219,6 +230,13 @@ export function useCallSession({ callId, outgoing, me }: Params) {
       }
 
       setLocalStream(stream);
+
+      // Voice calls start on the earpiece and video calls on the speaker (see defaultSpeakerOn); the audio library's
+      // "auto" mode does the same, and also follows a headset being plugged in.
+      speaker = defaultSpeakerOn(type);
+      setSpeakerOn(speaker);
+      audioRouted = startCallAudio(type);
+
       const peer = new WebRTC.RTCPeerConnection({ iceServers: getIceServers() });
       pc = peer;
       stream.getTracks().forEach((track) => peer.addTrack(track, stream!));
@@ -349,6 +367,15 @@ export function useCallSession({ callId, outgoing, me }: Params) {
         // Hung up while the call was being placed: the hang-up path has already queued the cancel.
         if (disposed || finished) return;
 
+        // The call is on the server, so ring the callee's phone in case their app is closed (best effort).
+        void notifyCall({
+          callId: id,
+          conversationId: plan.conversationId,
+          callerName: self.username,
+          type: plan.type,
+          calleeUid: plan.callee.uid,
+        });
+
         while (pendingLocal.length > 0) sendCandidate(pendingLocal.shift()!);
         setPhase('ringing');
         watchCall(id);
@@ -386,6 +413,13 @@ export function useCallSession({ callId, outgoing, me }: Params) {
         const nextOff = tracks.some((t) => t.enabled);
         tracks.forEach((t) => (t.enabled = !nextOff));
         setCameraOff(nextOff);
+      },
+      toggleSpeaker: () => {
+        const wanted = !speaker;
+        // If the system refuses (or there is no audio module), keep showing what is really happening.
+        if (!setCallSpeaker(wanted)) return;
+        speaker = wanted;
+        setSpeakerOn(wanted);
       },
       switchCamera: () => {
         const track = stream?.getVideoTracks()[0];
@@ -432,6 +466,7 @@ export function useCallSession({ callId, outgoing, me }: Params) {
   const toggleMute = useCallback(() => controlsRef.current?.toggleMute(), []);
   const toggleCamera = useCallback(() => controlsRef.current?.toggleCamera(), []);
   const switchCamera = useCallback(() => controlsRef.current?.switchCamera(), []);
+  const toggleSpeaker = useCallback(() => controlsRef.current?.toggleSpeaker(), []);
 
   return {
     phase,
@@ -443,11 +478,13 @@ export function useCallSession({ callId, outgoing, me }: Params) {
     muted,
     cameraOff,
     frontCamera,
+    speakerOn,
     reconnecting,
     seconds,
     hangUp,
     toggleMute,
     toggleCamera,
     switchCamera,
+    toggleSpeaker,
   };
 }

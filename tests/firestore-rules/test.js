@@ -33,6 +33,7 @@ const no = (n, p) => check(n, p, false);
   const bob = env.authenticatedContext('bob').firestore();
   const carol = env.authenticatedContext('carol').firestore();
   const anon = env.unauthenticatedContext().firestore();
+  const updateGroupAs = (e, uid, data) => e.authenticatedContext(uid).firestore().doc('conversations/g1').update(data);
 
   const direct = (uid, other) => ({
     isGroup: false, createdBy: uid, participantIds: [uid, other],
@@ -73,6 +74,11 @@ const no = (n, p) => check(n, p, false);
   await no('outsider cannot send', sendAs(carol, 'carol'));
   await no('cannot spoof senderId', sendAs(alice, 'bob'));
   await no('cannot backdate createdAt', sendAs(alice, 'alice', { createdAt: firebase.firestore.Timestamp.fromMillis(1000) }));
+  await ok('a sticker can be sent', sendAs(alice, 'alice', { type: 'sticker', text: '🔥' }));
+  await ok('a GIF link can be sent', sendAs(alice, 'alice', { type: 'gif', text: '', media: { url: 'https://media.giphy.com/x.gif' } }));
+  await no('a photo can no longer be sent', sendAs(alice, 'alice', { type: 'image', media: { url: 'https://x/y.jpg' } }));
+  await no('a voice note can no longer be sent', sendAs(alice, 'alice', { type: 'audio' }));
+  await no('a document can no longer be sent', sendAs(alice, 'alice', { type: 'document' }));
   await ok('member reads messages', bob.collection('conversations/alice_bob/messages').get());
   await no('outsider cannot read messages', carol.collection('conversations/alice_bob/messages').get());
 
@@ -90,6 +96,21 @@ const no = (n, p) => check(n, p, false);
   await no('cannot hide a message for someone else', m1(bob).update({ deletedFor: FV.arrayUnion('alice') }));
   await no('cannot edit message text', m1(alice).update({ text: 'edited' }));
   await no('cannot delete a message document', m1(alice).delete());
+
+  console.log('\nTyping indicator');
+  const marker = (extra = {}) => ({ typing: true, at: FV.serverTimestamp(), ...extra });
+  await ok('member writes own typing marker', alice.doc('conversations/alice_bob/typing/alice').set(marker()));
+  await ok('member refreshes own typing marker', alice.doc('conversations/alice_bob/typing/alice').set(marker()));
+  await no('cannot fake someone else typing', alice.doc('conversations/alice_bob/typing/bob').set(marker()));
+  await no('outsider cannot write a typing marker', carol.doc('conversations/alice_bob/typing/carol').set(marker()));
+  await no('cannot backdate the marker', alice.doc('conversations/alice_bob/typing/alice').set(marker({ at: firebase.firestore.Timestamp.fromMillis(1000) })));
+  await no('typing must be true (stop = delete)', alice.doc('conversations/alice_bob/typing/alice').set(marker({ typing: false })));
+  await no('unexpected fields are refused', alice.doc('conversations/alice_bob/typing/alice').set(marker({ note: 'hi' })));
+  await ok('the other member can read markers', bob.collection('conversations/alice_bob/typing').get());
+  await no('outsider cannot read markers', carol.collection('conversations/alice_bob/typing').get());
+  await no('cannot delete someone else\'s marker', bob.doc('conversations/alice_bob/typing/alice').delete());
+  await ok('member deletes own marker', alice.doc('conversations/alice_bob/typing/alice').delete());
+  await ok('deleting a marker that is already gone is harmless', alice.doc('conversations/alice_bob/typing/alice').delete());
 
   console.log('\nReceipts and conversation updates');
   await ok('bob writes own readState', bob.doc('conversations/alice_bob').update({ 'readState.bob.readAt': FV.serverTimestamp(), 'readState.bob.deliveredAt': FV.serverTimestamp(), 'unread.bob': 0 }));
@@ -113,6 +134,21 @@ const no = (n, p) => check(n, p, false);
   await no('removed member can no longer read', carol.doc('conversations/g1').get());
   await ok('creator renames group', alice.doc('conversations/g1').update({ groupName: 'New' }));
 
+  console.log('\nGroup activity (read by the push relay)');
+  const act = (type, by, extra = {}) => ({ type, by, byName: by, at: FV.serverTimestamp(), ...extra });
+  await ok('rename can record who did it', alice.doc('conversations/g1').update({ groupName: 'Third', groupActivity: act('renamed', 'alice') }));
+  await no('activity cannot name someone else as the actor', alice.doc('conversations/g1').update({ groupName: 'Fourth', groupActivity: act('renamed', 'bob') }));
+  await no('activity cannot carry a made-up time', alice.doc('conversations/g1').update({
+    groupName: 'Fifth', groupActivity: { type: 'renamed', by: 'alice', byName: 'alice', at: firebase.firestore.Timestamp.fromMillis(1000) },
+  }));
+  await no('an outsider cannot record activity', carol.doc('conversations/g1').update({ groupActivity: act('renamed', 'carol') }));
+  await ok('creator adds a member again', alice.doc('conversations/g1').update({ participantIds: ['alice', 'bob', 'dave'] }));
+  await ok('creator removal can be recorded', alice.doc('conversations/g1').update({
+    participantIds: ['alice', 'bob'], groupActivity: act('removed', 'alice', { targets: ['dave'] }),
+  }));
+  await ok('creator adds a member once more', alice.doc('conversations/g1').update({ participantIds: ['alice', 'bob', 'dave'] }));
+  await ok('a member leaving can be recorded', updateGroupAs(env, 'dave', { participantIds: ['alice', 'bob'], groupActivity: act('left', 'dave') }));
+
   console.log('\nPush token registry');
   const tok = (uid) => ({ uid, platform: 'android', updatedAt: FV.serverTimestamp() });
   await ok('user claims a device token for themselves', alice.doc('pushTokens/ExponentPushToken[abc]').set(tok('alice')));
@@ -122,8 +158,40 @@ const no = (n, p) => check(n, p, false);
   await no('previous owner cannot delete the entry after takeover', alice.doc('pushTokens/ExponentPushToken[abc]').delete());
   await ok('current owner deletes the entry', bob.doc('pushTokens/ExponentPushToken[abc]').delete());
   await ok('deleting a missing entry is harmless', alice.doc('pushTokens/ExponentPushToken[gone]').delete());
-  await no('registry cannot be read by clients', bob.doc('pushTokens/ExponentPushToken[abc]').get());
+  await ok('a signed-in user can look up one token owner', alice.doc('pushTokens/ExponentPushToken[abc]').get());
+  await no('anonymous cannot look up a token', anon.doc('pushTokens/ExponentPushToken[abc]').get());
   await no('registry cannot be listed', alice.collection('pushTokens').get());
+
+  console.log('\nPush mirror (userPush)');
+  const mirror = (extra = {}) => ({ tokens: ['ExponentPushToken[a]'], notificationsEnabled: true, mutedChats: [], updatedAt: FV.serverTimestamp(), ...extra });
+  await ok('owner writes own mirror', alice.doc('userPush/alice').set(mirror()));
+  await no('others cannot write someone else\'s mirror', carol.doc('userPush/alice').set(mirror()));
+  await ok('a signed-in user can read one mirror', bob.doc('userPush/alice').get());
+  await no('anonymous cannot read a mirror', anon.doc('userPush/alice').get());
+  await no('mirrors cannot be listed', bob.collection('userPush').get());
+  await no('more than 5 devices is refused', alice.doc('userPush/alice').set(mirror({ tokens: ['1', '2', '3', '4', '5', '6'] })));
+  await no('unexpected fields are refused', alice.doc('userPush/alice').set(mirror({ admin: true })));
+  await no('notificationsEnabled must be a boolean', alice.doc('userPush/alice').set(mirror({ notificationsEnabled: 'yes' })));
+  await ok('owner deletes own mirror', alice.doc('userPush/alice').delete());
+  await no('others cannot delete a mirror', carol.doc('userPush/alice').delete());
+
+  console.log('\nUsername registry');
+  const claim = (db, name, uid) => db.doc(`usernames/${name}`).set({ uid, createdAt: FV.serverTimestamp() });
+  await ok('can claim a free username for yourself', claim(alice, 'alice_01', 'alice'));
+  await no('cannot claim a name that is already taken', claim(bob, 'alice_01', 'bob'));
+  await no('cannot claim a name on behalf of someone else', claim(bob, 'bobs_name', 'alice'));
+  await no('cannot claim a name that is too short', claim(bob, 'ab', 'bob'));
+  await no('cannot claim a name with upper-case letters', claim(bob, 'Bobby', 'bob'));
+  await no('cannot claim a name ending in a dot', claim(bob, 'bobby.', 'bob'));
+  await no('cannot add extra fields to a claim', bob.doc('usernames/bobby').set({ uid: 'bob', createdAt: FV.serverTimestamp(), admin: true }));
+  await no('anonymous cannot claim', claim(anon, 'anon_name', 'alice'));
+  await ok('signed-in users can check who owns a name', carol.doc('usernames/alice_01').get());
+  await no('anonymous cannot read the registry', anon.doc('usernames/alice_01').get());
+  await no('the registry cannot be listed', carol.collection('usernames').get());
+  await no('the owner cannot rewrite a claim', alice.doc('usernames/alice_01').update({ uid: 'bob' }));
+  await no('others cannot release your name', bob.doc('usernames/alice_01').delete());
+  await ok('the owner can release their name', alice.doc('usernames/alice_01').delete());
+  await ok('a released name can be claimed by someone else', claim(bob, 'alice_01', 'bob'));
 
   console.log('\nCalls');
   const expire = () => firebase.firestore.Timestamp.fromMillis(Date.now() + 3600 * 1000);

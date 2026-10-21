@@ -8,10 +8,6 @@ export interface UserProfile {
   username: string;
   usernameLowercase?: string;
   displayName: string;
-  /** Profile photo URL (Firebase Storage). */
-  profileImageUrl?: string;
-  /** Short status line shown on the profile (FR-02). */
-  status?: string;
   /** Theme id saved to the profile (FR-15). */
   theme?: string;
   lastUsernameChange?: FirestoreTime | Date;
@@ -19,14 +15,16 @@ export interface UserProfile {
 }
 
 // ---------- Messages ----------
-export type MessageType = 'text' | 'image' | 'video' | 'audio' | 'document' | 'gif' | 'sticker';
+/**
+ * The app sends 'text', 'gif' and 'sticker'. 'image', 'video', 'audio' and 'document' were removed (no file storage)
+ * and only appear in messages sent before that; they render as a label (see utils/messageType.ts).
+ */
+export type MessageType = 'text' | 'gif' | 'sticker' | 'image' | 'video' | 'audio' | 'document';
 
+/** A GIF link (Giphy). Old file messages may carry extra fields; they are ignored. */
 export interface MessageMedia {
   url: string;
-  name?: string;
   mimeType?: string;
-  size?: number;
-  durationMs?: number;
   width?: number;
   height?: number;
 }
@@ -65,12 +63,22 @@ export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read';
 export interface ConversationParticipant {
   uid: string;
   username: string;
-  profileImageUrl?: string;
 }
 
 export interface ReadReceipt {
   deliveredAt?: FirestoreTime;
   readAt?: FirestoreTime;
+}
+
+/** The latest change to a group, recorded so the push relay can announce it (FR-10). */
+export interface GroupActivity {
+  type: 'renamed' | 'removed' | 'left';
+  /** Who did it. Set to the signed-in user and enforced by the rules. */
+  by: string;
+  byName: string;
+  /** For 'removed': the people who were removed. */
+  targets?: string[];
+  at: FirestoreTime;
 }
 
 export interface Conversation {
@@ -96,6 +104,8 @@ export interface Conversation {
   readState?: Record<string, ReadReceipt>;
   /** Per-user unread message counters, keyed by uid. */
   unread?: Record<string, number>;
+  /** Latest rename / removal / leave in a group. */
+  groupActivity?: GroupActivity;
   createdAt: FirestoreTime;
 }
 

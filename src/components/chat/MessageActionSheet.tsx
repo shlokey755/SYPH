@@ -4,6 +4,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
 import { Message } from '../../types';
+import { isLegacyMediaType } from '../../utils/messageType';
 
 export type MessageAction = 'reply' | 'copy' | 'forward' | 'deleteForMe' | 'deleteForEveryone';
 
@@ -24,7 +25,10 @@ export function MessageActionSheet({ message, isMine, colors, onSelect, onClose 
     ...(message.type === 'text' && message.text
       ? [{ id: 'copy' as const, label: 'Copy', icon: 'copy-outline' as const }]
       : []),
-    { id: 'forward', label: 'Forward', icon: 'arrow-redo' },
+    // An old photo / voice note / document has no file behind it any more, so there is nothing to forward.
+    ...(isLegacyMediaType(message.type)
+      ? []
+      : [{ id: 'forward' as const, label: 'Forward', icon: 'arrow-redo' as const }]),
     { id: 'deleteForMe', label: 'Delete for me', icon: 'trash-outline', danger: true },
     ...(isMine
       ? [{ id: 'deleteForEveryone' as const, label: 'Delete for everyone', icon: 'trash' as const, danger: true }]

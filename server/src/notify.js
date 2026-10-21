@@ -27,6 +27,12 @@ export function recipientsOf(conversation) {
   return (conversation.participantIds ?? []).filter((uid) => uid && uid !== sender);
 }
 
+/** Members present in `previous` but no longer in `next`. */
+export function removedMembers(previous, next) {
+  const now = new Set(next ?? []);
+  return (previous ?? []).filter((uid) => uid && !now.has(uid));
+}
+
 /** Members present in `next` but not in `previous`. */
 export function addedMembers(previous, next) {
   const before = new Set(previous ?? []);
@@ -159,4 +165,52 @@ export function buildCallPush({ callId, call, tokens }) {
     threadId: call.conversationId,
     data: { type: 'call', conversationId: call.conversationId, callId },
   }));
+}
+
+/**
+ * Who to tell about the latest group change, and what to say. Returns null when nobody needs a notification.
+ *
+ *   renamed  every other current member
+ *   removed  the people who are no longer members (never the person who did it)
+ *   left     the group's creator only, so a busy group is not buzzed for every departure
+ *
+ * Who was removed is worked out from the member list itself (`previousMembers` minus current), not from the
+ * `targets` the client wrote, so a client cannot make the relay notify arbitrary people. `previousMembers` is
+ * undefined when the relay has not seen the group before, in which case removals are skipped.
+ */
+export function planGroupActivity(conversation, previousMembers) {
+  const activity = conversation.groupActivity;
+  if (!activity || !activity.by) return null;
+  const by = activity.byName || 'Someone';
+  const members = conversation.participantIds ?? [];
+
+  switch (activity.type) {
+    case 'renamed': {
+      const uids = members.filter((uid) => uid && uid !== activity.by);
+      return uids.length > 0 ? { uids, body: `${by} renamed the group`, openChat: true } : null;
+    }
+    case 'removed': {
+      if (previousMembers === undefined) return null;
+      const uids = removedMembers(previousMembers, members).filter((uid) => uid !== activity.by);
+      // A removed person can no longer open the chat, so their notification carries no conversationId.
+      return uids.length > 0 ? { uids, body: `${by} removed you from the group`, openChat: false } : null;
+    }
+    case 'left': {
+      const owner = conversation.createdBy;
+      if (!owner || owner === activity.by || !members.includes(owner)) return null;
+      return { uids: [owner], body: `${by} left the group`, openChat: true };
+    }
+    default:
+      return null;
+  }
+}
+
+/** Notification for a group change decided by planGroupActivity. */
+export function buildGroupActivityPush({ conversationId, conversation, body, openChat, tokens }) {
+  const title = conversation.groupName || 'Group';
+  return tokens.map((to) => {
+    const message = baseMessage(to, conversationId, 'group', title, body);
+    if (!openChat) message.data = { type: 'group' };
+    return message;
+  });
 }

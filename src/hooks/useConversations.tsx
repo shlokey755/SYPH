@@ -26,7 +26,7 @@ import { useToast } from './toastNotifications';
 import { useAuth } from './useAuth';
 import { useUserSettings } from './useUserSettings';
 
-type MemberInput = { uid: string; username: string; profileImageUrl?: string };
+type MemberInput = { uid: string; username: string };
 
 interface ConversationsContextType {
   /** Visible conversations (not hidden by this user), newest activity first. */
@@ -40,7 +40,6 @@ interface ConversationsContextType {
     currentUserId: string,
     otherUserId: string,
     otherUsername: string,
-    otherProfileImage?: string,
     currentUsername?: string
   ) => Promise<string>;
   createGroupConversation: (
@@ -180,12 +179,11 @@ export const ConversationsProvider = ({ children }: { children: React.ReactNode 
       currentUserId: string,
       otherUserId: string,
       otherUsername: string,
-      otherProfileImage?: string,
       currentUsername?: string
     ) =>
       chat.getOrCreateDirectConversation(
         { uid: currentUserId, username: currentUsername || 'Anonymous' },
-        { uid: otherUserId, username: otherUsername, profileImageUrl: otherProfileImage }
+        { uid: otherUserId, username: otherUsername }
       ),
     []
   );

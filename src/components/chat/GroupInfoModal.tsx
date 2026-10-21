@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
+import { useAuth } from '../../hooks/useAuth';
 import { useUserSearch } from '../../hooks/useUserSearch';
 import * as chat from '../../services/chatService';
 import { Conversation } from '../../types';
@@ -38,6 +39,7 @@ const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Something w
 export function GroupInfoModal({ visible, conversation, myUid, colors, onClose, onLeft }: Props) {
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const { currentUser } = useAuth();
   const { results, isSearching, searchUsers, clearSearch } = useUserSearch();
   const [search, setSearch] = useState('');
   const [name, setName] = useState('');
@@ -45,6 +47,7 @@ export function GroupInfoModal({ visible, conversation, myUid, colors, onClose, 
 
   if (!conversation || !conversation.isGroup) return null;
 
+  const actor = currentUser ? { uid: currentUser.uid, username: currentUser.displayName || currentUser.username } : null;
   const isCreator = conversation.createdBy === myUid;
   const members = conversation.participants ?? [];
   const memberIds = new Set(conversation.participantIds);
@@ -71,13 +74,14 @@ export function GroupInfoModal({ visible, conversation, myUid, colors, onClose, 
     const next = name.trim();
     if (!next || next === conversation.groupName) return;
     run('Could not rename group', async () => {
-      await chat.renameGroup(conversation.id, next);
+      if (!actor) return;
+      await chat.renameGroup(conversation.id, next, actor);
       setName('');
       toast.success('Group renamed');
     });
   };
 
-  const handleAdd = (user: { uid: string; username: string; profileImageUrl?: string }) =>
+  const handleAdd = (user: { uid: string; username: string }) =>
     run('Could not add member', async () => {
       await chat.addGroupMembers(conversation.id, [user]);
       setSearch('');
@@ -93,7 +97,8 @@ export function GroupInfoModal({ visible, conversation, myUid, colors, onClose, 
         style: 'destructive',
         onPress: () =>
           run('Could not remove member', async () => {
-            await chat.removeGroupMember(conversation.id, uid);
+            if (!actor) return;
+            await chat.removeGroupMember(conversation.id, uid, actor);
             toast.success('Member removed', username);
           }),
       },
@@ -107,8 +112,8 @@ export function GroupInfoModal({ visible, conversation, myUid, colors, onClose, 
         style: 'destructive',
         onPress: () =>
           run('Could not leave group', async () => {
-            if (!myUid) return;
-            await chat.removeGroupMember(conversation.id, myUid);
+            if (!myUid || !actor) return;
+            await chat.removeGroupMember(conversation.id, myUid, actor);
             onClose();
             onLeft();
           }),

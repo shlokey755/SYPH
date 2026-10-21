@@ -21,7 +21,6 @@ import {
 
   FlatList,
 
-  Image,
 
   Modal,
 
@@ -133,8 +132,6 @@ export default function AddTab() {
         user.uid,
 
         user.username,
-
-        user.profileImageUrl,
 
         currentUser?.username
 
@@ -308,29 +305,21 @@ export default function AddTab() {
 
         >
 
-          {item.profileImageUrl ? (
+          <View style={[styles.avatarPlaceholder, { backgroundColor: themeColors.accent }]}>
 
-            <Image source={{ uri: item.profileImageUrl }} style={styles.avatar} />
+            <Text style={[styles.avatarText, { color: themeColors.buttonText }]}>{initial}</Text>
 
-          ) : (
-
-            <View style={[styles.avatarPlaceholder, { backgroundColor: themeColors.accent }]}>
-
-              <Text style={[styles.avatarText, { color: themeColors.buttonText }]}>{initial}</Text>
-
-            </View>
-
-          )}
+          </View>
 
 
 
           <View style={styles.userDetails}>
 
-            <Text style={[styles.username, { color: themeColors.text }]}>{item.username}</Text>
+            <Text style={[styles.username, { color: themeColors.text }]}>{item.displayName || item.username}</Text>
 
             <Text style={[styles.userId, { color: themeColors.subText }]}>
 
-              User ID: {item.uid.substring(0, 8)}...
+              {item.displayName ? `@${item.username}` : `User ID: ${item.uid.substring(0, 8)}...`}
 
             </Text>
 

@@ -7,7 +7,8 @@
  * - If the user is already on a call, a new one is declined and reported with a toast.
  * - If this build cannot place calls (Expo Go, web), it says so instead of ringing something that cannot be answered.
  *
- * A call that arrives while the app is closed reaches the user as a push notification (see server/ and API.md); there
+ * A call that arrives while the app is closed reaches the user as a push notification (sent from the caller's phone,
+ * see pushSender.ts and API.md; or from the optional relay in server/); there
  * is no native call screen, so tapping it opens the chat and, if the call is still ringing, this overlay appears.
  */
 
