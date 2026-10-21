@@ -75,7 +75,9 @@
           "cameraPermission": "Allow SYPH to use the camera for video calls.",
           "microphonePermission": "Allow SYPH to use the microphone for voice and video calls."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-asset"
     ],
     "extra": {
       "router": {},
