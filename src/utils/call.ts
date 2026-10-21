@@ -107,6 +107,24 @@ export function formatCallClock(totalSeconds: number): string {
  */
 export const defaultSpeakerOn = (type: CallType): boolean => type === 'video';
 
+/** One person's own media state, shared through calls/{id}/media/{uid}. A missing document means both are false. */
+export interface MediaState {
+  cameraOff: boolean;
+  muted: boolean;
+}
+
+export const DEFAULT_MEDIA_STATE: MediaState = { cameraOff: false, muted: false };
+
+/**
+ * Where the "muted" microphone icon goes for the other person. Over the corner of their video when it is showing,
+ * otherwise on their profile panel (their camera is off, or it is a voice call). Nothing when they are not muted
+ * or the call is over.
+ */
+export function muteIndicator(input: { remoteMuted: boolean; ended: boolean; remoteTile: CallTiles['remote'] }): 'corner' | 'panel' | 'none' {
+  if (!input.remoteMuted || input.ended) return 'none';
+  return input.remoteTile === 'video' ? 'corner' : 'panel';
+}
+
 /** What each video tile on the call screen shows. */
 export interface CallTiles {
   /** The other person: their live video, or an opaque panel with their username (never a frozen frame). */

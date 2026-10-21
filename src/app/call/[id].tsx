@@ -20,7 +20,7 @@ import { useCallSession } from '../../hooks/useCallSession';
 import { useIncomingCalls } from '../../hooks/useIncomingCalls';
 import { getWebRTC } from '../../services/webrtc';
 import { CallType } from '../../types';
-import { callTiles, endReasonText, formatCallClock } from '../../utils/call';
+import { callTiles, endReasonText, formatCallClock, muteIndicator } from '../../utils/call';
 
 /** How long the "Call ended" line stays up before the screen closes by itself. */
 const CLOSE_DELAY_MS = 1800;
@@ -107,6 +107,8 @@ export default function CallScreen() {
   });
   const remoteHasVideo = tiles.remote === 'video';
   const remoteCameraOff = isVideo && !ended && session.remoteCameraOff;
+  // Muted icon: over the corner of their video when it is showing, otherwise on their profile panel.
+  const mute = muteIndicator({ remoteMuted: session.remoteMuted, ended, remoteTile: tiles.remote });
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -121,10 +123,20 @@ export default function CallScreen() {
 
       <View style={[styles.top, { paddingTop: insets.top + 32 }]}>
         {!(remoteHasVideo && !ended) && (
-          <View style={[styles.avatar, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.accent }]}>
-            <Text style={[styles.initial, { color: themeColors.accent }]}>
-              {(otherName || '?').charAt(0).toUpperCase()}
-            </Text>
+          <View style={styles.avatarWrap}>
+            <View style={[styles.avatar, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.accent }]}>
+              <Text style={[styles.initial, { color: themeColors.accent }]}>
+                {(otherName || '?').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            {mute === 'panel' && (
+              <View
+                style={[styles.avatarBadge, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.border }]}
+                accessibilityLabel={`${otherName} is muted`}
+              >
+                <Ionicons name="mic-off" size={18} color={themeColors.text} />
+              </View>
+            )}
           </View>
         )}
         <Text style={[styles.name, { color: themeColors.text }, remoteHasVideo && !ended && styles.overVideo]} numberOfLines={1}>
@@ -170,6 +182,15 @@ export default function CallScreen() {
           <Text style={[styles.pipName, { color: themeColors.text }]} numberOfLines={2}>
             {currentUser?.username ?? ''}
           </Text>
+        </View>
+      )}
+
+      {mute === 'corner' && (
+        <View
+          style={[styles.cornerBadge, { bottom: insets.bottom + 112 }]}
+          accessibilityLabel={`${otherName} is muted`}
+        >
+          <Ionicons name="mic-off" size={18} color="#FFFFFF" />
         </View>
       )}
 
@@ -255,6 +276,7 @@ function ControlButton({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   top: { alignItems: 'center', gap: 10, paddingHorizontal: 24 },
+  avatarWrap: { marginBottom: 8 },
   avatar: {
     width: 112,
     height: 112,
@@ -262,7 +284,29 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+  },
+  // Small muted-microphone badge on the lower edge of the profile circle.
+  avatarBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Over live video the badge needs its own dark backing to stay readable on bright frames.
+  cornerBadge: {
+    position: 'absolute',
+    left: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   initial: { fontSize: 46, fontWeight: '600' },
   name: { fontSize: 26, fontWeight: '600', maxWidth: 300 },

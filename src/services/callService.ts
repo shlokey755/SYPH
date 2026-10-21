@@ -5,8 +5,8 @@
  *
  *   calls/{callId}                    status, offer, answer, who is calling whom
  *   calls/{callId}/candidates/{id}    trickled ICE candidates from either side (`from` says which)
- *   calls/{callId}/media/{uid}        that person's own media state, so far just `cameraOff` (the other side then
- *                                     shows a panel instead of a frozen last frame)
+ *   calls/{callId}/media/{uid}        that person's own media state: `cameraOff` (the other side then shows a panel
+ *                                     instead of a frozen last frame) and `muted` (shows a muted-microphone icon)
  *
  * Both collections carry `expireAt` so a Firestore TTL policy can clear them (optional, see API.md).
  */
@@ -25,6 +25,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Call, CallCandidate, CallType, SessionDescriptionData } from '../types';
+import { MediaState } from '../utils/call';
 
 export interface CallParty {
   uid: string;
@@ -133,17 +134,24 @@ export function subscribeRemoteCandidates(
 
 // ---------- Camera state ----------
 
-/** Tells the other side whether your camera is off. Each person writes only their own document. */
-export function publishCameraOff(callId: string, uid: string, off: boolean) {
-  return setDoc(doc(db, 'calls', callId, 'media', uid), { cameraOff: off, expireAt: expireAt() });
+/** Tells the other side whether your camera is off and your microphone is muted. Each person writes only their own. */
+export function publishMediaState(callId: string, uid: string, state: MediaState) {
+  return setDoc(doc(db, 'calls', callId, 'media', uid), {
+    cameraOff: state.cameraOff,
+    muted: state.muted,
+    expireAt: expireAt(),
+  });
 }
 
-/** Calls back with whether `uid` has their camera off, now and on every change. A missing document means "on". */
-export function subscribeCameraOff(callId: string, uid: string, onChange: (off: boolean) => void): () => void {
+/** Calls back with `uid`'s camera and microphone state, now and on every change. A missing document means "on". */
+export function subscribeMediaState(callId: string, uid: string, onChange: (state: MediaState) => void): () => void {
   return onSnapshot(
     doc(db, 'calls', callId, 'media', uid),
-    (snap) => onChange(snap.exists() && snap.data().cameraOff === true),
-    (error) => console.warn('Camera state listener error:', error.message)
+    (snap) => {
+      const data = snap.exists() ? snap.data() : null;
+      onChange({ cameraOff: data?.cameraOff === true, muted: data?.muted === true });
+    },
+    (error) => console.warn('Media state listener error:', error.message)
   );
 }
 

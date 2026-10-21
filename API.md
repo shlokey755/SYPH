@@ -83,7 +83,7 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 
 | Step | How |
 |------|-----|
-| Re-publish `firestore.rules` | It now includes `calls`, `calls/{id}/candidates` and `calls/{id}/media` (same as 1.1). Without the `media` rule, a camera turned off still looks frozen to the other person. |
+| Re-publish `firestore.rules` | It now includes `calls`, `calls/{id}/candidates` and `calls/{id}/media` (same as 1.1). Without the `media` rule, a camera turned off still looks frozen to the other person and the muted icon never appears. |
 | Development build | WebRTC is a native module, so calls **do not work in Expo Go** (the call buttons explain this in a toast). `npm install`, then `eas build --profile development --platform android` or `npx expo run:android`. The camera/microphone permissions and the WebRTC config plugin are already in `app.json`. |
 | Regenerate native folders | `android/` and `ios/` are git-ignored and rebuilt from `app.json` (`npx expo prebuild --clean`). EAS does this for you. |
 | TURN server (strongly advised) | STUN alone connects phones on friendly networks only. Mobile data and many Wi-Fi networks need a TURN relay. Options: a hosted service (Twilio Network Traversal, Metered, Cloudflare Realtime TURN) or your own `coturn`. Put the values in `.env`: `EXPO_PUBLIC_TURN_URLS`, `EXPO_PUBLIC_TURN_USERNAME`, `EXPO_PUBLIC_TURN_CREDENTIAL`. Optional `EXPO_PUBLIC_STUN_URLS` replaces the default Google STUN servers. |
@@ -100,6 +100,7 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 **Known limits**
 - There is no native call UI (CallKit / Android ConnectionService). A call that arrives while the app is closed shows as a notification; tapping it opens the chat and, if the call is still ringing, the Accept / Decline screen appears. It will not ring like the phone app while the device is locked.
 - No group calls and no "missed call" line in the chat history yet.
+- Muted: when the other person mutes their microphone, a small muted-microphone icon appears. In a video call it sits at the bottom-left over their video; if their camera is off, or it is a voice call, it sits on their profile circle instead. It travels in the same per-person document as the camera state (`calls/{id}/media/{uid}`), so it needs the same rules from 1.1. Your own mute is shown by the highlighted Mute button.
 - Camera off: when someone turns their camera off in a video call, both screens stop showing the video. The other person sees an opaque screen with that person's username and "Camera off", and the person sees their own small preview replaced by an opaque tile with their username. The camera state travels as one tiny document per person (`calls/{id}/media/{uid}`), so it needs the rules from 1.1.
 - Speaker/earpiece: voice calls start on the earpiece and video calls on the loudspeaker, with a toggle on the call screen. It uses `react-native-incall-manager` (react-native-webrtc has no audio routing), which is a native module, so it needs a **new development build** and is **unverified on a device**. It also switches to a wired or Bluetooth headset when one is connected and turns the screen off when a voice call is held to the ear. Bluetooth routing on Android 12+ needs the BLUETOOTH_CONNECT permission, which the app does not request yet, so a Bluetooth headset may not be picked up.
 - TURN credentials in `EXPO_PUBLIC_*` ship inside the app, so anyone who unpacks it can use your TURN server. Fine for testing; for production have the relay hand out short-lived credentials instead.
@@ -148,7 +149,7 @@ Shows "typing…" under the name in a 1-on-1 chat and "Bob is typing…" / "3 pe
 | `pushTokens/{token}` | Which account is signed in on a device (`uid`, `platform`, `updatedAt`). A sender checks it before using a token; readable one at a time, never listed |
 | `userPush/{uid}` | Copy of the push-relevant settings: `tokens[]` (newest 5), `notificationsEnabled`, `mutedChats[]`. Written only by the owner, readable one at a time by signed-in users so a sender's phone can notify them |
 | `calls/{id}` | One call: `callerId`, `calleeId`, `participantIds`, `type` (audio/video), `status` (ringing, accepted, declined, cancelled, missed, ended), `offer`, `answer`, `createdAt`, `expireAt` |
-| `calls/{id}/media/{uid}` | That person's own camera state: `cameraOff` (boolean), `expireAt`. Members read, each writes only their own |
+| `calls/{id}/media/{uid}` | That person's own media state: `cameraOff` and `muted` (booleans), `expireAt`. Members read, each writes only their own |
 | `calls/{id}/candidates/{id}` | ICE candidates trickled by either side (`from`, `candidate`, `sdpMid`, `sdpMLineIndex`) |
 | `conversations/{id}/messages/{id}` | `type` (`text`, `gif`, `sticker`; the rules refuse anything else), `text`, `media` (GIF link only), `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
 | `conversations/{id}/typing/{uid}` | "I am typing" marker: `typing: true`, `at` (server time). Members read, each writes only their own, deleted when they stop |

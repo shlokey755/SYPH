@@ -12,6 +12,7 @@ import {
   formatCallClock,
   isRingingFresh,
   isTerminalStatus,
+  muteIndicator,
 } from '../../src/utils/call.ts';
 
 describe('call status moves (must mirror firestore.rules validCallMove)', () => {
@@ -140,5 +141,24 @@ describe('video tiles (camera off must never leave a frozen frame)', () => {
 
   it('after the call ends nothing is drawn', () => {
     assert.deepEqual(callTiles({ ...live, ended: true }), { remote: 'panel', local: 'none' });
+  });
+});
+
+describe('muted icon placement', () => {
+  it('over their video corner when their video is showing', () => {
+    assert.equal(muteIndicator({ remoteMuted: true, ended: false, remoteTile: 'video' }), 'corner');
+  });
+
+  it('on their profile panel when there is no video (camera off, voice call or not arrived yet)', () => {
+    assert.equal(muteIndicator({ remoteMuted: true, ended: false, remoteTile: 'panel' }), 'panel');
+  });
+
+  it('nothing when they are not muted', () => {
+    assert.equal(muteIndicator({ remoteMuted: false, ended: false, remoteTile: 'video' }), 'none');
+    assert.equal(muteIndicator({ remoteMuted: false, ended: false, remoteTile: 'panel' }), 'none');
+  });
+
+  it('nothing once the call has ended', () => {
+    assert.equal(muteIndicator({ remoteMuted: true, ended: true, remoteTile: 'panel' }), 'none');
   });
 });
