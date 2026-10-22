@@ -1,7 +1,7 @@
 /**
- * useGifStickerSender.ts
- * Sends the only non-text messages the app supports: stickers (an emoji) and GIFs (a Giphy link).
- * Neither uploads a file, so nothing here needs storage. Failures show an error toast (NFR-06).
+ * useGifSender.ts
+ * Sends the only non-text message the app supports: a GIF (a Giphy link). It uploads no file, so nothing here needs
+ * storage. Failures show an error toast (NFR-06).
  */
 
 import { useCallback } from 'react';
@@ -19,20 +19,8 @@ interface Options {
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong');
 
-export function useGifStickerSender({ conversation, me, replyTo, onReplyConsumed }: Options) {
+export function useGifSender({ conversation, me, replyTo, onReplyConsumed }: Options) {
   const toast = useToast();
-
-  const sendSticker = useCallback(
-    (emoji: string) => {
-      if (!conversation || !me) return;
-      const reply = replyTo;
-      if (reply) onReplyConsumed();
-      chat
-        .sendMessage(conversation, me, { type: 'sticker', text: emoji, replyTo: reply ?? undefined })
-        .catch((e) => toast.error('Message not sent', errorText(e)));
-    },
-    [conversation, me, replyTo, onReplyConsumed, toast]
-  );
 
   const sendGif = useCallback(
     (url: string, width?: number, height?: number) => {
@@ -50,5 +38,5 @@ export function useGifStickerSender({ conversation, me, replyTo, onReplyConsumed
     [conversation, me, replyTo, onReplyConsumed, toast]
   );
 
-  return { sendSticker, sendGif };
+  return { sendGif };
 }

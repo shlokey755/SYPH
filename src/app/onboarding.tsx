@@ -37,8 +37,8 @@ const SLIDES: Slide[] = [
   {
     id: 'share',
     icon: 'images',
-    title: 'Share more than text',
-    body: 'Send photos, videos, voice notes, GIFs, stickers and documents. Uploads show their progress.',
+    title: 'More than text',
+    body: 'Send GIFs, and start a voice or video call from any one-to-one chat.',
   },
   {
     id: 'yours',

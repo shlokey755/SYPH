@@ -54,7 +54,7 @@ Checked against `DOC-20261002-WA0031.pdf` by reading the code, not by running th
 | FR-01 sign-in by email, phone or Google | **Partial.** Email sign-in, sign-up with email, password reset and verification are built (username-only accounts still work). Google and phone sign-in are not built |
 | FR-02 profile: name, photo, status, username | Met. Optional display name added; shown in chat lists, headers and user search |
 | FR-03, FR-04 one-to-one chats, groups with add/remove members | Met |
-| FR-05 text, emojis, voice, photos, video, GIFs, stickers, documents | Met. Emojis come from the phone keyboard; stickers are a built-in emoji pack, not image stickers |
+| FR-05 text, emojis, voice, photos, video, GIFs, stickers, documents | Text, emojis (phone keyboard) and GIFs are built. Voice notes, photos, video and documents were removed on purpose (no file storage). Stickers were removed too: they were only bigger emoji |
 | FR-06 audio and video calls | Met in code, unverified on a device |
 | FR-07 delivery and read status | Met |
 | FR-08 reply, forward, delete, copy | Met |

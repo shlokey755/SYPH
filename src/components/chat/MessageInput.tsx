@@ -12,11 +12,10 @@ interface Props {
   onSend: (text: string) => void;
   /** Called with the new text on every edit (drives the "typing…" indicator). */
   onTextChange?: (text: string) => void;
-  onOpenSticker: () => void;
   onOpenGif: () => void;
 }
 
-export function MessageInput({ colors, replyTo, onCancelReply, onSend, onTextChange, onOpenSticker, onOpenGif }: Props) {
+export function MessageInput({ colors, replyTo, onCancelReply, onSend, onTextChange, onOpenGif }: Props) {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const canSend = text.trim().length > 0;
@@ -55,9 +54,6 @@ export function MessageInput({ colors, replyTo, onCancelReply, onSend, onTextCha
       )}
 
       <View style={styles.row}>
-        <Pressable onPress={onOpenSticker} hitSlop={8} style={styles.iconButton} accessibilityLabel="Stickers">
-          <Ionicons name="happy-outline" size={28} color={colors.accent} />
-        </Pressable>
         <Pressable onPress={onOpenGif} hitSlop={8} style={styles.iconButton} accessibilityLabel="GIFs">
           <View style={[styles.gifBadge, { borderColor: colors.accent }]}>
             <Text style={[styles.gifText, { color: colors.accent }]}>GIF</Text>

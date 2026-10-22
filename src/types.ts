@@ -16,7 +16,8 @@ export interface UserProfile {
 
 // ---------- Messages ----------
 /**
- * The app sends 'text', 'gif' and 'sticker'. 'image', 'video', 'audio' and 'document' were removed (no file storage)
+ * The app sends 'text' and 'gif'. 'sticker', 'image', 'video', 'audio' and 'document' were removed (stickers were
+ * only bigger emoji; the rest needed file storage)
  * and only appear in messages sent before that; they render as a label (see utils/messageType.ts).
  */
 export type MessageType = 'text' | 'gif' | 'sticker' | 'image' | 'video' | 'audio' | 'document';
