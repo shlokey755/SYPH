@@ -2,7 +2,7 @@
  * app/chat/[id].tsx
  * Conversation screen for 1-on-1 and group chats.
  * Covers FR-03/05 (text), FR-07 (delivery + read status), FR-08 (reply, forward, delete, copy),
- * FR-11 (search inside a chat) and FR-12 (mute).
+ * FR-11 (search inside a chat), FR-12 (mute) and live location sharing.
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import {
   AppState,
   FlatList,
   KeyboardAvoidingView,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -29,19 +30,22 @@ import { GroupInfoModal } from '../../components/chat/GroupInfoModal';
 import { MessageAction, MessageActionSheet } from '../../components/chat/MessageActionSheet';
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { MessageInput } from '../../components/chat/MessageInput';
-import { StickerPicker } from '../../components/chat/StickerPicker';
+import { LocationShareSheet } from '../../components/chat/LocationShareSheet';
+import { LocationViewer } from '../../components/chat/LocationViewer';
 import { OfflineBanner } from '../../components/OfflineBanner';
 import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
-import { useGifStickerSender } from '../../hooks/useGifStickerSender';
+import { useGifSender } from '../../hooks/useGifSender';
+import { useLiveShareIn } from '../../hooks/useLiveShares';
 import { useTypingPeers, useTypingReporter } from '../../hooks/useTyping';
 import { useMessages } from '../../hooks/useMessages';
 import { useProfiles } from '../../hooks/useProfiles';
 import { useIsOffline } from '../../hooks/useOnlineStatus';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import * as chat from '../../services/chatService';
+import { startLiveShare, stopLiveShare } from '../../services/liveLocationManager';
 import { isCallingSupported } from '../../services/webrtc';
 import { CallType, Conversation, Message, ReplyPreview } from '../../types';
 import {
@@ -90,14 +94,16 @@ export default function ChatScreen() {
   const [searchText, setSearchText] = useState('');
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [gifOpen, setGifOpen] = useState(false);
-  const [stickerOpen, setStickerOpen] = useState(false);
+  const [locationSheetOpen, setLocationSheetOpen] = useState(false);
+  const [startingShare, setStartingShare] = useState(false);
+  const [viewerMessage, setViewerMessage] = useState<Message | null>(null);
 
   const me = useMemo(
     () => (currentUser ? { uid: currentUser.uid, username: currentUser.username } : null),
     [currentUser]
   );
 
-  const sender = useGifStickerSender({
+  const sender = useGifSender({
     conversation,
     me,
     replyTo,
@@ -210,10 +216,13 @@ export default function ChatScreen() {
             {
               text: 'Delete',
               style: 'destructive',
-              onPress: () =>
-                chat
-                  .deleteMessageForEveryone(conversationId, message.id)
-                  .catch((e) => toast.error('Could not delete', errorText(e))),
+              onPress: () => {
+                (async () => {
+                  // A live location stops first, so deleting its message never leaves a position being broadcast.
+                  if (message.type === 'location') await stopLiveShare(message.id);
+                  await chat.deleteMessageForEveryone(conversationId, message.id);
+                })().catch((e) => toast.error('Could not delete', errorText(e)));
+              },
             },
           ]);
           break;
@@ -237,6 +246,52 @@ export default function ChatScreen() {
     } catch (e) {
       toast.error('Could not forward', errorText(e));
     }
+  };
+
+  // ----- live location -----
+  const myShare = useLiveShareIn(conversationId);
+  const shareAudience = conversation?.isGroup ? 'Everyone in this group' : title;
+
+  const handleStartShare = async (durationMs: number) => {
+    if (!conversation || !me) return;
+    if (offline) {
+      toast.error("You're offline", 'Connect to the internet to share your live location');
+      return;
+    }
+    setStartingShare(true);
+    const result = await startLiveShare({ conversation, sender: me, durationMs });
+    setStartingShare(false);
+    if (result.ok) {
+      setLocationSheetOpen(false);
+      toast.success('Sharing your live location', 'Keep SYPH open so it stays up to date');
+      return;
+    }
+    switch (result.reason) {
+      case 'permission-blocked':
+        setLocationSheetOpen(false);
+        Alert.alert('Location is off for SYPH', 'Turn it on in Settings to share your live location.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open settings', onPress: () => Linking.openSettings() },
+        ]);
+        break;
+      case 'permission-denied':
+        toast.error('Location permission needed', 'Allow location access to share where you are');
+        break;
+      case 'no-position':
+        toast.error('Could not find your location', 'Check that location is turned on and try again');
+        break;
+      default:
+        toast.error(
+          'Could not start sharing',
+          result.message === 'timeout' ? 'The connection is too slow. Try again.' : result.message ?? 'Try again'
+        );
+    }
+  };
+
+  const handleStopShare = (shareId: string) => {
+    setLocationSheetOpen(false);
+    void stopLiveShare(shareId);
+    toast.info('Stopped sharing your location');
   };
 
   // Calls are 1-to-1 only.
@@ -298,6 +353,7 @@ export default function ChatScreen() {
           colors={themeColors}
           onLongPress={setActionMessage}
           onReplyPress={scrollToMessage}
+          onOpenLocation={setViewerMessage}
         />
       );
     },
@@ -368,6 +424,23 @@ export default function ChatScreen() {
 
       <OfflineBanner message="You're offline. Messages you send now are sent when you reconnect." />
 
+      {myShare && (
+        <View style={[styles.shareBanner, { backgroundColor: themeColors.accent }]}>
+          <Ionicons name="location" size={16} color={themeColors.buttonText} />
+          <Text style={[styles.shareBannerText, { color: themeColors.buttonText }]} numberOfLines={1}>
+            Sharing your live location
+          </Text>
+          <Pressable
+            onPress={() => handleStopShare(myShare.id)}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Stop sharing live location"
+          >
+            <Text style={[styles.shareBannerStop, { color: themeColors.buttonText }]}>Stop</Text>
+          </Pressable>
+        </View>
+      )}
+
       {searchOpen && (
         <View style={[styles.searchBar, { borderBottomColor: themeColors.border }]}>
           <TextInput
@@ -420,7 +493,8 @@ export default function ChatScreen() {
           onCancelReply={() => setReplyTo(null)}
           onSend={handleSend}
           onTextChange={typingReporter.onTextChange}
-          onOpenSticker={() => setStickerOpen(true)}
+          onOpenLocation={() => setLocationSheetOpen(true)}
+          sharingLocation={!!myShare}
           onOpenGif={() => setGifOpen(true)}
         />
       ) : (
@@ -436,14 +510,27 @@ export default function ChatScreen() {
         onSelect={handleAction}
         onClose={() => setActionMessage(null)}
       />
-      <StickerPicker
-        visible={stickerOpen}
+      <LocationShareSheet
+        visible={locationSheetOpen}
         colors={themeColors}
-        onPick={(emoji) => {
-          setStickerOpen(false);
-          sender.sendSticker(emoji);
+        activeShare={myShare}
+        starting={startingShare}
+        audience={shareAudience}
+        onStart={handleStartShare}
+        onStop={() => myShare && handleStopShare(myShare.id)}
+        onClose={() => setLocationSheetOpen(false)}
+      />
+      <LocationViewer
+        conversationId={conversationId ?? ''}
+        message={viewerMessage}
+        sharerName={viewerMessage ? nameOf(viewerMessage.senderId) ?? viewerMessage.senderUsername : ''}
+        isMine={viewerMessage?.senderId === myUid}
+        colors={themeColors}
+        onStop={(message) => {
+          void stopLiveShare(message.id);
+          toast.info('Stopped sharing your location');
         }}
-        onClose={() => setStickerOpen(false)}
+        onClose={() => setViewerMessage(null)}
       />
       <GifPicker
         visible={gifOpen}
@@ -488,6 +575,9 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700' },
   headerSubtitle: { fontSize: 12, marginTop: 1 },
   searchBar: { padding: 8, borderBottomWidth: 1 },
+  shareBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8 },
+  shareBannerText: { flex: 1, fontSize: 14, fontWeight: '600' },
+  shareBannerStop: { fontSize: 14, fontWeight: '800', textDecorationLine: 'underline' },
   searchInput: { borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6, fontSize: 14 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   flipped: { transform: [{ scaleY: -1 }] },

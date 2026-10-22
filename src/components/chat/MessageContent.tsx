@@ -1,7 +1,7 @@
 /**
  * MessageContent.tsx
- * Renders the body of a message by type: text, sticker, GIF. Old photo / video / voice / document messages (from
- * before file sharing was removed) show a one-line label instead of the file.
+ * Renders the body of a message by type: text, GIF or live location. Old photo / video / voice / document messages
+ * (from before file sharing was removed) show a one-line label instead of the file, and old stickers show as text.
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -10,10 +10,13 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Message, MessageMedia } from '../../types';
 import { isLegacyMediaType, legacyMediaLabel } from '../../utils/messageType';
+import { LocationBubble } from './LocationBubble';
 
 interface Props {
   message: Message;
   textColor: string;
+  onOpenLocation?: (message: Message) => void;
+  onLongPress?: (message: Message) => void;
 }
 
 const MEDIA_WIDTH = 230;
@@ -23,7 +26,7 @@ function gifHeight(media: MessageMedia | undefined) {
   return Math.max(80, Math.min(320, MEDIA_WIDTH / ratio));
 }
 
-export function MessageContent({ message, textColor }: Props) {
+export function MessageContent({ message, textColor, onOpenLocation, onLongPress }: Props) {
   const { media, type } = message;
 
   if (isLegacyMediaType(type)) {
@@ -36,8 +39,8 @@ export function MessageContent({ message, textColor }: Props) {
   }
 
   switch (type) {
-    case 'sticker':
-      return <Text style={styles.sticker}>{message.text}</Text>;
+    case 'location':
+      return <LocationBubble message={message} textColor={textColor} onOpen={onOpenLocation} onLongPress={onLongPress} />;
 
     case 'gif':
       if (!media) return null;
@@ -57,7 +60,6 @@ export function MessageContent({ message, textColor }: Props) {
 
 const styles = StyleSheet.create({
   text: { fontSize: 15, lineHeight: 20 },
-  sticker: { fontSize: 64, lineHeight: 76 },
   legacy: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legacyText: { fontStyle: 'italic', opacity: 0.8 },
 });

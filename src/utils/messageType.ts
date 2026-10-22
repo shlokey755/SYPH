@@ -1,6 +1,6 @@
 /**
  * messageType.ts
- * The app now sends text, stickers and GIFs only. Photos, videos, voice notes and documents were removed (no file
+ * The app now sends text, GIFs and live locations only. Photos, videos, voice notes and documents were removed (no file
  * storage), but chats created earlier can still contain them, so they are recognised and shown as a plain label.
  */
 
