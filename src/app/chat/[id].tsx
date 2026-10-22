@@ -29,13 +29,12 @@ import { GroupInfoModal } from '../../components/chat/GroupInfoModal';
 import { MessageAction, MessageActionSheet } from '../../components/chat/MessageActionSheet';
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { MessageInput } from '../../components/chat/MessageInput';
-import { StickerPicker } from '../../components/chat/StickerPicker';
 import { OfflineBanner } from '../../components/OfflineBanner';
 import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
-import { useGifStickerSender } from '../../hooks/useGifStickerSender';
+import { useGifSender } from '../../hooks/useGifSender';
 import { useTypingPeers, useTypingReporter } from '../../hooks/useTyping';
 import { useMessages } from '../../hooks/useMessages';
 import { useProfiles } from '../../hooks/useProfiles';
@@ -90,14 +89,13 @@ export default function ChatScreen() {
   const [searchText, setSearchText] = useState('');
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [gifOpen, setGifOpen] = useState(false);
-  const [stickerOpen, setStickerOpen] = useState(false);
 
   const me = useMemo(
     () => (currentUser ? { uid: currentUser.uid, username: currentUser.username } : null),
     [currentUser]
   );
 
-  const sender = useGifStickerSender({
+  const sender = useGifSender({
     conversation,
     me,
     replyTo,
@@ -420,7 +418,6 @@ export default function ChatScreen() {
           onCancelReply={() => setReplyTo(null)}
           onSend={handleSend}
           onTextChange={typingReporter.onTextChange}
-          onOpenSticker={() => setStickerOpen(true)}
           onOpenGif={() => setGifOpen(true)}
         />
       ) : (
@@ -435,15 +432,6 @@ export default function ChatScreen() {
         colors={themeColors}
         onSelect={handleAction}
         onClose={() => setActionMessage(null)}
-      />
-      <StickerPicker
-        visible={stickerOpen}
-        colors={themeColors}
-        onPick={(emoji) => {
-          setStickerOpen(false);
-          sender.sendSticker(emoji);
-        }}
-        onClose={() => setStickerOpen(false)}
       />
       <GifPicker
         visible={gifOpen}

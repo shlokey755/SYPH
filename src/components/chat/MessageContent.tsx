@@ -1,7 +1,8 @@
 /**
  * MessageContent.tsx
- * Renders the body of a message by type: text, sticker, GIF. Old photo / video / voice / document messages (from
- * before file sharing was removed) show a one-line label instead of the file.
+ * Renders the body of a message by type: text or GIF. Old photo / video / voice / document messages (from before file
+ * sharing was removed) show a one-line label instead of the file. Old sticker messages are just an emoji, so they
+ * show as ordinary text.
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -36,9 +37,6 @@ export function MessageContent({ message, textColor }: Props) {
   }
 
   switch (type) {
-    case 'sticker':
-      return <Text style={styles.sticker}>{message.text}</Text>;
-
     case 'gif':
       if (!media) return null;
       return (
@@ -57,7 +55,6 @@ export function MessageContent({ message, textColor }: Props) {
 
 const styles = StyleSheet.create({
   text: { fontSize: 15, lineHeight: 20 },
-  sticker: { fontSize: 64, lineHeight: 76 },
   legacy: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legacyText: { fontStyle: 'italic', opacity: 0.8 },
 });

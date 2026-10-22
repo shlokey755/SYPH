@@ -97,11 +97,11 @@ service cloud.firestore {
       match /messages/{mid} {
         allow read: if isMemberOf(cid);
 
-        // Only text, stickers and GIFs can be sent. Photos, video, voice notes and documents were removed with
-        // file storage; old ones stay readable.
+        // Only text and GIFs can be sent. Stickers (just bigger emoji) were removed, and so were photos, video,
+        // voice notes and documents (no file storage). Old messages of those kinds stay readable.
         allow create: if isMemberOf(cid)
           && request.resource.data.senderId == request.auth.uid
-          && request.resource.data.type in ['text', 'gif', 'sticker']
+          && request.resource.data.type in ['text', 'gif']
           && request.resource.data.createdAt == request.time;
 
         allow update: if isMemberOf(cid) && (

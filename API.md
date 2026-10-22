@@ -39,7 +39,7 @@ The project is on Expo SDK 57, which matches the current Expo Go from the store.
 
 ### 1.4 Media (removed)
 
-SYPH no longer uploads files, so **no Firebase Storage, no bucket and no billing plan are needed**. Chats carry text, stickers (emoji) and GIFs (a Giphy link, see `EXPO_PUBLIC_GIPHY_API_KEY` in 1.2). Profiles show an initial instead of a photo and have no status line.
+SYPH no longer uploads files, so **no Firebase Storage, no bucket and no billing plan are needed**. Chats carry text and GIFs (a Giphy link, see `EXPO_PUBLIC_GIPHY_API_KEY` in 1.2). Profiles show an initial instead of a photo and have no status line.
 
 | Left over from before | What to do |
 |-----------------------|------------|
@@ -151,7 +151,7 @@ Shows "typing…" under the name in a 1-on-1 chat and "Bob is typing…" / "3 pe
 | `calls/{id}` | One call: `callerId`, `calleeId`, `participantIds`, `type` (audio/video), `status` (ringing, accepted, declined, cancelled, missed, ended), `offer`, `answer`, `createdAt`, `expireAt` |
 | `calls/{id}/media/{uid}` | That person's own media state: `cameraOff` and `muted` (booleans), `expireAt`. Members read, each writes only their own |
 | `calls/{id}/candidates/{id}` | ICE candidates trickled by either side (`from`, `candidate`, `sdpMid`, `sdpMLineIndex`) |
-| `conversations/{id}/messages/{id}` | `type` (`text`, `gif`, `sticker`; the rules refuse anything else), `text`, `media` (GIF link only), `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
+| `conversations/{id}/messages/{id}` | `type` (`text` or `gif`; the rules refuse anything else, and old photo, voice and sticker messages stay readable), `text`, `media` (GIF link only), `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
 | `conversations/{id}/typing/{uid}` | "I am typing" marker: `typing: true`, `at` (server time). Members read, each writes only their own, deleted when they stop |
 
 
