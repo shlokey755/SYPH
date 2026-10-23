@@ -82,6 +82,20 @@ export interface GroupActivity {
   at: FirestoreTime;
 }
 
+/**
+ * Marks a group conversation while a group call is in progress. It lives on the conversation document, which every
+ * member already listens to, so nobody needs another listener to see it. People in the call refresh `beat`; times are
+ * epoch milliseconds from the phone that wrote them. See utils/groupCall.ts.
+ */
+export interface ActiveGroupCall {
+  id: string;
+  type: CallType;
+  startedBy: string;
+  startedByName: string;
+  startedAt: number;
+  beat: number;
+}
+
 export interface Conversation {
   id: string;
   isGroup: boolean;
@@ -107,6 +121,8 @@ export interface Conversation {
   unread?: Record<string, number>;
   /** Latest rename / removal / leave in a group. */
   groupActivity?: GroupActivity;
+  /** Present while a group call is in progress (groups only). */
+  activeCall?: ActiveGroupCall;
   createdAt: FirestoreTime;
 }
 

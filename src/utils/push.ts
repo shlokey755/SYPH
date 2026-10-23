@@ -19,6 +19,9 @@ export const EXPO_PUSH_BATCH_SIZE = 100;
 /** A call push that cannot be delivered within this long is dropped: ringing after the caller gave up is just noise. */
 export const CALL_PUSH_TTL_SECONDS = 30;
 
+/** A group call rings for 45 seconds (RING_WINDOW_MS in utils/groupCall.ts), so its push is worth that long. */
+export const GROUP_CALL_PUSH_TTL_SECONDS = 45;
+
 /** Most devices kept per account in the mirror. Newest win, which also ages out tokens of uninstalled apps. */
 export const MAX_MIRROR_TOKENS = 5;
 /** Most muted chats mirrored. The rules enforce the same limit. */
@@ -160,6 +163,31 @@ export function buildCallPushes(input: CallPushInput): ExpoPushMessage[] {
     sound: 'default',
     priority: 'high',
     ttl: CALL_PUSH_TTL_SECONDS,
+    channelId: CALLS_CHANNEL_ID,
+    data: { type: 'call', conversationId: input.conversationId, callId: input.callId },
+  }));
+}
+
+export interface GroupCallPushInput {
+  callId: string;
+  conversationId: string;
+  groupName?: string;
+  callerName: string;
+  type: 'audio' | 'video';
+  tokens: string[];
+}
+
+/** "Alice started a video call" in the group's name. Rings on the calls channel and expires quickly. */
+export function buildGroupCallPushes(input: GroupCallPushInput): ExpoPushMessage[] {
+  const caller = input.callerName.trim() || 'Someone';
+  const kind = input.type === 'video' ? 'video' : 'voice';
+  return input.tokens.map((to) => ({
+    to,
+    title: input.groupName?.trim() || 'Group',
+    body: `${caller} started a ${kind} call`,
+    sound: 'default',
+    priority: 'high',
+    ttl: GROUP_CALL_PUSH_TTL_SECONDS,
     channelId: CALLS_CHANNEL_ID,
     data: { type: 'call', conversationId: input.conversationId, callId: input.callId },
   }));
