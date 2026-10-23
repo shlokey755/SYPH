@@ -6,6 +6,8 @@
  * - Ignores calls that look abandoned (caller's app died) so a dead call never rings forever.
  * - If the user is already on a call, a new one is declined and reported with a toast.
  * - If this build cannot place calls (Expo Go, web), it says so instead of ringing something that cannot be answered.
+ * - A group call rings the same way for a short while after someone starts it (the group's `activeCall` pointer, which
+ *   the conversations listener already delivers). Declining a group call only dismisses it on this phone.
  *
  * A call that arrives while the app is closed reaches the user as a push notification (sent from the caller's phone,
  * see pushSender.ts and API.md; or from the optional relay in server/); there
@@ -19,9 +21,11 @@ import { Modal, Pressable, StyleSheet, Text, Vibration, View } from 'react-nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { declineCall, subscribeIncomingCalls } from '../services/callService';
 import { isCallingSupported } from '../services/webrtc';
-import { Call } from '../types';
+import { ActiveGroupCall, Call, CallType } from '../types';
 import { STALE_RING_MS, isRingingFresh } from '../utils/call';
+import { RING_WINDOW_MS, callHeadline, shouldRing } from '../utils/groupCall';
 import { useAuth } from './useAuth';
+import { useConversations } from './useConversations';
 import { useTheme } from './themeContext';
 import { useToast } from './toastNotifications';
 
@@ -40,14 +44,32 @@ const createdAtMs = (call: Call): number => {
 
 const RING_BUZZ_MS = 1500;
 
+/** What the full-screen ring shows; built from either a 1-to-1 call or a group call. */
+interface RingInfo {
+  key: string;
+  name: string;
+  kind: string;
+  type: CallType;
+}
+
+interface GroupRing {
+  conversationId: string;
+  groupName: string;
+  call: ActiveGroupCall;
+}
+
 export function IncomingCallsProvider({ children }: { children: React.ReactNode }) {
   const { currentUser } = useAuth();
   const router = useRouter();
   const toast = useToast();
   const uid = currentUser?.uid;
 
+  const { conversations } = useConversations();
   const [ringing, setRinging] = useState<Call[]>([]);
   const [now, setNow] = useState(() => Date.now());
+  /** Group calls already joined, dismissed or reported. A ref plus a counter, so marking one re-evaluates the ring. */
+  const groupHandledRef = useRef<Set<string>>(new Set());
+  const [groupVersion, setGroupVersion] = useState(0);
 
   const onCallRef = useRef(false);
   /** Calls already answered, declined, turned away or reported, so a late snapshot never re-triggers them. */
@@ -61,6 +83,7 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     handledRef.current = new Set();
+    groupHandledRef.current = new Set();
     setRinging([]);
     if (!uid) return;
 
@@ -106,38 +129,112 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
     return () => clearTimeout(timer);
   }, [incoming]);
 
-  // Vibrate while the overlay is up.
+  // A group call someone just started. The newest one is the candidate.
+  const groupCandidate = useMemo<GroupRing | null>(() => {
+    if (!uid) return null;
+    let best: GroupRing | null = null;
+    for (const c of conversations) {
+      const call = c.activeCall;
+      if (!c.isGroup || !call) continue;
+      if (!shouldRing(call, uid, now, groupHandledRef.current.has(call.id))) continue;
+      if (!best || call.startedAt > best.call.startedAt) {
+        best = { conversationId: c.id, groupName: c.groupName || 'Group', call };
+      }
+    }
+    return best;
+    // groupVersion changes when a call is marked handled; now moves the ring window along.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations, uid, now, groupVersion]);
+
+  // Busy or unsupported: do not ring, say why once.
   useEffect(() => {
-    if (!incoming) return;
+    if (!groupCandidate) return;
+    const { call, groupName } = groupCandidate;
+    if (onCallRef.current) {
+      groupHandledRef.current.add(call.id);
+      toastRef.current.info(groupName, `${callHeadline(call)} while you were on another call`);
+      setGroupVersion((v) => v + 1);
+    } else if (!isCallingSupported()) {
+      groupHandledRef.current.add(call.id);
+      toastRef.current.info(
+        groupName,
+        `${callHeadline(call)}. Calls need an installed build of SYPH (they do not work in Expo Go)`
+      );
+      setGroupVersion((v) => v + 1);
+    }
+  }, [groupCandidate]);
+
+  // Move the ring window along: re-check when the group ring would stop.
+  useEffect(() => {
+    if (!groupCandidate) return;
+    const wait = Math.max(0, groupCandidate.call.startedAt + RING_WINDOW_MS - Date.now()) + 250;
+    const timer = setTimeout(() => setNow(Date.now()), wait);
+    return () => clearTimeout(timer);
+  }, [groupCandidate]);
+
+  const ring = useMemo<RingInfo | null>(() => {
+    if (incoming) {
+      return {
+        key: incoming.id,
+        name: incoming.callerName,
+        kind: `Incoming ${incoming.type === 'video' ? 'video' : 'voice'} call`,
+        type: incoming.type,
+      };
+    }
+    if (groupCandidate) {
+      return {
+        key: `group:${groupCandidate.call.id}`,
+        name: groupCandidate.groupName,
+        kind: callHeadline(groupCandidate.call),
+        type: groupCandidate.call.type,
+      };
+    }
+    return null;
+  }, [incoming, groupCandidate]);
+
+  // Vibrate while the overlay is up.
+  const ringKey = ring?.key ?? null;
+  useEffect(() => {
+    if (!ringKey) return;
     Vibration.vibrate();
     const timer = setInterval(() => Vibration.vibrate(), RING_BUZZ_MS);
     return () => {
       clearInterval(timer);
       Vibration.cancel();
     };
-  }, [incoming]);
+  }, [ringKey]);
 
-  const accept = useCallback(
-    (call: Call) => {
-      handledRef.current.add(call.id);
-      setRinging((list) => list.filter((c) => c.id !== call.id));
-      router.push({ pathname: '/call/[id]', params: { id: call.id } });
-    },
-    [router]
-  );
+  const accept = useCallback(() => {
+    if (incoming) {
+      handledRef.current.add(incoming.id);
+      setRinging((list) => list.filter((c) => c.id !== incoming.id));
+      router.push({ pathname: '/call/[id]', params: { id: incoming.id } });
+    } else if (groupCandidate) {
+      const { call, conversationId } = groupCandidate;
+      groupHandledRef.current.add(call.id);
+      setGroupVersion((v) => v + 1);
+      router.push({ pathname: '/group-call/[id]', params: { id: call.id, conversationId, type: call.type } });
+    }
+  }, [incoming, groupCandidate, router]);
 
-  const decline = useCallback((call: Call) => {
-    handledRef.current.add(call.id);
-    setRinging((list) => list.filter((c) => c.id !== call.id));
-    declineCall(call.id).catch((error) => console.warn('Decline failed:', error.message));
-  }, []);
+  const decline = useCallback(() => {
+    if (incoming) {
+      handledRef.current.add(incoming.id);
+      setRinging((list) => list.filter((c) => c.id !== incoming.id));
+      declineCall(incoming.id).catch((error) => console.warn('Decline failed:', error.message));
+    } else if (groupCandidate) {
+      // A group call has nobody to tell: dismissing only silences it on this phone.
+      groupHandledRef.current.add(groupCandidate.call.id);
+      setGroupVersion((v) => v + 1);
+    }
+  }, [incoming, groupCandidate]);
 
   const value = useMemo(() => ({ setOnCall }), [setOnCall]);
 
   return (
     <IncomingCallsContext.Provider value={value}>
       {children}
-      <IncomingCallOverlay call={incoming} onAccept={accept} onDecline={decline} />
+      <IncomingCallOverlay ring={ring} onAccept={accept} onDecline={decline} />
     </IncomingCallsContext.Provider>
   );
 }
@@ -149,23 +246,23 @@ export function useIncomingCalls(): IncomingCallsContextType {
 }
 
 function IncomingCallOverlay({
-  call,
+  ring,
   onAccept,
   onDecline,
 }: {
-  call: Call | null;
-  onAccept: (call: Call) => void;
-  onDecline: (call: Call) => void;
+  ring: RingInfo | null;
+  onAccept: () => void;
+  onDecline: () => void;
 }) {
   const { themeColors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  if (!call) return null;
-  const isVideo = call.type === 'video';
-  const initial = (call.callerName || '?').charAt(0).toUpperCase();
+  if (!ring) return null;
+  const isVideo = ring.type === 'video';
+  const initial = (ring.name || '?').charAt(0).toUpperCase();
 
   return (
-    <Modal visible animationType="fade" statusBarTranslucent onRequestClose={() => onDecline(call)}>
+    <Modal visible animationType="fade" statusBarTranslucent onRequestClose={onDecline}>
       <View
         style={[
           styles.container,
@@ -177,11 +274,9 @@ function IncomingCallOverlay({
             <Text style={[styles.initial, { color: themeColors.accent }]}>{initial}</Text>
           </View>
           <Text style={[styles.name, { color: themeColors.text }]} numberOfLines={1}>
-            {call.callerName}
+            {ring.name}
           </Text>
-          <Text style={[styles.kind, { color: themeColors.subText }]}>
-            Incoming {isVideo ? 'video' : 'voice'} call
-          </Text>
+          <Text style={[styles.kind, { color: themeColors.subText }]}>{ring.kind}</Text>
         </View>
 
         <View style={styles.actions}>
@@ -189,7 +284,7 @@ function IncomingCallOverlay({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Decline call"
-              onPress={() => onDecline(call)}
+              onPress={onDecline}
               style={[styles.round, { backgroundColor: themeColors.danger }]}
             >
               <Ionicons name="call" size={30} color="#FFFFFF" style={styles.hangUpIcon} />
@@ -201,7 +296,7 @@ function IncomingCallOverlay({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Accept call"
-              onPress={() => onAccept(call)}
+              onPress={onAccept}
               style={[styles.round, { backgroundColor: ACCEPT_GREEN }]}
             >
               <Ionicons name={isVideo ? 'videocam' : 'call'} size={30} color="#FFFFFF" />

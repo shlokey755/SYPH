@@ -13,6 +13,7 @@ import {
   isCallLive,
   participantCountLabel,
   shouldRing,
+  tileMode,
   type PeerDoc,
 } from '../../src/utils/groupCall.ts';
 
@@ -147,5 +148,56 @@ describe('layout and wording', () => {
     assert.equal(participantCountLabel(0), 'Waiting for others');
     assert.equal(participantCountLabel(1), '1 person in the call');
     assert.equal(participantCountLabel(3), '3 people in the call');
+  });
+});
+
+describe('Join bar', () => {
+  const call = { id: 'c1', type: 'video' as const, startedBy: 'a', startedByName: 'Alice', startedAt: 1_000_000, beat: 1_000_000 };
+
+  it('shows for a live call you are not in', async () => {
+    const { showJoinBar } = await import('../../src/utils/groupCall.ts');
+    assert.equal(showJoinBar({ call, now: 1_010_000, peersPresent: 2, amInCall: false }), true);
+    assert.equal(showJoinBar({ call, now: 1_010_000, peersPresent: null, amInCall: false }), true);
+  });
+
+  it('hides when there is no call, it is stale, or you are already in it', async () => {
+    const { showJoinBar, POINTER_FRESH_MS } = await import('../../src/utils/groupCall.ts');
+    assert.equal(showJoinBar({ call: undefined, now: 1_010_000, peersPresent: 2, amInCall: false }), false);
+    assert.equal(showJoinBar({ call, now: 1_000_000 + POINTER_FRESH_MS + 1, peersPresent: 2, amInCall: false }), false);
+    assert.equal(showJoinBar({ call, now: 1_010_000, peersPresent: 2, amInCall: true }), false);
+  });
+
+  it('an empty presence list hides it once the call is no longer brand new', async () => {
+    const { showJoinBar, JOIN_BAR_GRACE_MS } = await import('../../src/utils/groupCall.ts');
+    const fresh = { ...call, beat: 1_000_000 + JOIN_BAR_GRACE_MS + 30_000 };
+    assert.equal(showJoinBar({ call: fresh, now: 1_000_000 + JOIN_BAR_GRACE_MS + 31_000, peersPresent: 0, amInCall: false }), false);
+    // ...but a call that was just started, whose starter has not written presence yet, still shows
+    assert.equal(showJoinBar({ call, now: 1_005_000, peersPresent: 0, amInCall: false }), true);
+  });
+});
+
+describe('end-of-call wording', () => {
+  it('has a plain line for every reason', async () => {
+    const { groupEndReasonText } = await import('../../src/utils/groupCall.ts');
+    for (const reason of ['left', 'permission', 'unsupported', 'full', 'failed'] as const) {
+      assert.ok(groupEndReasonText(reason).length > 5);
+    }
+    assert.equal(groupEndReasonText('full'), 'This call is full');
+    assert.match(groupEndReasonText('unsupported'), /Expo Go/);
+  });
+});
+
+describe('tile content (camera off must never leave a frozen frame)', () => {
+  it('live video only when it is a video call, a video track is there and the camera is on', () => {
+    assert.equal(tileMode({ isVideoCall: true, hasVideo: true, cameraOff: false }), 'video');
+  });
+
+  it('their camera off: a panel with the name', () => {
+    assert.equal(tileMode({ isVideoCall: true, hasVideo: true, cameraOff: true }), 'panel');
+  });
+
+  it('no video track yet, or a voice call: a panel', () => {
+    assert.equal(tileMode({ isVideoCall: true, hasVideo: false, cameraOff: false }), 'panel');
+    assert.equal(tileMode({ isVideoCall: false, hasVideo: true, cameraOff: false }), 'panel');
   });
 });

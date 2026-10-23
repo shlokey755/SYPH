@@ -27,6 +27,7 @@ function RootNav() {
         <Stack.Screen name="chat/[id]" />
         {/* No swipe-back: leaving the call screen hangs up, so it should only happen on purpose. */}
         <Stack.Screen name="call/[id]" options={{ gestureEnabled: false, animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="group-call/[id]" options={{ gestureEnabled: false, animation: 'slide_from_bottom' }} />
       </Stack>
     </>
   );

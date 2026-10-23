@@ -79,7 +79,7 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 
 ### 1.7 Audio and video calls (FR-06)
 
-1-to-1 calls only. Media goes phone to phone over WebRTC; Firestore carries the handshake (`calls/{id}`). Everything else in the app works without any of this.
+1-to-1 calls (this section) and group calls (1.10). Media goes phone to phone over WebRTC; Firestore carries the handshake (`calls/{id}`). Everything else in the app works without any of this.
 
 | Step | How |
 |------|-----|
@@ -99,7 +99,7 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 
 **Known limits**
 - There is no native call UI (CallKit / Android ConnectionService). A call that arrives while the app is closed shows as a notification; tapping it opens the chat and, if the call is still ringing, the Accept / Decline screen appears. It will not ring like the phone app while the device is locked.
-- No group calls and no "missed call" line in the chat history yet.
+- No "missed call" line in the chat history yet.
 - Muted: when the other person mutes their microphone, a small muted-microphone icon appears. In a video call it sits at the bottom-left over their video; if their camera is off, or it is a voice call, it sits on their profile circle instead. It travels in the same per-person document as the camera state (`calls/{id}/media/{uid}`), so it needs the same rules from 1.1. Your own mute is shown by the highlighted Mute button.
 - Camera off: when someone turns their camera off in a video call, both screens stop showing the video. The other person sees an opaque screen with that person's username and "Camera off", and the person sees their own small preview replaced by an opaque tile with their username. The camera state travels as one tiny document per person (`calls/{id}/media/{uid}`), so it needs the rules from 1.1.
 - Speaker/earpiece: voice calls start on the earpiece and video calls on the loudspeaker, with a toggle on the call screen. It uses `react-native-incall-manager` (react-native-webrtc has no audio routing), which is a native module, so it needs a **new development build** and is **unverified on a device**. It also switches to a wired or Bluetooth headset when one is connected and turns the screen off when a voice call is held to the ear. Bluetooth routing on Android 12+ needs the BLUETOOTH_CONNECT permission, which the app does not request yet, so a Bluetooth headset may not be picked up.
@@ -138,6 +138,43 @@ Shows "typing…" under the name in a 1-on-1 chat and "Bob is typing…" / "3 pe
 - It only runs while the chat is open, the app is in the foreground and the phone is online. Someone who loses signal or closes the app stops showing after about 6 seconds.
 - Not shown in the chat list, and there is no switch to turn it off yet.
 
+### 1.10 Group voice and video calls
+
+Open a group chat: the header has a phone and a video icon. Tap one to start a call, or to join one that is already going (a "Voice / Video call in progress · 2 people in the call · Join" bar shows under the header while it runs). Members whose app is open get the full-screen Accept / Decline ring for 45 seconds; members whose app is closed get a notification (not if they muted that group, but the Join bar is still there when they open it).
+
+| Step | How | Cost |
+|------|-----|------|
+| Re-publish `firestore.rules` | Adds the group call pointer on `conversations/{id}` and `conversations/{id}/groupCalls/{callId}/peers` and `/signals` (same as 1.1). Without it group calls fail with "Could not connect to the call". | Free |
+| Build the app (not Expo Go) | Same as 1-to-1 calls (1.7): WebRTC is a native module. Group calls reuse the camera, microphone and audio-routing set-up, so no new permissions. | Free |
+| TURN server | Strongly advised, more than for 1-to-1: with 3 to 4 people there are 3 to 6 phone-to-phone links and each one has to get through the networks. Values in `.env`, see 1.7. | Free tiers exist (Metered, Cloudflare Realtime TURN) |
+| Optional cleanup | Presence and handshake documents carry `expireAt` (24 h). Firestore Console > Indexes > TTL: add a policy on `expireAt` for collection groups `peers` and `signals`. Without it they stay (small). | Free |
+
+**How it works:** every phone connects to every other phone (a "mesh"). That is why there is a limit: **4 people for video, 6 for voice**. A 5th person joining a video call is told "This call is full". Video in a group is sent smaller (480x360 at 15 fps) to keep phones cool.
+
+**Firestore use (free daily quota is 20,000 writes and 50,000 reads):** each person writes a heartbeat every 15 seconds and about 40 handshake documents per person they connect to. A one-hour 4-person call is roughly 1,000 writes and 3,000 reads in total.
+
+**Known limits**
+- Like 1-to-1 calls, there is no native ringing screen when the app is closed: it is a notification, and tapping it opens the chat with the Join bar.
+- Someone whose phone loses signal drops out of the call for the others after about 45 seconds, and can join again from the bar.
+- If the last person leaves, the Join bar can linger for up to about a minute before it disappears by itself.
+- Any member can end the "call in progress" marker (the rules allow any member to write it). Fine for friends, not for strangers.
+- No screen sharing, no adding people mid-call from inside the call screen, and calls stay alive until everyone has left (there is no host who can end it for all).
+- Audio keeps playing with the screen off but, as with 1-to-1 calls, Android may stop the microphone if the app is in the background for long.
+- **Not yet tested on real phones** (WebRTC cannot run in the build environment). The handshake logic is unit tested with fake phones, and the rules tests were written but have not been run.
+
+**Test checklist (two to four phones, new build, same group)**
+
+| # | Do this | Expect |
+|---|---------|--------|
+| 1 | A taps the voice icon in the group | A sees "Waiting for others"; B and C get a ring (app open) or a notification (app closed) |
+| 2 | B accepts, then C joins from the Join bar | Everyone hears everyone; each screen has a tile per person with names |
+| 3 | A video call with 3 phones | Live video tiles; turning a camera off shows an opaque tile with that person's name; muting shows a mic-off icon on their tile |
+| 4 | Speaker button, mute button | Audio switches between speaker and earpiece; others see the muted icon |
+| 5 | B leaves and rejoins from the Join bar | B reconnects with A and C; no duplicate tiles |
+| 6 | Fifth person tries to join a video call | "This call is full" |
+| 7 | Everyone leaves | The Join bar disappears within about a minute |
+| 8 | Start a call while B's app is fully closed | B gets a notification from the group; tapping it opens the chat with the Join bar |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
@@ -152,6 +189,9 @@ Shows "typing…" under the name in a 1-on-1 chat and "Bob is typing…" / "3 pe
 | `calls/{id}/media/{uid}` | That person's own media state: `cameraOff` and `muted` (booleans), `expireAt`. Members read, each writes only their own |
 | `calls/{id}/candidates/{id}` | ICE candidates trickled by either side (`from`, `candidate`, `sdpMid`, `sdpMLineIndex`) |
 | `conversations/{id}/messages/{id}` | `type` (`text` or `gif`; the rules refuse anything else, and old photo, voice and sticker messages stay readable), `text`, `media` (GIF link only), `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
+| `conversations/{id}.activeCall` | Groups only: the "call in progress" pointer (`id`, `type`, `startedBy`, `startedByName`, `startedAt`, `beat`). Set when a call starts, refreshed by someone in the call, removed when the last person leaves |
+| `conversations/{id}/groupCalls/{callId}/peers/{uid}` | Who is in the call: `sid` (this join), `username`, `joinedAt`, `lastSeen` (heartbeat), `cameraOff`, `muted`, `expireAt`. Members read, each writes only their own |
+| `conversations/{id}/groupCalls/{callId}/signals/{id}` | Handshake between two members: `kind` (offer / answer / candidate), `from`, `fromSid`, `to`, `toSid`, `sdp` or `candidate`, `createdAt`, `expireAt`. Only the addressee reads it |
 | `conversations/{id}/typing/{uid}` | "I am typing" marker: `typing: true`, `at` (server time). Members read, each writes only their own, deleted when they stop |
 
 

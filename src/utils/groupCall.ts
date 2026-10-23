@@ -123,10 +123,57 @@ export function gridLayout(count: number): { columns: number; rows: number } {
   return { columns, rows: Math.ceil(n / columns) };
 }
 
+export type GroupEndReason = 'left' | 'permission' | 'unsupported' | 'full' | 'failed';
+
+/** The line shown on the call screen once the call is over. */
+export function groupEndReasonText(reason: GroupEndReason): string {
+  switch (reason) {
+    case 'left':
+      return 'You left the call';
+    case 'full':
+      return 'This call is full';
+    case 'permission':
+      return 'Camera or microphone access was refused';
+    case 'unsupported':
+      return 'Calls need an installed build of SYPH (they do not work in Expo Go)';
+    default:
+      return 'Could not connect to the call';
+  }
+}
+
+/** After this long, a call whose presence list is empty is treated as over (everyone left), not just starting. */
+export const JOIN_BAR_GRACE_MS = 20_000;
+
+/**
+ * Whether the chat shows its "Join" bar. `peersPresent` is how many people are in the call (null until the presence
+ * list has loaded). The pointer alone can stay "fresh" for a minute or so after the last person leaves, so an empty
+ * presence list hides the bar once the call is no longer brand new.
+ */
+export function showJoinBar(input: {
+  call: ActiveGroupCall | null | undefined;
+  now: number;
+  peersPresent: number | null;
+  amInCall: boolean;
+}): boolean {
+  const { call, now } = input;
+  if (!call || input.amInCall || !isCallLive(call, now)) return false;
+  if (input.peersPresent === 0 && now - call.startedAt > JOIN_BAR_GRACE_MS) return false;
+  return true;
+}
+
 /** "Alice is calling the group" for the ring screen and the notification-style bars. */
 export function callHeadline(call: Pick<ActiveGroupCall, 'startedByName' | 'type'>): string {
   const who = call.startedByName.trim() || 'Someone';
   return `${who} started a ${call.type === 'video' ? 'video' : 'voice'} call`;
+}
+
+/**
+ * What one tile on the call screen shows. A camera that is switched off stops sending frames, so its last frame would
+ * stay on screen; the tile shows a panel with the name instead (same rule as 1-to-1 calls, see callTiles).
+ * `hasVideo` is whether a video track is actually there (a voice call, or a video that has not arrived yet, has none).
+ */
+export function tileMode(input: { isVideoCall: boolean; hasVideo: boolean; cameraOff: boolean }): 'video' | 'panel' {
+  return input.isVideoCall && input.hasVideo && !input.cameraOff ? 'video' : 'panel';
 }
 
 /** How many people the "Join" bar says are in the call. */

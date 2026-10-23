@@ -149,6 +149,59 @@ const no = (n, p) => check(n, p, false);
   await ok('creator adds a member once more', alice.doc('conversations/g1').update({ participantIds: ['alice', 'bob', 'dave'] }));
   await ok('a member leaving can be recorded', updateGroupAs(env, 'dave', { participantIds: ['alice', 'bob'], groupActivity: act('left', 'dave') }));
 
+  console.log('\nGroup calls (pointer, presence, signals)');
+  const dave = env.authenticatedContext('dave').firestore();
+  const gcGroup = { ...group, groupName: 'Calls', createdBy: 'alice', participantIds: ['alice', 'bob', 'carol'] };
+  await ok('setup: group for calls', alice.doc('conversations/gc1').set(gcGroup));
+  const ptr = (by, extra = {}) => ({ id: 'call1', type: 'video', startedBy: by, startedByName: by, startedAt: 1000, beat: 1000, ...extra });
+  await ok('a member starts the call pointer', bob.doc('conversations/gc1').update({ activeCall: ptr('bob') }));
+  await ok('another member refreshes the beat', carol.doc('conversations/gc1').update({ activeCall: ptr('bob', { beat: 2000 }) }));
+  await no('an outsider cannot touch the pointer', dave.doc('conversations/gc1').update({ activeCall: ptr('bob') }));
+  await no('the starter must be a member', alice.doc('conversations/gc1').update({ activeCall: ptr('zed') }));
+  await no('type must be audio or video', alice.doc('conversations/gc1').update({ activeCall: ptr('alice', { type: 'screen' }) }));
+  await no('the pointer takes no extra fields', alice.doc('conversations/gc1').update({ activeCall: ptr('alice', { note: 'x' }) }));
+  await no('beat must be a number', alice.doc('conversations/gc1').update({ activeCall: ptr('alice', { beat: 'now' }) }));
+  await no('1-on-1 chats have no group call pointer', alice.doc('conversations/alice_bob').update({ activeCall: ptr('alice') }));
+  await ok('a member ends the call (removes the pointer)', carol.doc('conversations/gc1').update({ activeCall: FV.delete() }));
+
+  const peer = (uid, extra = {}) => ({
+    uid, sid: 's-' + uid, username: uid, joinedAt: FV.serverTimestamp(), lastSeen: FV.serverTimestamp(),
+    cameraOff: false, muted: false, expireAt: firebase.firestore.Timestamp.fromMillis(Date.now() + 86400000), ...extra,
+  });
+  const peerDoc = (db, uid) => db.doc('conversations/gc1/groupCalls/call1/peers/' + uid);
+  await ok('a member joins the call (own presence)', peerDoc(alice, 'alice').set(peer('alice')));
+  await ok('another member joins', peerDoc(bob, 'bob').set(peer('bob')));
+  await no('cannot join as someone else', peerDoc(alice, 'carol').set(peer('carol')));
+  await no('an outsider cannot join', peerDoc(dave, 'dave').set(peer('dave')));
+  await no('the document must name its owner', peerDoc(alice, 'alice').set(peer('alice', { uid: 'bob' })));
+  await no('the session id is required', peerDoc(alice, 'alice').set(peer('alice', { sid: '' })));
+  await no('presence takes no extra fields', peerDoc(alice, 'alice').set(peer('alice', { admin: true })));
+  await no('muted must be a boolean', peerDoc(alice, 'alice').set(peer('alice', { muted: 'yes' })));
+  await no('lastSeen cannot be backdated', peerDoc(alice, 'alice').set(peer('alice', { lastSeen: firebase.firestore.Timestamp.fromMillis(1000) })));
+  await ok('the heartbeat refreshes lastSeen', peerDoc(alice, 'alice').update({ lastSeen: FV.serverTimestamp() }));
+  await ok('camera and mute changes are published', peerDoc(alice, 'alice').update({ cameraOff: true, muted: true, lastSeen: FV.serverTimestamp() }));
+  await no('the join time cannot be moved', peerDoc(alice, 'alice').update({ joinedAt: firebase.firestore.Timestamp.fromMillis(1000), lastSeen: FV.serverTimestamp() }));
+  await ok('members read who is in the call', bob.collection('conversations/gc1/groupCalls/call1/peers').get());
+  await no('an outsider cannot read presence', dave.collection('conversations/gc1/groupCalls/call1/peers').get());
+  await no('cannot remove someone else', peerDoc(bob, 'alice').delete());
+  await ok('a member leaves (deletes own presence)', peerDoc(bob, 'bob').delete());
+
+  const sig = (from, to, extra = {}) => ({
+    kind: 'offer', from, fromSid: 's-' + from, to, toSid: 's-' + to, sdp: 'v=0', createdAt: FV.serverTimestamp(),
+    expireAt: firebase.firestore.Timestamp.fromMillis(Date.now() + 86400000), ...extra,
+  });
+  const sigs = (db) => db.collection('conversations/gc1/groupCalls/call1/signals');
+  await ok('a member sends an offer to another member', sigs(alice).add(sig('alice', 'bob')));
+  await ok('an ICE candidate can be sent', sigs(bob).add(sig('bob', 'alice', { kind: 'candidate', candidate: { candidate: 'c', sdpMid: '0', sdpMLineIndex: 0 } })));
+  await no('cannot send as someone else', sigs(alice).add(sig('bob', 'carol')));
+  await no('cannot send to a non-member', sigs(alice).add(sig('alice', 'dave')));
+  await no('an outsider cannot send', sigs(dave).add(sig('dave', 'alice')));
+  await no('unknown signal kinds are refused', sigs(alice).add(sig('alice', 'bob', { kind: 'screen' })));
+  await no('signals take no extra fields', sigs(alice).add(sig('alice', 'bob', { admin: true })));
+  await ok('the addressee reads their signals', sigs(bob).where('to', '==', 'bob').get());
+  await no('cannot read signals addressed to someone else', sigs(carol).where('to', '==', 'bob').get());
+  await no('signals cannot be listed without a filter', sigs(bob).get());
+
   console.log('\nPush token registry');
   const tok = (uid) => ({ uid, platform: 'android', updatedAt: FV.serverTimestamp() });
   await ok('user claims a device token for themselves', alice.doc('pushTokens/ExponentPushToken[abc]').set(tok('alice')));
