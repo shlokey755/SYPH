@@ -86,7 +86,7 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 | Re-publish `firestore.rules` | It now includes `calls`, `calls/{id}/candidates` and `calls/{id}/media` (same as 1.1). Without the `media` rule, a camera turned off still looks frozen to the other person and the muted icon never appears. |
 | Development build | WebRTC is a native module, so calls **do not work in Expo Go** (the call buttons explain this in a toast). `npm install`, then `eas build --profile development --platform android` or `npx expo run:android`. The camera/microphone permissions and the WebRTC config plugin are already in `app.json`. |
 | Regenerate native folders | `android/` and `ios/` are git-ignored and rebuilt from `app.json` (`npx expo prebuild --clean`). EAS does this for you. |
-| TURN server (strongly advised) | STUN alone connects phones on friendly networks only. Mobile data and many Wi-Fi networks need a TURN relay. Options: a hosted service (Twilio Network Traversal, Metered, Cloudflare Realtime TURN) or your own `coturn`. Put the values in `.env`: `EXPO_PUBLIC_TURN_URLS`, `EXPO_PUBLIC_TURN_USERNAME`, `EXPO_PUBLIC_TURN_CREDENTIAL`. Optional `EXPO_PUBLIC_STUN_URLS` replaces the default Google STUN servers. |
+| TURN server (optional, skipped) | Not required, and leaving it out costs nothing. Without one, calls use only the free public STUN servers: they connect on most home Wi-Fi and many mobile networks, but some pairs of networks (strict carrier, office or hotel networks) cannot reach each other and that call ends with "failed". If it ever matters, put the values in `.env`: `EXPO_PUBLIC_TURN_URLS`, `EXPO_PUBLIC_TURN_USERNAME`, `EXPO_PUBLIC_TURN_CREDENTIAL`. Optional `EXPO_PUBLIC_STUN_URLS` replaces the default Google STUN servers. |
 | Ringing while the app is closed | Works through the push set-up in 1.5 (a build that has the Android "Calls" channel). |
 | Optional cleanup | Calls, ICE candidates and camera-state documents carry an `expireAt` field (24 h). Firestore Console > Indexes > TTL: add a policy on `expireAt` for collection groups `calls`, `candidates` and `media` to have them deleted automatically. Without it they simply stay. |
 
@@ -146,7 +146,7 @@ Open a group chat: the header has a phone and a video icon. Tap one to start a c
 |------|-----|------|
 | Re-publish `firestore.rules` | Adds the group call pointer on `conversations/{id}` and `conversations/{id}/groupCalls/{callId}/peers` and `/signals` (same as 1.1). Without it group calls fail with "Could not connect to the call". | Free |
 | Build the app (not Expo Go) | Same as 1-to-1 calls (1.7): WebRTC is a native module. Group calls reuse the camera, microphone and audio-routing set-up, so no new permissions. | Free |
-| TURN server | Strongly advised, more than for 1-to-1: with 3 to 4 people there are 3 to 6 phone-to-phone links and each one has to get through the networks. Values in `.env`, see 1.7. | Free tiers exist (Metered, Cloudflare Realtime TURN) |
+| TURN server | Skipped on purpose (hosted TURN costs money). Not needed. Without it, some people may be unable to connect to each other on certain networks: their tile shows "Can't connect" while everyone else still works. Group calls need more links than 1-to-1 (3 to 6 for 3 to 4 people), so you will notice this more. To fix it later, see the TURN row in 1.7. | Free (nothing to do) |
 | Optional cleanup | Presence and handshake documents carry `expireAt` (24 h). Firestore Console > Indexes > TTL: add a policy on `expireAt` for collection groups `peers` and `signals`. Without it they stay (small). | Free |
 
 **How it works:** every phone connects to every other phone (a "mesh"). That is why there is a limit: **4 people for video, 6 for voice**. A 5th person joining a video call is told "This call is full". Video in a group is sent smaller (480x360 at 15 fps) to keep phones cool.
@@ -162,7 +162,7 @@ Open a group chat: the header has a phone and a video icon. Tap one to start a c
 - Audio keeps playing with the screen off but, as with 1-to-1 calls, Android may stop the microphone if the app is in the background for long.
 - **Not yet tested on real phones** (WebRTC cannot run in the build environment). The handshake logic is unit tested with fake phones, and the rules tests were written but have not been run.
 
-**Test checklist (two to four phones, new build, same group)**
+**Test checklist (two to four phones, new build, same group). Please also tell me which networks each phone was on when something does not connect.**
 
 | # | Do this | Expect |
 |---|---------|--------|
@@ -174,6 +174,7 @@ Open a group chat: the header has a phone and a video icon. Tap one to start a c
 | 6 | Fifth person tries to join a video call | "This call is full" |
 | 7 | Everyone leaves | The Join bar disappears within about a minute |
 | 8 | Start a call while B's app is fully closed | B gets a notification from the group; tapping it opens the chat with the Join bar |
+| 9 | Put one phone on mobile data and another on Wi-Fi, then call | Shows how often STUN alone is enough. A tile saying "Can't connect" is the expected no-TURN failure, not a bug |
 
 ## 2. Data model (Firestore)
 
