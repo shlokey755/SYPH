@@ -1,6 +1,50 @@
 # SYPH Development Journey
 
-Newest first. The first section is the feature build (October 6 to 9, 2026); the second is the original debugging post-mortem (October 4, 2026).
+Newest first. Part 3 is the phased work of October 20 to 24, 2026; Part 2 is the feature build (October 6 to 11); Part 1 is the original debugging post-mortem (October 4, 2026).
+
+---
+
+## Part 3: Phases 1 to 4 (Oct 20-24, 2026)
+
+The owner split the work into phases and set one rule: this is a hobby project, so nothing may cost money.
+
+### What was done, in order
+
+| Phase | Work | PR |
+|-------|------|----|
+| 1 | Push while the app is closed. The sender's phone sends it through Expo's free push service, so no server is needed. A `userPush/{uid}` mirror lets a sender find the recipient's devices, and each token is checked against `pushTokens/{token}` first | #3, #5 |
+| 2 | Removed photo / video / document upload, voice notes, camera upload, the Me-tab status and profile pictures. The old Storage setup is no longer needed | #3 |
+| 2.5 | Typing indicator: a small marker per person refreshed every 3 s, expiring after 6 s | #3 |
+| Extra | Speaker toggle confirmed in audio and video calls. Camera off shows an opaque panel with the username. Muted-mic icon for the other person | #2, #4, #5 |
+| Extra | Stickers removed (old sticker messages still render) | #6 |
+| 3 | Group calls: every phone connects to every other (mesh), 4 for video and 6 for voice. A "call in progress" pointer on the conversation drives the Join bar. Handshake logic is a pure module tested with fake peers | #7 |
+| 4 | `API.md` section 0: what happened and what is needed from the owner, with effort and cost. `MEMORY.md` and this file brought up to date | Phase 4 PR |
+| 5 | Live location: built far enough to parse and render, then parked on `claude/live-location` on request | none |
+
+### Decisions
+
+| Decision | Why |
+|----------|-----|
+| Client-sent push, no relay | A relay needs an always-on host, which costs money |
+| No TURN | The owner declined ("Turn is monetary"). Some network pairs cannot connect, and the docs say so |
+| Group calls as a mesh, with hard limits | No media server is affordable. The limits keep phones and the free Firestore quota healthy |
+| Group call push honours chat mute; 1-to-1 call push does not | A muted group should not ring every phone, but a person calling you directly is different |
+| Location parked | Owner: "We'll come to location in phase 5" |
+
+### Problems met
+
+| Problem | Resolution |
+|---------|------------|
+| `exp.host` blocked from the build environment | Push delivery could not be tested. Documented as untested |
+| Firestore emulator cannot be downloaded | Rules tests written, never run. Documented |
+| `npx expo install` failed through the proxy | `npm install` with versions from `bundledNativeModules.json` |
+| I overwrote an untracked file (`src/utils/location.ts`) without reading it first | Recovered it from the session transcript, then told the owner. Rule since then: read a file before writing over it |
+| `npm ci` on `main` fails with ERESOLVE (reanimated 4.7.1 vs worklets 0.10.x) | Not caused by this work. Found when merging the open PRs onto `main` in a scratch copy. Pinning `react-native-reanimated` to 4.5.1 fixed it there. Waiting on the owner's yes |
+| PR #6 still named an already-merged branch as its base | Base changed to `main` |
+
+### Still open
+
+Phone test of push, calls and group calls; running the rules tests; the reanimated fix; Phase 5 location; Google and phone sign-in; full-history search.
 
 ---
 
