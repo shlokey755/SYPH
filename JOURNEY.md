@@ -39,12 +39,12 @@ The owner split the work into phases and set one rule: this is a hobby project, 
 | Firestore emulator cannot be downloaded | Rules tests written, never run. Documented |
 | `npx expo install` failed through the proxy | `npm install` with versions from `bundledNativeModules.json` |
 | I overwrote an untracked file (`src/utils/location.ts`) without reading it first | Recovered it from the session transcript, then told the owner. Rule since then: read a file before writing over it |
-| `npm ci` on `main` fails with ERESOLVE (reanimated 4.7.1 vs worklets 0.10.x) | Not caused by this work. Found when merging the open PRs onto `main` in a scratch copy. Pinning `react-native-reanimated` to 4.5.1 fixed it there. Waiting on the owner's yes |
+| `npm ci` on `main` fails with ERESOLVE (reanimated 4.7.1 vs worklets 0.10.x) | Not caused by this work. Found when merging the open PRs onto `main` in a scratch copy. Pinning `react-native-reanimated` to 4.5.1 fixed it on a clean checkout (typecheck, tests and the Android bundle pass). Opened as its own PR (#9) because it changes `main` |
 | PR #6 still named an already-merged branch as its base | Base changed to `main` |
 
 ### Still open
 
-Phone test of push, calls and group calls; running the rules tests; the reanimated fix; Phase 5 location; Google and phone sign-in; full-history search.
+Phone test of push, calls and group calls; running the rules tests; merging PR #9 (the install fix); Phase 5 location; Google and phone sign-in; full-history search.
 
 ---
 

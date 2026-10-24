@@ -41,8 +41,8 @@ Everything the app depends on that lives outside the code: console steps, keys, 
 
 | # | Task | Where / how | Effort | Cost | Unlocks |
 |---|------|-------------|--------|------|---------|
-| 1 | Merge the PRs: #6, then #7, then the Phase 4 PR | GitHub. If #7 or the Phase 4 PR still names an old branch as its base, change the base to `main` on the PR page | 5 min | Free | Everything below |
-| 2 | Decide on the install fix (0.4) | Reply "yes" and I make a small separate PR | 1 min | Free | A clean `npm ci` and EAS builds |
+| 1 | Merge the PRs: #9 first (install fix, 0.4), then #6, then #7, then #8 (this one) | GitHub. If #7 or #8 still names an old branch as its base, change the base to `main` on the PR page | 5 min | Free | Everything below |
+| 2 | Pull `main` and run `npm install` again | Terminal, after the merges | 3 min | Free | A clean install and EAS builds |
 | 3 | Publish `firestore.rules` | Firebase Console > Firestore Database > Rules > paste > Publish (1.1) | 2 min | Free | Messages, push lookup, calls, typing, group calls. Without it, most things fail quietly |
 | 4 | Run the rules tests (optional) | `cd tests/firestore-rules && npm install && npm test`. Needs Java 11+ and network for the first emulator download. Tell me any failing case | 10 min | Free | Confidence in the rules |
 | 5 | Give EAS your Firebase values | `.env` is git-ignored, so a cloud build never sees it. Expo dashboard > your project > Environment variables (or `eas env:create`): add each `EXPO_PUBLIC_FIREBASE_*` from 1.2, for the environment named like your build profile (preview or development). Without this the build opens with no Firebase config | 10 min | Free | Any EAS build |
@@ -58,9 +58,9 @@ Everything the app depends on that lives outside the code: console steps, keys, 
 |-|-|
 | Symptom | `npm ci` on a fresh checkout of `main` stops with ERESOLVE |
 | Cause | `react-native-drawer-layout` needs `react-native-reanimated`. npm installs the newest (4.7.1), which needs `react-native-worklets` 0.13.x, but `package.json` pins worklets `^0.10.4` |
-| Fix, tested only in a scratch copy | Add `"react-native-reanimated": "4.5.1"` to `package.json` and regenerate `package-lock.json`. After that a clean install, typecheck, all tests and the Android bundle pass |
-| Risk if left | A fresh clone or an EAS build that runs `npm ci` will likely fail the same way (not tried on EAS). Your own machine may only work because of an older `node_modules` |
-| Not done yet | It edits your `main` and is outside Phase 4, so I need your yes (task 2) |
+| Fix | **PR #9**: adds `"react-native-reanimated": "4.5.1"` to `package.json` and regenerates `package-lock.json` (reanimated 4.5.1 with worklets 0.10.4). On a clean checkout: `npm ci`, typecheck, unit tests (91 on `main`) and the Android bundle all pass |
+| Not checked | An EAS build. Until #9 is merged, a fresh clone or an EAS build that runs `npm ci` will likely fail the same way. Your own machine may only work because of an older `node_modules` |
+| Touches | Only `package.json` and `package-lock.json`. #6, #7 and #8 change neither file, so the merge order is not forced, but merge #9 first |
 
 Other things on `main` I did not change: `@react-native-async-storage/async-storage` is pinned to 1.24.0 while SDK 57 lists 2.2.0 (works with Firebase Auth, but `expo-doctor` may warn), TypeScript is 6.0.3, and `@variant-systems/expo-dynamic-app-icon` was added (a config plugin, so it also needs a native build and is untested by me).
 

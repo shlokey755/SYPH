@@ -93,7 +93,7 @@ Checked in the build environment (Oct 24, `main` plus PRs #6 and #7 merged): Typ
 **Not verified, please test:**
 - `firestore.rules` and `tests/firestore-rules` have never been run: the emulator download is blocked where this was built. Run `cd tests/firestore-rules && npm install && npm test` once and report any failing case.
 - Nothing has run on a phone. Real push delivery (Expo's push endpoint is blocked from the build environment), 1-to-1 and group WebRTC calls (react-native-webrtc 124 on React Native 0.86), speaker routing and the typing indicator all need a device test.
-- `npm ci` on `main` fails with ERESOLVE (reanimated 4.7.1 against worklets 0.10.x). Pinning `react-native-reanimated` to `4.5.1` fixed it in a scratch copy. See `API.md` 0.4.
+- `npm ci` on `main` fails with ERESOLVE (reanimated 4.7.1 against worklets 0.10.x) until PR #9 is merged: it pins `react-native-reanimated` to `4.5.1`. Not tried on an EAS build. See `API.md` 0.4.
 - Conversations made by the very first build have no `participantIds` and will not show; recreate them.
 
 ## Known limits
