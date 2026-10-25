@@ -27,6 +27,7 @@ import { db } from '../firebaseConfig';
 import {
   Conversation,
   ConversationParticipant,
+  MessageLocation,
   MessageMedia,
   MessageType,
   ReplyPreview,
@@ -39,9 +40,12 @@ export interface Member {
 }
 
 export interface OutgoingMessage {
+  /** An id made earlier with newMessageId (a live location needs it before the message exists). */
+  id?: string;
   type: MessageType;
   text?: string;
   media?: MessageMedia;
+  location?: MessageLocation;
   replyTo?: ReplyPreview;
   forwarded?: boolean;
 }
@@ -67,6 +71,8 @@ export function messagePreview(type: MessageType, text?: string): string {
       return 'Document';
     case 'gif':
       return 'GIF';
+    case 'location':
+      return 'Live location';
     default:
       return (text ?? '').trim().substring(0, 50);
   }
@@ -192,7 +198,8 @@ export function sendMessage(
   message: OutgoingMessage
 ): Promise<void> {
   const convRef = doc(db, 'conversations', conversation.id);
-  const msgRef = doc(collection(db, 'conversations', conversation.id, 'messages'));
+  const messages = collection(db, 'conversations', conversation.id, 'messages');
+  const msgRef = message.id ? doc(messages, message.id) : doc(messages);
 
   const text = (message.text ?? '').trim();
   const batch = writeBatch(db);
@@ -207,6 +214,7 @@ export function sendMessage(
     createdAt: serverTimestamp(),
   };
   if (message.media) data.media = message.media;
+  if (message.location) data.location = message.location;
   if (message.replyTo) data.replyTo = message.replyTo;
   if (message.forwarded) data.forwarded = true;
   batch.set(msgRef, data);
@@ -235,6 +243,17 @@ export function sendMessage(
   });
 }
 
+/** An id for a message that will be written later, so something else (a live location) can refer to it first. */
+export const newMessageId = (conversationId: string): string =>
+  doc(collection(db, 'conversations', conversationId, 'messages')).id;
+
+/** The sender stops a live location: the bubble flips to "ended" for everyone. The end time can only move earlier. */
+export function endLocationMessage(conversationId: string, messageId: string, endedAtMs: number) {
+  return updateDoc(doc(db, 'conversations', conversationId, 'messages', messageId), {
+    location: { expiresAt: endedAtMs },
+  });
+}
+
 /** Re-sends an existing message into another conversation (FR-08 forward). */
 export function forwardMessage(
   target: Pick<Conversation, 'id' | 'participantIds'> & Partial<Pick<Conversation, 'isGroup' | 'groupName'>>,
@@ -242,7 +261,8 @@ export function forwardMessage(
   original: { type: MessageType; text: string; media?: MessageMedia }
 ) {
   return sendMessage(target, sender, {
-    type: original.type,
+    // Old stickers were just an emoji in the text, so they are forwarded as plain text (stickers can no longer be sent).
+    type: original.type === 'sticker' ? 'text' : original.type,
     text: original.text,
     media: original.media,
     forwarded: true,
@@ -262,6 +282,7 @@ export function deleteMessageForEveryone(conversationId: string, messageId: stri
     deletedForEveryone: true,
     text: '',
     media: deleteField(),
+    location: deleteField(),
   });
 }
 

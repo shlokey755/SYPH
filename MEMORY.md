@@ -37,7 +37,7 @@ Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*
 | 2.5 | Typing indicator | Merged |
 | 3 | Group voice and video calls (mesh WebRTC, 4 video / 6 voice) | PR #7 open, waits for the owner's phone test |
 | 4 | `API.md` report: what happened, what is needed from the owner | This PR |
-| 5 | Live location sharing | Parked on `claude/live-location`, waits for the owner |
+| 5 | Live location sharing (foreground, free OpenStreetMap map) | Phase 5 PR open. Background sharing waits for the owner's yes |
 
 Extras done on the way: speaker toggle, camera-off panel with username, muted icon, stickers removed (PR #6 open).
 
@@ -57,7 +57,7 @@ Extras done on the way: speaker toggle, camera-off panel with username, muted ic
 | Offline banner, queued sends (NFR-07) | Built |
 | Audio and video calls (FR-06) | Built, 1-to-1, speaker toggle, camera-off panel, muted icon. Needs a dev build or APK. No TURN, so some networks cannot connect (API.md 1.7) |
 | Group voice and video calls | Built (PR #7), mesh of up to 4 video / 6 voice, Join bar, ring and push. Untested on phones (API.md 1.10) |
-| Live location | **Not on main.** Parked on `claude/live-location` (Phase 5) |
+| Live location | Built (Phase 5 PR): 15 min / 1 h / 8 h, map in a WebView (Leaflet on OpenStreetMap, no key). Updates only while SYPH is open on the sharer's phone. Untested on phones (API.md 1.11) |
 | Google and phone sign-in (FR-01) | **Not built** (API.md section 3) |
 | Search across full history | **Not built**, needs an external search service (API.md section 3) |
 

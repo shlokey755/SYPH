@@ -4,7 +4,7 @@ Newest first. Part 3 is the phased work of October 20 to 24, 2026; Part 2 is the
 
 ---
 
-## Part 3: Phases 1 to 4 (Oct 20-24, 2026)
+## Part 3: Phases 1 to 5 (Oct 20-25, 2026)
 
 The owner split the work into phases and set one rule: this is a hobby project, so nothing may cost money.
 
@@ -19,7 +19,7 @@ The owner split the work into phases and set one rule: this is a hobby project, 
 | Extra | Stickers removed (old sticker messages still render) | #6 |
 | 3 | Group calls: every phone connects to every other (mesh), 4 for video and 6 for voice. A "call in progress" pointer on the conversation drives the Join bar. Handshake logic is a pure module tested with fake peers | #7 |
 | 4 | `API.md` section 0: what happened and what is needed from the owner, with effort and cost. `MEMORY.md` and this file brought up to date | Phase 4 PR |
-| 5 | Live location: built far enough to parse and render, then parked on `claude/live-location` on request | none |
+| 5 | Live location: the parked branch `claude/live-location` was rebuilt on the current stack (it predated the sticker and group call work). Share for 15 min, 1 h or 8 h; one position document per share; map is Leaflet on OpenStreetMap in a WebView, so no API key. Foreground only | Phase 5 PR |
 
 ### Decisions
 
@@ -29,7 +29,9 @@ The owner split the work into phases and set one rule: this is a hobby project, 
 | No TURN | The owner declined ("Turn is monetary"). Some network pairs cannot connect, and the docs say so |
 | Group calls as a mesh, with hard limits | No media server is affordable. The limits keep phones and the free Firestore quota healthy |
 | Group call push honours chat mute; 1-to-1 call push does not | A muted group should not ring every phone, but a person calling you directly is different |
-| Location parked | Owner: "We'll come to location in phase 5" |
+| Location waited for Phase 5 | Owner: "We'll come to location in phase 5" |
+| Location is foreground only for now | Background sharing needs the "allow all the time" permission and a permanent notification, and cannot be tested from the build environment. Left for the owner to decide |
+| OpenStreetMap + Leaflet instead of Google Maps | Google Maps needs a billing account. Leaflet's integrity hashes were checked against the published 1.9.4 files |
 
 ### Problems met
 
@@ -41,10 +43,13 @@ The owner split the work into phases and set one rule: this is a hobby project, 
 | I overwrote an untracked file (`src/utils/location.ts`) without reading it first | Recovered it from the session transcript, then told the owner. Rule since then: read a file before writing over it |
 | `npm ci` on `main` fails with ERESOLVE (reanimated 4.7.1 vs worklets 0.10.x) | Not caused by this work. Found when merging the open PRs onto `main` in a scratch copy. Pinning `react-native-reanimated` to 4.5.1 fixed it on a clean checkout (typecheck, tests and the Android bundle pass). Opened as its own PR (#9) because it changes `main` |
 | PR #6 still named an already-merged branch as its base | Base changed to `main` |
+| Porting the parked location commit onto the current stack | Cherry-picked without committing, 11 conflicts, nearly all where the old sticker removal differed from PR #6. Resolved by hand, then retyped and retested |
+| A utils file importing another with `./location.ts` fails the app's typecheck, but without the ending Node's test runner cannot load it | The tiny coordinate check is repeated in `mapHtml.ts` instead |
+| The dynamic app icon plugin was on `main` but nothing called it | PR #10 adds the switch when the theme changes |
 
 ### Still open
 
-Phone test of push, calls and group calls; running the rules tests; merging PR #9 (the install fix); Phase 5 location; Google and phone sign-in; full-history search.
+Phone test of push, calls, group calls and live location; running the rules tests; merging PRs #9 (install fix) and #10 (app icon); the owner's decision on background location; Google and phone sign-in; full-history search.
 
 ---
 
