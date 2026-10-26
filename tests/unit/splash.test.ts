@@ -52,3 +52,21 @@ test('the splash in app.json uses an image that exists, on a black background in
   assert.equal((options.dark?.backgroundColor ?? options.backgroundColor).toLowerCase(), '#000000');
   assert.ok(!options.dark?.image || existsSync(options.dark.image), 'dark splash image is missing');
 });
+
+// Android 12 draws the splash image inside a circle two thirds of its width, so the picture must be a square canvas
+// with a transparent margin; a picture that fills the canvas would have its corners cut off.
+test('the splash image is a square PNG with transparent margins, so Android 12 does not crop it', () => {
+  const config = JSON.parse(readFileSync('app.json', 'utf8'));
+  const entry = (config.expo.plugins as unknown[]).find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen') as [
+    string,
+    { image: string },
+  ];
+  const png = readFileSync(entry[1].image);
+  assert.equal(png.subarray(1, 4).toString(), 'PNG');
+  const width = png.readUInt32BE(16);
+  const height = png.readUInt32BE(20);
+  const colorType = png[25];
+  assert.equal(width, height, 'the splash image must be square');
+  assert.ok(width >= 1024, 'the splash image should be at least 1024 px');
+  assert.equal(colorType, 6, 'the splash image needs an alpha channel (RGBA) for its transparent margin');
+});
