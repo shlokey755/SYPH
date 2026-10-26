@@ -37,6 +37,8 @@ The project is on Expo SDK 57, which matches the current Expo Go from the store.
 
 `expo-dev-client` is installed (needed for the development build in 1.5 and 1.7). Because of it, a plain `npx expo start` now targets the development build; use `--go` whenever you want Expo Go. Expo Go cannot do closed-app push or calls.
 
+**Splash screen.** The splash is the SYPH logo (`assets/images/splash-icon.png`, a transparent copy of the logo) on black, in light and dark mode, set in the `expo-splash-screen` entry of `app.json`. It stays up until the signed-in state is known, for at least 0.7 s, and is removed after 8 s at the latest, so a stuck sign-in check cannot leave it on screen (`src/utils/splash.ts`). **Expo Go shows the app icon instead of the splash, and a development build does not reflect every splash setting, so judge it on an installed APK** (`eas build --profile preview --platform android`). Changing the splash needs a new build, not a reload. Nothing to set up and no cost.
+
 ### 1.4 Media (removed)
 
 SYPH no longer uploads files, so **no Firebase Storage, no bucket and no billing plan are needed**. Chats carry text, stickers (emoji) and GIFs (a Giphy link, see `EXPO_PUBLIC_GIPHY_API_KEY` in 1.2). Profiles show an initial instead of a photo and have no status line.
