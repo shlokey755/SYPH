@@ -1,6 +1,83 @@
 # API.md - what SYPH needs from you
 
-Everything the app depends on that lives outside the code: console steps, keys, services. Items are added here as each feature is built.
+Everything the app depends on that lives outside the code: console steps, keys, services. Section 0 is the Phase 4 report (what happened, what is left for you). Sections 1 to 3 are the detail behind it.
+
+## 0. Phase 4 report (Oct 24, 2026)
+
+**Total money needed from you: 0.** Nothing here uses Firebase Storage, Blaze, hosting, TURN or an Apple developer account.
+
+### 0.1 What happened
+
+| Phase | What was done | PR | State |
+|-------|---------------|----|-------|
+| 1 | Push while the app is closed, for messages and calls. The sender's phone calls Expo's free push service, so there is no server | #3, #5 | Merged |
+| 2 | Removed uploads (photo, video, document), voice notes, camera upload, Me-tab status and profile pictures. No file storage is used any more | #3 | Merged |
+| 2.5 | Typing indicator ("typing...", "Bob is typing...") | #3 | Merged |
+| Extra | Speaker / earpiece toggle in audio and video calls | #2 | Merged (confirmed present) |
+| Extra | Camera off shows an opaque panel with the username instead of a frozen frame; muted-mic icon for the other person | #4, #5 | Merged |
+| Extra | Stickers removed (old sticker messages stay readable) | #6 | **Open**, base fixed to `main` |
+| 3 | Group voice and video calls: 4 people for video, 6 for voice, Join bar, ring and push | #7 | **Open**, waiting for your phone test |
+| 4 | This report, `JOURNEY.md` and `MEMORY.md` updated | Phase 4 PR | Open |
+| 5 | Live location sharing | none | Built in PR #11 (`claude/phase-5-location`), then paused at your request. Do not merge #11 until you restart it in a later update |
+
+### 0.2 What I checked, and what I could not
+
+| Checked here (on `main` + #6 + #7 merged) | Result |
+|-------------------------------------------|--------|
+| TypeScript (`npm run typecheck`) | Clean |
+| Unit tests (`npm run test:unit`) | 138 pass |
+| Relay tests (`cd server && npm test`) | 55 pass |
+| Android bundle (`npx expo export --platform android`) | Builds |
+| Merge of #6 and #7 onto `main` | No conflicts |
+
+| Could not check | Why | So |
+|-----------------|-----|----|
+| Push actually arriving | `exp.host` is blocked from my environment | Your test, 0.3 step 8 |
+| 1-to-1 and group calls, speaker routing, mute / camera-off UI | WebRTC needs phones | Your test, 0.3 step 8 |
+| `firestore.rules` | The emulator cannot be downloaded here. Tests are written but have never run | Optional, 0.3 step 4 |
+| Typing indicator on a device | Needs two phones | Your test |
+
+### 0.3 What I need from you, in order
+
+| # | Task | Where / how | Effort | Cost | Unlocks |
+|---|------|-------------|--------|------|---------|
+| 1 | Merge the PRs in this order: **#9** (install and build fix, 0.4), **#6**, **#7**, **#8**, then **#10** and **#12** (any order). Leave **#11** (live location) open and unmerged: it is paused | GitHub. #7 and #8 each name the PR before them as their base. If a base still names a branch that was already merged, change it to `main` on the PR page | 10 min | Free | Everything below |
+| 2 | Pull `main` and run `npm install` again | Terminal, after the merges | 3 min | Free | A clean install and EAS builds |
+| 3 | Publish `firestore.rules` | Firebase Console > Firestore Database > Rules > paste > Publish (1.1) | 2 min | Free | Messages, push lookup, calls, typing, group calls. Without it, most things fail quietly |
+| 4 | Run the rules tests (optional) | `cd tests/firestore-rules && npm install && npm test`. Needs Java 11+ and network for the first emulator download. Tell me any failing case | 10 min | Free | Confidence in the rules |
+| 5 | Nothing to do: your Firebase values reach EAS | `.env` is **committed** to your repo (tracked, even though `.gitignore` lists it), so cloud builds include it. Correction: an earlier version of this table said the opposite. Only if you ever untrack `.env` would you need to add the `EXPO_PUBLIC_FIREBASE_*` values as EAS environment variables (Expo dashboard > your project > Environment variables) | 0 min | Free | Any EAS build |
+| 6 | Upload the FCM V1 key | Firebase Console > Project settings > Service accounts > Generate new private key, then `eas credentials` > Android > Google Service Account Key for FCM V1 (1.5) | 10 min | Free | Push while the app is closed |
+| 7 | Build the Android app | `eas login`, then `eas build --profile preview --platform android` for an installable APK (simplest for testing), or `--profile development` for the dev client. Free plan: a monthly build limit and a queue | 15-45 min, mostly waiting | Free | Push, calls, group calls (none of them work in Expo Go) |
+| 8 | Test on 2-3 phones | Install the APK, sign in on each, allow notifications, set battery to "Unrestricted" (Xiaomi, Oppo, Vivo, Samsung). Then the push test in 1.5 and the 9-row group call checklist in 1.10 | 30-60 min | Free | Tells me what to fix |
+| 9 | Firestore TTL policies (optional) | Console > Firestore > Indexes > TTL on `expireAt` for collection groups `calls`, `candidates`, `media`, `peers`, `signals` (1.7, 1.10). Without them old call documents just stay | 5 min | Free | Tidy database |
+| 10 | Giphy key (optional) | developers.giphy.com, then `EXPO_PUBLIC_GIPHY_API_KEY` in `.env` (1.2). Without it the GIF picker says "not set up". Note `.env` is committed, so the key sits in your repo | 5 min | Free | GIFs |
+
+### 0.4 Install and build problems on `main` ("build-test", found Oct 26)
+
+The EAS APK build kept failing. A real Android compile cannot run in the build environment (no Android SDK, and Google, Maven and Gradle hosts are blocked), so I reproduced what EAS does before the compile (clean `npm ci`, then Android prebuild) and ran `expo-doctor`. I do not have your EAS logs, so this is a diagnosis, not a confirmed cause.
+
+| # | Problem on `main` | Why it breaks a build | Fix (PR #9) |
+|---|-------------------|-----------------------|-------------|
+| 1 | `npm ci` stops with ERESOLVE. `react-native-drawer-layout` needs `react-native-reanimated`, npm picks 4.7.1, which needs `react-native-worklets` 0.13.x, but `package.json` pins `^0.10.4` | EAS fails at "Install dependencies", before any compile. Your eight "fix:" commits on Oct 21-22 (worklets 0.10 to 0.13 and back) were chasing this | Pin `react-native-reanimated` to `4.5.1`, which is the version Expo SDK 57 itself lists and works with worklets 0.10.x. Worklets 0.13 was the wrong direction |
+| 2 | `expo-font` is not in `package.json`. `@expo/vector-icons` and `expo-symbols` accept any version, so npm installs **58.0.9 (an SDK 58 package)** at the top level, beside the SDK 57 copy (57.0.4) inside `expo` | Gradle autolinking takes the top-level copy, so an SDK 58 native module is compiled against SDK 57. `expo-doctor` warns this causes "unexpected build errors". **The most likely reason a build fails after the install step, not proven** | Declare `expo-font` at `~57.0.4`. One copy remains |
+
+Checked on a clean `npm ci` of the fixed branch: one `expo-font`, `expo-doctor` duplicate check passes, typecheck, unit tests, `expo prebuild` for Android, Android bundle. I also scanned the Android sources of the other native libraries (webrtc, incall-manager, async-storage, webview) for React Native classes that RN 0.86 removed, and found none.
+
+**Not checked:** the Gradle compile, and an EAS build. If a build still fails after #9, send the log link for the failing build (expo.dev > your project > Builds > the failed one > "Run gradlew") and I will read the actual error.
+
+Left alone on purpose, both flagged by `expo-doctor` but neither a conflict: `@react-native-async-storage/async-storage` stays at 1.24.0 (Firebase 11's Auth lists `^1.18.1` as its peer; Expo lists 2.2.0), and `react-native-worklets` stays `^0.10.4` (Expo lists 0.10.1). Also on `main`: TypeScript 6.0.3, and `@variant-systems/expo-dynamic-app-icon` (a config plugin, so it needs a native build; PR #10 makes the icon follow the theme).
+
+`.env` is committed to the repo, although `.gitignore` lists it. It holds only client-side Firebase values and the Giphy key. It also means EAS builds see your Firebase config.
+
+### 0.5 Left alone on purpose
+
+| Item | Why |
+|------|-----|
+| TURN server | You declined (it costs money). Some network pairs cannot connect: a 1-to-1 call ends with "failed", a group tile shows "Can't connect" |
+| iOS | Dev builds and push on iPhone need the paid Apple developer account, so Android only |
+| Push relay (`server/`) | Not needed: it needs an always-on host |
+| Live location | Paused at your request. PR #11 stays open until you restart it in a later update |
+| Google and phone sign-in, full-history search | Section 3 |
 
 ## 1. Required now
 
@@ -204,4 +281,5 @@ Open a group chat: the header has a phone and a video icon. Tap one to start a c
 |---------|---------------|
 | Google sign-in (FR-01) | OAuth client IDs (Firebase Console > Authentication > Sign-in method > Google, plus Web/Android/iOS client IDs from Google Cloud), the SHA-1/SHA-256 fingerprints of your build keys, and a development build. Not built yet. |
 | Phone sign-in (FR-01) | Firebase's JS SDK cannot do phone sign-in cleanly in React Native (it needs reCAPTCHA or the native Firebase SDK), and SMS may need a paid plan. Decide whether it is required before anyone builds it. Not built. |
+| Live location sharing (Phase 5) | Built in PR #11 (`claude/phase-5-location`) and paused at your request, not on `main`. Foreground sharing on a free OpenStreetMap map, no key needed. The open question when you restart it is whether to keep it going with the app closed (needs the "allow all the time" permission and a permanent notification). |
 | Search across full chat history (FR-11) | In-chat search covers the messages loaded on screen. Firestore has no full-text search; searching all history needs an external service (Algolia, Typesense, Meilisearch) and a small indexing function. |
