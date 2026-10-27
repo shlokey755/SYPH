@@ -15,6 +15,7 @@ import {
   allowsCallPush,
   allowsMessagePush,
   buildCallPushes,
+  buildGroupCallPushes,
   buildMessagePushes,
   chunk,
   parsePushMode,
@@ -118,5 +119,45 @@ export async function notifyCall(request: CallPushRequest): Promise<void> {
     );
   } catch (error) {
     warn('call')(error);
+  }
+}
+
+export interface GroupCallPushRequest {
+  callId: string;
+  conversation: { id: string; participantIds: string[]; groupName?: string };
+  callerUid: string;
+  callerName: string;
+  type: 'audio' | 'video';
+}
+
+/**
+ * Rings everyone else in the group whose app may be closed. Unlike a 1-to-1 call this honours the chat mute as well
+ * as the account switch: a muted group should not ring the whole phone, though its "Join" bar still shows in the chat.
+ */
+export async function notifyGroupCall(request: GroupCallPushRequest): Promise<void> {
+  if (MODE !== 'client') return;
+  try {
+    const { conversation, callerUid } = request;
+    const recipients = conversation.participantIds.filter((uid) => uid !== callerUid).slice(0, MAX_MESSAGE_RECIPIENTS);
+    if (recipients.length === 0) return;
+
+    const targets = await Promise.all(recipients.map(getPushTarget));
+    const tokens = targets.flatMap((target) =>
+      target && target.tokens.length > 0 && allowsMessagePush(target, conversation.id) ? target.tokens : []
+    );
+    if (tokens.length === 0) return;
+
+    await postToExpo(
+      buildGroupCallPushes({
+        callId: request.callId,
+        conversationId: conversation.id,
+        groupName: conversation.groupName,
+        callerName: request.callerName,
+        type: request.type,
+        tokens,
+      })
+    );
+  } catch (error) {
+    warn('group call')(error);
   }
 }

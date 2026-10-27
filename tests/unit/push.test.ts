@@ -151,3 +151,26 @@ describe('batching', () => {
     assert.deepEqual(chunk([]), []);
   });
 });
+
+describe('group call push', () => {
+  it('names the group, says who started it, rings on the calls channel for 45 s', async () => {
+    const { buildGroupCallPushes, GROUP_CALL_PUSH_TTL_SECONDS } = await import('../../src/utils/push.ts');
+    const [m, n] = buildGroupCallPushes({
+      callId: 'call7', conversationId: 'g1', groupName: 'Hostel', callerName: 'Alice', type: 'video', tokens: [T('1'), T('2')],
+    });
+    assert.equal(m.title, 'Hostel');
+    assert.equal(m.body, 'Alice started a video call');
+    assert.equal(m.channelId, CALLS_CHANNEL_ID);
+    assert.equal(m.ttl, GROUP_CALL_PUSH_TTL_SECONDS);
+    assert.equal(m.ttl, 45);
+    assert.deepEqual(m.data, { type: 'call', conversationId: 'g1', callId: 'call7' });
+    assert.equal(n.to, T('2'));
+  });
+
+  it('falls back to sensible text and says "voice" for audio', async () => {
+    const { buildGroupCallPushes } = await import('../../src/utils/push.ts');
+    const [m] = buildGroupCallPushes({ callId: 'c', conversationId: 'g', callerName: ' ', type: 'audio', tokens: [T('1')] });
+    assert.equal(m.title, 'Group');
+    assert.equal(m.body, 'Someone started a voice call');
+  });
+});

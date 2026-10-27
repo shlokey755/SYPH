@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ForwardPicker } from '../../components/chat/ForwardPicker';
 import { GifPicker } from '../../components/chat/GifPicker';
+import { GroupCallBar } from '../../components/chat/GroupCallBar';
 import { GroupInfoModal } from '../../components/chat/GroupInfoModal';
 import { MessageAction, MessageActionSheet } from '../../components/chat/MessageActionSheet';
 import { MessageBubble } from '../../components/chat/MessageBubble';
@@ -32,6 +33,7 @@ import { MessageInput } from '../../components/chat/MessageInput';
 import { OfflineBanner } from '../../components/OfflineBanner';
 import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
+import { useActiveGroupCall } from '../../hooks/useActiveGroupCall';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
 import { useGifSender } from '../../hooks/useGifSender';
@@ -153,6 +155,9 @@ export default function ChatScreen() {
     !!conversation?.isGroup
   );
 
+  // Group calls: is one going that this person can join?
+  const groupCall = useActiveGroupCall(conversation);
+
   const visibleMessages = useMemo(() => {
     const q = searchText.trim().toLowerCase();
     if (!searchOpen || !q) return messages;
@@ -237,7 +242,7 @@ export default function ChatScreen() {
     }
   };
 
-  // Calls are 1-to-1 only.
+  // 1-on-1 chats call the other person (below); group chats use startOrJoinGroupCall.
   const callee = conversation && !conversation.isGroup ? getOtherParticipant(conversation, myUid) : undefined;
 
   const startCall = (type: CallType) => {
@@ -259,6 +264,26 @@ export default function ChatScreen() {
         calleeId: callee.uid,
         calleeName: callee.username,
       },
+    });
+  };
+
+  /** Group chats: join the call that is going, or start a new one. */
+  const startOrJoinGroupCall = (type: CallType) => {
+    if (!conversation?.isGroup) return;
+    if (!isCallingSupported()) {
+      toast.info('Calls need an installed build', 'They do not work in Expo Go. See API.md for the development build.');
+      return;
+    }
+    if (offline) {
+      toast.error("You're offline", 'Connect to the internet to join a call');
+      return;
+    }
+    const live = groupCall.call;
+    router.push({
+      pathname: '/group-call/[id]',
+      params: live
+        ? { id: live.id, conversationId: conversation.id, type: live.type }
+        : { id: 'new', conversationId: conversation.id, type },
     });
   };
 
@@ -345,6 +370,16 @@ export default function ChatScreen() {
             </Pressable>
           </>
         )}
+        {conversation?.isGroup && (
+          <>
+            <Pressable onPress={() => startOrJoinGroupCall('audio')} hitSlop={10} accessibilityLabel="Group voice call">
+              <Ionicons name="call-outline" size={22} color={themeColors.text} />
+            </Pressable>
+            <Pressable onPress={() => startOrJoinGroupCall('video')} hitSlop={10} accessibilityLabel="Group video call">
+              <Ionicons name="videocam-outline" size={24} color={themeColors.text} />
+            </Pressable>
+          </>
+        )}
         <Pressable
           onPress={() => {
             setSearchOpen((open) => !open);
@@ -365,6 +400,15 @@ export default function ChatScreen() {
       </View>
 
       <OfflineBanner message="You're offline. Messages you send now are sent when you reconnect." />
+
+      {groupCall.showBar && groupCall.call && (
+        <GroupCallBar
+          type={groupCall.call.type}
+          count={groupCall.peersPresent}
+          colors={themeColors}
+          onJoin={() => startOrJoinGroupCall(groupCall.call!.type)}
+        />
+      )}
 
       {searchOpen && (
         <View style={[styles.searchBar, { borderBottomColor: themeColors.border }]}>
