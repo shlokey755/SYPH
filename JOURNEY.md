@@ -39,7 +39,8 @@ The owner split the work into phases and set one rule: this is a hobby project, 
 | Firestore emulator cannot be downloaded | Rules tests written, never run. Documented |
 | `npx expo install` failed through the proxy | `npm install` with versions from `bundledNativeModules.json` |
 | I overwrote an untracked file (`src/utils/location.ts`) without reading it first | Recovered it from the session transcript, then told the owner. Rule since then: read a file before writing over it |
-| `npm ci` on `main` fails with ERESOLVE (reanimated 4.7.1 vs worklets 0.10.x) | Not caused by this work. Found when merging the open PRs onto `main` in a scratch copy. Pinning `react-native-reanimated` to 4.5.1 fixed it on a clean checkout (typecheck, tests and the Android bundle pass). Opened as its own PR (#9) because it changes `main` |
+| I told the owner `.env` was git-ignored, so EAS builds would not see it | Wrong: `.env` is tracked in git (committed in an early commit). Corrected in `API.md` 0.3 step 5 and `MEMORY.md`, and told the owner |
+| `npm ci` on `main` fails with ERESOLVE (reanimated 4.7.1 vs worklets 0.10.x), and the EAS APK build keeps failing ("build-test") | Not caused by this work. Pinning `react-native-reanimated` to 4.5.1 (the version Expo SDK 57 lists) fixes the install. `expo-doctor` then showed a second problem: `expo-font` was undeclared, so npm installed the SDK 58 package (58.0.9) at the top level beside SDK 57's own copy, a duplicate native module that can break the Gradle build. Declared at `~57.0.4`. Both fixes are PR #9. No Android compile is possible in the build environment, so the Gradle step and an EAS build are unchecked; details in `API.md` 0.4 |
 | PR #6 still named an already-merged branch as its base | Base changed to `main` |
 
 ### Still open

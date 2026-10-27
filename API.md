@@ -41,28 +41,33 @@ Everything the app depends on that lives outside the code: console steps, keys, 
 
 | # | Task | Where / how | Effort | Cost | Unlocks |
 |---|------|-------------|--------|------|---------|
-| 1 | Merge the PRs: #9 first (install fix, 0.4), then #6, then #7, then #8 (this one) | GitHub. If #7 or #8 still names an old branch as its base, change the base to `main` on the PR page | 5 min | Free | Everything below |
+| 1 | Merge the PRs in this order: **#9** (install and build fix, 0.4), **#6**, **#7**, **#8**, **#11**, then **#10** and **#12** (any order) | GitHub. #7, #8 and #11 each name the PR before them as their base. If a base still names a branch that was already merged, change it to `main` on the PR page | 10 min | Free | Everything below |
 | 2 | Pull `main` and run `npm install` again | Terminal, after the merges | 3 min | Free | A clean install and EAS builds |
 | 3 | Publish `firestore.rules` | Firebase Console > Firestore Database > Rules > paste > Publish (1.1) | 2 min | Free | Messages, push lookup, calls, typing, group calls. Without it, most things fail quietly |
 | 4 | Run the rules tests (optional) | `cd tests/firestore-rules && npm install && npm test`. Needs Java 11+ and network for the first emulator download. Tell me any failing case | 10 min | Free | Confidence in the rules |
-| 5 | Give EAS your Firebase values | `.env` is git-ignored, so a cloud build never sees it. Expo dashboard > your project > Environment variables (or `eas env:create`): add each `EXPO_PUBLIC_FIREBASE_*` from 1.2, for the environment named like your build profile (preview or development). Without this the build opens with no Firebase config | 10 min | Free | Any EAS build |
+| 5 | Nothing to do: your Firebase values reach EAS | `.env` is **committed** to your repo (tracked, even though `.gitignore` lists it), so cloud builds include it. Correction: an earlier version of this table said the opposite. Only if you ever untrack `.env` would you need to add the `EXPO_PUBLIC_FIREBASE_*` values as EAS environment variables (Expo dashboard > your project > Environment variables) | 0 min | Free | Any EAS build |
 | 6 | Upload the FCM V1 key | Firebase Console > Project settings > Service accounts > Generate new private key, then `eas credentials` > Android > Google Service Account Key for FCM V1 (1.5) | 10 min | Free | Push while the app is closed |
 | 7 | Build the Android app | `eas login`, then `eas build --profile preview --platform android` for an installable APK (simplest for testing), or `--profile development` for the dev client. Free plan: a monthly build limit and a queue | 15-45 min, mostly waiting | Free | Push, calls, group calls (none of them work in Expo Go) |
 | 8 | Test on 2-3 phones | Install the APK, sign in on each, allow notifications, set battery to "Unrestricted" (Xiaomi, Oppo, Vivo, Samsung). Then the push test in 1.5 and the 9-row group call checklist in 1.10 | 30-60 min | Free | Tells me what to fix |
 | 9 | Firestore TTL policies (optional) | Console > Firestore > Indexes > TTL on `expireAt` for collection groups `calls`, `candidates`, `media`, `peers`, `signals` (1.7, 1.10). Without them old call documents just stay | 5 min | Free | Tidy database |
-| 10 | Giphy key (optional) | developers.giphy.com, then `EXPO_PUBLIC_GIPHY_API_KEY` in `.env` and EAS (1.2). Without it the GIF picker says "not set up" | 5 min | Free | GIFs |
+| 10 | Giphy key (optional) | developers.giphy.com, then `EXPO_PUBLIC_GIPHY_API_KEY` in `.env` (1.2). Without it the GIF picker says "not set up". Note `.env` is committed, so the key sits in your repo | 5 min | Free | GIFs |
 
-### 0.4 Install problem on `main` (found while testing, not caused by Phase 1-3)
+### 0.4 Install and build problems on `main` ("build-test", found Oct 26)
 
-| | |
-|-|-|
-| Symptom | `npm ci` on a fresh checkout of `main` stops with ERESOLVE |
-| Cause | `react-native-drawer-layout` needs `react-native-reanimated`. npm installs the newest (4.7.1), which needs `react-native-worklets` 0.13.x, but `package.json` pins worklets `^0.10.4` |
-| Fix | **PR #9**: adds `"react-native-reanimated": "4.5.1"` to `package.json` and regenerates `package-lock.json` (reanimated 4.5.1 with worklets 0.10.4). On a clean checkout: `npm ci`, typecheck, unit tests (91 on `main`) and the Android bundle all pass |
-| Not checked | An EAS build. Until #9 is merged, a fresh clone or an EAS build that runs `npm ci` will likely fail the same way. Your own machine may only work because of an older `node_modules` |
-| Touches | Only `package.json` and `package-lock.json`. #6, #7 and #8 change neither file, so the merge order is not forced, but merge #9 first |
+The EAS APK build kept failing. A real Android compile cannot run in the build environment (no Android SDK, and Google, Maven and Gradle hosts are blocked), so I reproduced what EAS does before the compile (clean `npm ci`, then Android prebuild) and ran `expo-doctor`. I do not have your EAS logs, so this is a diagnosis, not a confirmed cause.
 
-Other things on `main` I did not change: `@react-native-async-storage/async-storage` is pinned to 1.24.0 while SDK 57 lists 2.2.0 (works with Firebase Auth, but `expo-doctor` may warn), TypeScript is 6.0.3, and `@variant-systems/expo-dynamic-app-icon` was added (a config plugin, so it also needs a native build and is untested by me).
+| # | Problem on `main` | Why it breaks a build | Fix (PR #9) |
+|---|-------------------|-----------------------|-------------|
+| 1 | `npm ci` stops with ERESOLVE. `react-native-drawer-layout` needs `react-native-reanimated`, npm picks 4.7.1, which needs `react-native-worklets` 0.13.x, but `package.json` pins `^0.10.4` | EAS fails at "Install dependencies", before any compile. Your eight "fix:" commits on Oct 21-22 (worklets 0.10 to 0.13 and back) were chasing this | Pin `react-native-reanimated` to `4.5.1`, which is the version Expo SDK 57 itself lists and works with worklets 0.10.x. Worklets 0.13 was the wrong direction |
+| 2 | `expo-font` is not in `package.json`. `@expo/vector-icons` and `expo-symbols` accept any version, so npm installs **58.0.9 (an SDK 58 package)** at the top level, beside the SDK 57 copy (57.0.4) inside `expo` | Gradle autolinking takes the top-level copy, so an SDK 58 native module is compiled against SDK 57. `expo-doctor` warns this causes "unexpected build errors". **The most likely reason a build fails after the install step, not proven** | Declare `expo-font` at `~57.0.4`. One copy remains |
+
+Checked on a clean `npm ci` of the fixed branch: one `expo-font`, `expo-doctor` duplicate check passes, typecheck, unit tests, `expo prebuild` for Android, Android bundle. I also scanned the Android sources of the other native libraries (webrtc, incall-manager, async-storage, webview) for React Native classes that RN 0.86 removed, and found none.
+
+**Not checked:** the Gradle compile, and an EAS build. If a build still fails after #9, send the log link for the failing build (expo.dev > your project > Builds > the failed one > "Run gradlew") and I will read the actual error.
+
+Left alone on purpose, both flagged by `expo-doctor` but neither a conflict: `@react-native-async-storage/async-storage` stays at 1.24.0 (Firebase 11's Auth lists `^1.18.1` as its peer; Expo lists 2.2.0), and `react-native-worklets` stays `^0.10.4` (Expo lists 0.10.1). Also on `main`: TypeScript 6.0.3, and `@variant-systems/expo-dynamic-app-icon` (a config plugin, so it needs a native build; PR #10 makes the icon follow the theme).
+
+`.env` is committed to the repo, although `.gitignore` lists it. It holds only client-side Firebase values and the Giphy key. It also means EAS builds see your Firebase config.
 
 ### 0.5 Left alone on purpose
 
