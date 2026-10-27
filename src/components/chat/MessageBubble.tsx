@@ -45,7 +45,7 @@ function MessageBubbleBase({
   const textColor = isMine ? colors.buttonText : colors.text;
   const subColor = isMine ? colors.buttonText : colors.subText;
   const deleted = message.deletedForEveryone;
-  const mediaOnly = !deleted && (message.type === 'sticker' || message.type === 'gif');
+  const mediaOnly = !deleted && message.type === 'gif';
 
   return (
     <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>

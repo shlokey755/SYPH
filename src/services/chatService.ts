@@ -67,8 +67,6 @@ export function messagePreview(type: MessageType, text?: string): string {
       return 'Document';
     case 'gif':
       return 'GIF';
-    case 'sticker':
-      return 'Sticker';
     default:
       return (text ?? '').trim().substring(0, 50);
   }
