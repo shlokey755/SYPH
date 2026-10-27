@@ -37,9 +37,9 @@ Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*
 | 2.5 | Typing indicator | Merged |
 | 3 | Group voice and video calls (mesh WebRTC, 4 video / 6 voice) | PR #7 open, untested on phones |
 | 4 | `API.md` report: what happened, what is needed from the owner | PR #8 open |
-| 5 | Live location sharing (foreground, free OpenStreetMap map) | PR #11 open. Background sharing waits for the owner's yes |
+| 5 | Live location sharing (foreground, free OpenStreetMap map) | Built in PR #11, paused at the owner's request (Oct 27). Do not merge until they restart it |
 
-Extras done on the way: speaker toggle, camera-off panel with username, muted icon, stickers removed (PR #6), app icon follows the theme (PR #10), splash held until the app is ready (PR #12), install and build fix (PR #9). Merge order: #9, #6, #7, #8, #11, then #10 and #12.
+Extras done on the way: speaker toggle, camera-off panel with username, muted icon, stickers removed (PR #6), app icon follows the theme (PR #10), splash held until the app is ready (PR #12), install and build fix (PR #9). Merge order: #9, #6, #7, #8, then #10 and #12. PR #11 stays unmerged.
 
 ## Feature status
 
@@ -57,7 +57,7 @@ Extras done on the way: speaker toggle, camera-off panel with username, muted ic
 | Offline banner, queued sends (NFR-07) | Built |
 | Audio and video calls (FR-06) | Built, 1-to-1, speaker toggle, camera-off panel, muted icon. Needs a dev build or APK. No TURN, so some networks cannot connect (API.md 1.7) |
 | Group voice and video calls | Built (PR #7), mesh of up to 4 video / 6 voice, Join bar, ring and push. Untested on phones (API.md 1.10) |
-| Live location | Built (Phase 5 PR): 15 min / 1 h / 8 h, map in a WebView (Leaflet on OpenStreetMap, no key). Updates only while SYPH is open on the sharer's phone. Untested on phones (API.md 1.11) |
+| Live location | **Not on main.** Built in PR #11 (`claude/phase-5-location`) and paused by the owner to be continued in a later update: 15 min / 1 h / 8 h, map in a WebView (Leaflet on OpenStreetMap, no key). Updates only while SYPH is open on the sharer's phone. Untested on phones (API.md 1.11) |
 | Google and phone sign-in (FR-01) | **Not built** (API.md section 3) |
 | Search across full history | **Not built**, needs an external search service (API.md section 3) |
 
@@ -88,7 +88,7 @@ Checked against `DOC-20261002-WA0031.pdf` by reading the code, not by running th
 
 ## How much is actually verified
 
-Checked in the build environment (Oct 27, all seven PRs merged onto `main` in the order above, no conflicts): clean `npm ci`, TypeScript clean, 172 unit tests and 55 relay tests pass, `expo prebuild --platform android` succeeds (location permissions and icon aliases present), one copy of `expo-font`. CI is green on every PR.
+Checked in the build environment (Oct 27, PRs #9, #6, #7, #8, #10 and #12 merged onto `main` in that order, plus #11 in a trial run, no conflicts): clean `npm ci`, TypeScript clean, 172 unit tests and 55 relay tests pass, `expo prebuild --platform android` succeeds, one copy of `expo-font`. CI is green on every PR.
 
 **Not verified, please test:**
 - `firestore.rules` and `tests/firestore-rules` have never been run: the emulator download is blocked where this was built. Run `cd tests/firestore-rules && npm install && npm test` once and report any failing case.
