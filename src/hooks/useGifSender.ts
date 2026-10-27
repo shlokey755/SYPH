@@ -1,7 +1,7 @@
 /**
  * useGifSender.ts
- * Sends the only non-text message the app supports: a GIF (a Giphy link). It uploads no file, so nothing here needs
- * storage. Failures show an error toast (NFR-06).
+ * Sends a GIF (a Giphy link) as a message. It uploads no file, so nothing here needs storage. Failures show an error
+ * toast (NFR-06). Live locations are sent by services/liveLocationManager.ts.
  */
 
 import { useCallback } from 'react';

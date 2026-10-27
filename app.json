@@ -2,7 +2,7 @@
   "expo": {
     "name": "SYPH",
     "slug": "SYPH",
-    "version": "1.0.0",
+    "version": "7.5.5",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "syph",
@@ -32,14 +32,14 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon5.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/splash-em-niggas.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -56,10 +56,30 @@
         }
       ],
       [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "SYPH uses your location only while you share it in a chat.",
+          "locationWhenInUsePermission": "SYPH uses your location only while you share it in a chat."
+        }
+      ],
+      [
         "@config-plugins/react-native-webrtc",
         {
           "cameraPermission": "Allow SYPH to use the camera for video calls.",
           "microphonePermission": "Allow SYPH to use the microphone for voice and video calls."
+        }
+      ],
+      "expo-font",
+      "expo-asset",
+      [
+        "@variant-systems/expo-dynamic-app-icon",
+        {
+          "cyan-black": { "image": "./assets/images/Cyber.png" },
+          "white-black": { "image": "./assets/images/Monochrome.png" },
+          "beige-purple": { "image": "./assets/images/Candy.png" },
+          "ocean": { "image": "./assets/images/Ocean.png" },
+          "forest": { "image": "./assets/images/Forest.png" },
+          "sunset": { "image": "./assets/images/Sunset.png" }
         }
       ]
     ],

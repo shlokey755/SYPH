@@ -18,7 +18,7 @@ Everything the app depends on that lives outside the code: console steps, keys, 
 | Extra | Stickers removed (old sticker messages stay readable) | #6 | **Open**, base fixed to `main` |
 | 3 | Group voice and video calls: 4 people for video, 6 for voice, Join bar, ring and push | #7 | **Open**, waiting for your phone test |
 | 4 | This report, `JOURNEY.md` and `MEMORY.md` updated | Phase 4 PR | Open |
-| 5 | Live location sharing | none | Built in PR #11 (`claude/phase-5-location`), then paused at your request. Do not merge #11 until you restart it in a later update |
+| 5 | Live location sharing, shown on a free OpenStreetMap map. Works while SYPH is open on the sharer's phone (see 1.11) | Phase 5 PR | Built in PR #11 (`claude/phase-5-location`), then paused at your request. Do not merge #11 until you restart it in a later update. The old parked branch `claude/live-location` is superseded |
 
 ### 0.2 What I checked, and what I could not
 
@@ -47,8 +47,8 @@ Everything the app depends on that lives outside the code: console steps, keys, 
 | 4 | Run the rules tests (optional) | `cd tests/firestore-rules && npm install && npm test`. Needs Java 11+ and network for the first emulator download. Tell me any failing case | 10 min | Free | Confidence in the rules |
 | 5 | Nothing to do: your Firebase values reach EAS | `.env` is **committed** to your repo (tracked, even though `.gitignore` lists it), so cloud builds include it. Correction: an earlier version of this table said the opposite. Only if you ever untrack `.env` would you need to add the `EXPO_PUBLIC_FIREBASE_*` values as EAS environment variables (Expo dashboard > your project > Environment variables) | 0 min | Free | Any EAS build |
 | 6 | Upload the FCM V1 key | Firebase Console > Project settings > Service accounts > Generate new private key, then `eas credentials` > Android > Google Service Account Key for FCM V1 (1.5) | 10 min | Free | Push while the app is closed |
-| 7 | Build the Android app | `eas login`, then `eas build --profile preview --platform android` for an installable APK (simplest for testing), or `--profile development` for the dev client. Free plan: a monthly build limit and a queue | 15-45 min, mostly waiting | Free | Push, calls, group calls (none of them work in Expo Go) |
-| 8 | Test on 2-3 phones | Install the APK, sign in on each, allow notifications, set battery to "Unrestricted" (Xiaomi, Oppo, Vivo, Samsung). Then the push test in 1.5 and the 9-row group call checklist in 1.10 | 30-60 min | Free | Tells me what to fix |
+| 7 | Build the Android app | `eas login`, then `eas build --profile preview --platform android` for an installable APK (simplest for testing), or `--profile development` for the dev client. Free plan: a monthly build limit and a queue | 15-45 min, mostly waiting | Free | Push, calls, group calls (none of them work in Expo Go), and the theme icon (#10) |
+| 8 | Test on 2-3 phones | Install the APK, sign in on each, allow notifications, set battery to "Unrestricted" (Xiaomi, Oppo, Vivo, Samsung). Then the push test in 1.5, the 9-row group call checklist in 1.10 and the 8-row live location checklist in 1.11 | 30-60 min | Free | Tells me what to fix |
 | 9 | Firestore TTL policies (optional) | Console > Firestore > Indexes > TTL on `expireAt` for collection groups `calls`, `candidates`, `media`, `peers`, `signals` (1.7, 1.10). Without them old call documents just stay | 5 min | Free | Tidy database |
 | 10 | Giphy key (optional) | developers.giphy.com, then `EXPO_PUBLIC_GIPHY_API_KEY` in `.env` (1.2). Without it the GIF picker says "not set up". Note `.env` is committed, so the key sits in your repo | 5 min | Free | GIFs |
 
@@ -76,7 +76,7 @@ Left alone on purpose, both flagged by `expo-doctor` but neither a conflict: `@r
 | TURN server | You declined (it costs money). Some network pairs cannot connect: a 1-to-1 call ends with "failed", a group tile shows "Can't connect" |
 | iOS | Dev builds and push on iPhone need the paid Apple developer account, so Android only |
 | Push relay (`server/`) | Not needed: it needs an always-on host |
-| Live location | Paused at your request. PR #11 stays open until you restart it in a later update |
+| Live location | Paused at your request. PR #11 stays open until you restart it in a later update. When you do, the open question is background sharing: it needs the "allow all the time" permission and a permanent notification, and cannot be tested from here (1.11) |
 | Google and phone sign-in, full-history search | Section 3 |
 
 ## 1. Required now
@@ -253,6 +253,41 @@ Open a group chat: the header has a phone and a video icon. Tap one to start a c
 | 8 | Start a call while B's app is fully closed | B gets a notification from the group; tapping it opens the chat with the Join bar |
 | 9 | Put one phone on mobile data and another on Wi-Fi, then call | Shows how often STUN alone is enough. A tile saying "Can't connect" is the expected no-TURN failure, not a bug |
 
+### 1.11 Live location
+
+The location button sits left of the GIF button in any chat (it replaced the sticker button). Tap it, pick 15 minutes, 1 hour or 8 hours, and allow location when Android asks. A "Live location" bubble appears in the chat and a bar "Sharing your live location · Stop" shows under the header. Anyone in the chat taps the bubble to open a map with a moving dot, a "Live · 12 min left" line, **Open in Maps** and **Recenter**. A share ends by itself, when you tap Stop, or when you sign out.
+
+| Step | How | Cost |
+|------|-----|------|
+| Re-publish `firestore.rules` | Adds `conversations/{id}/locations` and the `location` message type (same as 1.1). Without it, starting a share fails with "Could not start sharing" | Free |
+| New build | Adds `expo-location` and `react-native-webview`, so build again (`eas build --profile preview --platform android`). Both are also in Expo Go, so the open-app version may run there too (not tried) | Free |
+| Allow location | Each person who shares allows it once ("while using the app" is enough). Viewers need no permission | Free |
+| Map | OpenStreetMap tiles shown with Leaflet 1.9.4 (loaded from unpkg, with an integrity check). **No API key, no billing.** The map and the Leaflet files need internet; without it the map says so and **Open in Maps** still works | Free |
+| Optional cleanup | Location documents carry `expireAt` (end of share plus 24 h). Add a TTL policy on `expireAt` for collection group `locations` (same place as 1.7). Without it they stay (tiny) | Free |
+
+**Firestore use (free daily quota is 20,000 writes and 50,000 reads):** the sharer's phone writes a position at most every 8 seconds, and only if it moved 10 m or after a 60-second heartbeat. Walking or driving non-stop is about 450 writes an hour (3,600 for a full 8 hours); standing still is about 60 an hour. Each person with the map open reads each update once.
+
+**Known limits**
+- **Updates only run while SYPH is open on the sharer's phone.** If it goes to the background, the screen locks or the app is closed, the dot stops moving and, after 3 minutes, viewers see "Last updated ... ago". Coming back to the app resumes it. Sharing in the background needs the "allow all the time" permission and a permanent notification on the sharer's phone, and I cannot test it here, so it is not built. Say if you want it.
+- OpenStreetMap's public tile server is meant for light use (friends and family is fine). If SYPH ever grows, change `TILE_URL` in `src/utils/mapHtml.ts` to a provider with a free tier.
+- One share per chat at a time. A location message cannot be forwarded. Anyone in the chat can see it, including everyone in a group, until it ends.
+- The first position is read before the message is sent, so tapping a duration takes a few seconds ("Finding your location...").
+- Only the sharer can end a share early. A share is also stopped on sign-out, but not if the app is killed first: it then simply expires.
+- Not verified on a phone: the rules tests for locations are written but have not been run, and the unit tests cover the sharing logic and the map page, not the screen.
+
+**Test checklist (two phones, new build)**
+
+| # | Do this | Expect |
+|---|---------|--------|
+| 1 | A taps the location button in a 1-to-1 chat, picks 15 minutes | Android asks for location. A "Live location" bubble and the "Sharing" bar appear. B gets a notification saying "Live location" |
+| 2 | B taps the bubble | A map with a blue dot at A's position and "Live · 15 min left" |
+| 3 | A walks about 50 m with SYPH open | The dot moves on B's map within 10 seconds |
+| 4 | A presses Home for 4 minutes | B's status changes to "Last updated 4 min ago" |
+| 5 | A returns to SYPH | The dot catches up and the status says Live again |
+| 6 | A taps Stop (bar or sheet) | The bubble says "Live location ended" for both. B's map says "Sharing ended" |
+| 7 | Repeat in a group | Everyone in the group can open the map |
+| 8 | Turn Wi-Fi and data off on B, open the map | "The map could not load (no internet?)" and Open in Maps is the fallback |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
@@ -266,11 +301,12 @@ Open a group chat: the header has a phone and a video icon. Tap one to start a c
 | `calls/{id}` | One call: `callerId`, `calleeId`, `participantIds`, `type` (audio/video), `status` (ringing, accepted, declined, cancelled, missed, ended), `offer`, `answer`, `createdAt`, `expireAt` |
 | `calls/{id}/media/{uid}` | That person's own media state: `cameraOff` and `muted` (booleans), `expireAt`. Members read, each writes only their own |
 | `calls/{id}/candidates/{id}` | ICE candidates trickled by either side (`from`, `candidate`, `sdpMid`, `sdpMLineIndex`) |
-| `conversations/{id}/messages/{id}` | `type` (`text` or `gif`; the rules refuse anything else, and old photo, voice and sticker messages stay readable), `text`, `media` (GIF link only), `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
+| `conversations/{id}/messages/{id}` | `type` (`text`, `gif` or `location`; the rules refuse anything else, and old photo, voice and sticker messages stay readable), `text`, `media` (GIF link only), `location` (`{ expiresAt }`, live location only), `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
 | `conversations/{id}.activeCall` | Groups only: the "call in progress" pointer (`id`, `type`, `startedBy`, `startedByName`, `startedAt`, `beat`). Set when a call starts, refreshed by someone in the call, removed when the last person leaves |
 | `conversations/{id}/groupCalls/{callId}/peers/{uid}` | Who is in the call: `sid` (this join), `username`, `joinedAt`, `lastSeen` (heartbeat), `cameraOff`, `muted`, `expireAt`. Members read, each writes only their own |
 | `conversations/{id}/groupCalls/{callId}/signals/{id}` | Handshake between two members: `kind` (offer / answer / candidate), `from`, `fromSid`, `to`, `toSid`, `sdp` or `candidate`, `createdAt`, `expireAt`. Only the addressee reads it |
 | `conversations/{id}/typing/{uid}` | "I am typing" marker: `typing: true`, `at` (server time). Members read, each writes only their own, deleted when they stop |
+| `conversations/{id}/locations/{messageId}` | One live location share, named after its message: `senderId`, `lat`, `lng`, `accuracy`, `active`, `updatedAt`, `expiresAt` (epoch ms), `expireAt` (for a TTL policy). Members read; only the sharer writes, and afterwards only the position and `active` can change |
 
 
 1-on-1 chats use the id `<uidA>_<uidB>` (sorted), so two people can never end up with two chats.
@@ -282,4 +318,5 @@ Open a group chat: the header has a phone and a video icon. Tap one to start a c
 | Google sign-in (FR-01) | OAuth client IDs (Firebase Console > Authentication > Sign-in method > Google, plus Web/Android/iOS client IDs from Google Cloud), the SHA-1/SHA-256 fingerprints of your build keys, and a development build. Not built yet. |
 | Phone sign-in (FR-01) | Firebase's JS SDK cannot do phone sign-in cleanly in React Native (it needs reCAPTCHA or the native Firebase SDK), and SMS may need a paid plan. Decide whether it is required before anyone builds it. Not built. |
 | Live location sharing (Phase 5) | Built in PR #11 (`claude/phase-5-location`) and paused at your request, not on `main`. Foreground sharing on a free OpenStreetMap map, no key needed. The open question when you restart it is whether to keep it going with the app closed (needs the "allow all the time" permission and a permanent notification). |
+| Live location in the background (Phase 5 follow-up) | Foreground sharing is built (1.11). Keeping it going with SYPH closed needs the "allow all the time" permission and a permanent notification on the sharer's phone, and cannot be tested from the build environment. Not built until you say yes. |
 | Search across full chat history (FR-11) | In-chat search covers the messages loaded on screen. Firestore has no full-text search; searching all history needs an external service (Algolia, Typesense, Meilisearch) and a small indexing function. |

@@ -44,3 +44,4 @@ const auth = createAuth();
 const db = createFirestore();
 
 export { app, auth, db };
+

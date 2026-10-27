@@ -35,9 +35,9 @@ Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*
 | 1 | Push while the app is closed (messages, calls), sent from the sender's phone | Merged, untested on a phone |
 | 2 | Removed uploads, voice notes, camera upload, status, profile pictures | Merged |
 | 2.5 | Typing indicator | Merged |
-| 3 | Group voice and video calls (mesh WebRTC, 4 video / 6 voice) | PR #7 open, waits for the owner's phone test |
-| 4 | `API.md` report: what happened, what is needed from the owner | This PR |
-| 5 | Live location sharing | Built in PR #11, paused at the owner's request (Oct 27). Do not merge until they restart it |
+| 3 | Group voice and video calls (mesh WebRTC, 4 video / 6 voice) | PR #7 open, untested on phones |
+| 4 | `API.md` report: what happened, what is needed from the owner | PR #8 open |
+| 5 | Live location sharing (foreground, free OpenStreetMap map) | Built in PR #11, paused at the owner's request (Oct 27). Do not merge until they restart it |
 
 Extras done on the way: speaker toggle, camera-off panel with username, muted icon, stickers removed (PR #6), app icon follows the theme (PR #10), splash held until the app is ready (PR #12), install and build fix (PR #9). Merge order: #9, #6, #7, #8, then #10 and #12. PR #11 stays unmerged.
 
@@ -57,7 +57,7 @@ Extras done on the way: speaker toggle, camera-off panel with username, muted ic
 | Offline banner, queued sends (NFR-07) | Built |
 | Audio and video calls (FR-06) | Built, 1-to-1, speaker toggle, camera-off panel, muted icon. Needs a dev build or APK. No TURN, so some networks cannot connect (API.md 1.7) |
 | Group voice and video calls | Built (PR #7), mesh of up to 4 video / 6 voice, Join bar, ring and push. Untested on phones (API.md 1.10) |
-| Live location | **Not on main.** Built in PR #11 (`claude/phase-5-location`), paused by the owner to be continued in a later update |
+| Live location | **Not on main.** Built in PR #11 (`claude/phase-5-location`) and paused by the owner to be continued in a later update: 15 min / 1 h / 8 h, map in a WebView (Leaflet on OpenStreetMap, no key). Updates only while SYPH is open on the sharer's phone. Untested on phones (API.md 1.11) |
 | Google and phone sign-in (FR-01) | **Not built** (API.md section 3) |
 | Search across full history | **Not built**, needs an external search service (API.md section 3) |
 

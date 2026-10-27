@@ -116,9 +116,9 @@ export const themeSchemes: Record<ThemeOption, ThemeColors> = {
 };
 
 const THEME_LABELS: Record<ThemeOption, string> = {
-  'cyan-black': 'Cyan & Black',
-  'white-black': 'Black & White',
-  'beige-purple': 'Beige & Purple',
+  'cyan-black': 'Cyber',
+  'white-black': 'Monochrome',
+  'beige-purple': 'Candy',
   ocean: 'Ocean',
   forest: 'Forest',
   sunset: 'Sunset',
