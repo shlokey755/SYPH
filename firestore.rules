@@ -82,6 +82,26 @@ service cloud.firestore {
             && request.resource.data.groupActivity.at == request.time
           )
         )
+        // The "group call in progress" pointer: groups only; set by a member, refreshed by participants, removed when
+        // the call ends. It must name a member as the starter and carry nothing else.
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['activeCall'])
+          || (
+            resource.data.isGroup == true
+            && (
+              !('activeCall' in request.resource.data)
+              || (
+                request.resource.data.activeCall.keys().hasOnly(['id', 'type', 'startedBy', 'startedByName', 'startedAt', 'beat'])
+                && request.resource.data.activeCall.id is string
+                && request.resource.data.activeCall.type in ['audio', 'video']
+                && request.resource.data.activeCall.startedBy in resource.data.participantIds
+                && request.resource.data.activeCall.startedByName is string
+                && request.resource.data.activeCall.startedAt is number
+                && request.resource.data.activeCall.beat is number
+              )
+            )
+          )
+        )
         // Membership: fixed for 1-on-1 chats; in groups only the creator edits it, or a member leaves.
         && (
           request.resource.data.participantIds == resource.data.participantIds
@@ -120,6 +140,47 @@ service cloud.firestore {
         );
 
         allow delete: if false;
+      }
+
+      // ---------------- Group calls ----------------
+      // Audio and video go phone to phone. Firestore only carries who is in the call (peers) and the handshake
+      // messages between two people (signals). Any member of the group may take part.
+      match /groupCalls/{callId} {
+
+        // Presence: one document per person in the call. Each person writes only their own; members read them all.
+        match /peers/{uid} {
+          allow read: if isMemberOf(cid);
+          allow create, update: if isMemberOf(cid)
+            && uid == request.auth.uid
+            && request.resource.data.keys().hasOnly(['uid', 'sid', 'username', 'joinedAt', 'lastSeen', 'cameraOff', 'muted', 'expireAt'])
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.sid is string
+            && request.resource.data.sid.size() > 0
+            && request.resource.data.sid.size() <= 64
+            && request.resource.data.username is string
+            && request.resource.data.username.size() <= 60
+            && request.resource.data.cameraOff is bool
+            && request.resource.data.muted is bool
+            && request.resource.data.lastSeen == request.time
+            // The join time is the server's clock when the person joins, and never moves afterwards.
+            && (request.resource.data.joinedAt == request.time || request.resource.data.joinedAt == resource.data.joinedAt);
+          allow delete: if isMemberOf(cid) && uid == request.auth.uid;
+        }
+
+        // Handshake messages (offer, answer, ICE candidate) from one member to another. Only the addressee reads them
+        // (queries filter on `to`); nobody edits or deletes them.
+        match /signals/{signalId} {
+          allow read: if isMemberOf(cid) && resource.data.to == request.auth.uid;
+          allow create: if isMemberOf(cid)
+            && request.resource.data.keys().hasOnly(['kind', 'from', 'fromSid', 'to', 'toSid', 'sdp', 'candidate', 'createdAt', 'expireAt'])
+            && request.resource.data.from == request.auth.uid
+            && request.resource.data.to in convData(cid).participantIds
+            && request.resource.data.kind in ['offer', 'answer', 'candidate']
+            && request.resource.data.fromSid is string
+            && request.resource.data.toSid is string
+            && request.resource.data.createdAt == request.time;
+          allow update, delete: if false;
+        }
       }
 
       // ---------------- Typing indicator ----------------
