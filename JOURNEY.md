@@ -19,7 +19,7 @@ The owner split the work into phases and set one rule: this is a hobby project, 
 | Extra | Stickers removed (old sticker messages still render) | #6 |
 | 3 | Group calls: every phone connects to every other (mesh), 4 for video and 6 for voice. A "call in progress" pointer on the conversation drives the Join bar. Handshake logic is a pure module tested with fake peers | #7 |
 | 4 | `API.md` section 0: what happened and what is needed from the owner, with effort and cost. `MEMORY.md` and this file brought up to date | Phase 4 PR |
-| 5 | Live location: built far enough to parse and render, then parked on `claude/live-location` on request | none |
+| 5 | Live location: built (PR #11), then paused on request (Oct 27) to be continued in a later update | none |
 
 ### Decisions
 
@@ -45,7 +45,7 @@ The owner split the work into phases and set one rule: this is a hobby project, 
 
 ### Still open
 
-Phone test of push, calls and group calls; running the rules tests; merging PR #9 (the install fix); Phase 5 location; Google and phone sign-in; full-history search.
+Phone test of push, calls and group calls; running the rules tests; merging the PRs in order (#9, #6, #7, #8, then #10 and #12); restarting Phase 5 location (PR #11, paused); Google and phone sign-in; full-history search.
 
 ---
 

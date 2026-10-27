@@ -37,9 +37,9 @@ Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*
 | 2.5 | Typing indicator | Merged |
 | 3 | Group voice and video calls (mesh WebRTC, 4 video / 6 voice) | PR #7 open, waits for the owner's phone test |
 | 4 | `API.md` report: what happened, what is needed from the owner | This PR |
-| 5 | Live location sharing | Parked on `claude/live-location`, waits for the owner |
+| 5 | Live location sharing | Built in PR #11, paused at the owner's request (Oct 27). Do not merge until they restart it |
 
-Extras done on the way: speaker toggle, camera-off panel with username, muted icon, stickers removed (PR #6 open).
+Extras done on the way: speaker toggle, camera-off panel with username, muted icon, stickers removed (PR #6), app icon follows the theme (PR #10), splash held until the app is ready (PR #12), install and build fix (PR #9). Merge order: #9, #6, #7, #8, then #10 and #12. PR #11 stays unmerged.
 
 ## Feature status
 
@@ -57,7 +57,7 @@ Extras done on the way: speaker toggle, camera-off panel with username, muted ic
 | Offline banner, queued sends (NFR-07) | Built |
 | Audio and video calls (FR-06) | Built, 1-to-1, speaker toggle, camera-off panel, muted icon. Needs a dev build or APK. No TURN, so some networks cannot connect (API.md 1.7) |
 | Group voice and video calls | Built (PR #7), mesh of up to 4 video / 6 voice, Join bar, ring and push. Untested on phones (API.md 1.10) |
-| Live location | **Not on main.** Parked on `claude/live-location` (Phase 5) |
+| Live location | **Not on main.** Built in PR #11 (`claude/phase-5-location`), paused by the owner to be continued in a later update |
 | Google and phone sign-in (FR-01) | **Not built** (API.md section 3) |
 | Search across full history | **Not built**, needs an external search service (API.md section 3) |
 
@@ -88,12 +88,12 @@ Checked against `DOC-20261002-WA0031.pdf` by reading the code, not by running th
 
 ## How much is actually verified
 
-Checked in the build environment (Oct 24, `main` plus PRs #6 and #7 merged): TypeScript is clean, the Android bundle builds, 138 unit tests and 55 relay tests pass.
+Checked in the build environment (Oct 27, PRs #9, #6, #7, #8, #10 and #12 merged onto `main` in that order, plus #11 in a trial run, no conflicts): clean `npm ci`, TypeScript clean, 172 unit tests and 55 relay tests pass, `expo prebuild --platform android` succeeds, one copy of `expo-font`. CI is green on every PR.
 
 **Not verified, please test:**
 - `firestore.rules` and `tests/firestore-rules` have never been run: the emulator download is blocked where this was built. Run `cd tests/firestore-rules && npm install && npm test` once and report any failing case.
 - Nothing has run on a phone. Real push delivery (Expo's push endpoint is blocked from the build environment), 1-to-1 and group WebRTC calls (react-native-webrtc 124 on React Native 0.86), speaker routing and the typing indicator all need a device test.
-- `npm ci` on `main` fails with ERESOLVE (reanimated 4.7.1 against worklets 0.10.x) until PR #9 is merged: it pins `react-native-reanimated` to `4.5.1`. Not tried on an EAS build. See `API.md` 0.4.
+- `npm ci` on `main` fails with ERESOLVE (reanimated 4.7.1 against worklets 0.10.x), and a second copy of `expo-font` (58 beside 57) is a likely cause of the Android build failing. PR #9 fixes both. The Gradle compile itself cannot run where this was built, so the APK build is unconfirmed: if it still fails, send the failed build's "Run gradlew" log. See `API.md` 0.4.
 - Conversations made by the very first build have no `participantIds` and will not show; recreate them.
 
 ## Known limits

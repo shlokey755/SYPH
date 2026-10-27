@@ -18,7 +18,7 @@ Everything the app depends on that lives outside the code: console steps, keys, 
 | Extra | Stickers removed (old sticker messages stay readable) | #6 | **Open**, base fixed to `main` |
 | 3 | Group voice and video calls: 4 people for video, 6 for voice, Join bar, ring and push | #7 | **Open**, waiting for your phone test |
 | 4 | This report, `JOURNEY.md` and `MEMORY.md` updated | Phase 4 PR | Open |
-| 5 | Live location sharing | none | Parked on branch `claude/live-location`, not on `main`. Waits for you |
+| 5 | Live location sharing | none | Built in PR #11 (`claude/phase-5-location`), then paused at your request. Do not merge #11 until you restart it in a later update |
 
 ### 0.2 What I checked, and what I could not
 
@@ -41,7 +41,7 @@ Everything the app depends on that lives outside the code: console steps, keys, 
 
 | # | Task | Where / how | Effort | Cost | Unlocks |
 |---|------|-------------|--------|------|---------|
-| 1 | Merge the PRs in this order: **#9** (install and build fix, 0.4), **#6**, **#7**, **#8**, **#11**, then **#10** and **#12** (any order) | GitHub. #7, #8 and #11 each name the PR before them as their base. If a base still names a branch that was already merged, change it to `main` on the PR page | 10 min | Free | Everything below |
+| 1 | Merge the PRs in this order: **#9** (install and build fix, 0.4), **#6**, **#7**, **#8**, then **#10** and **#12** (any order). Leave **#11** (live location) open and unmerged: it is paused | GitHub. #7 and #8 each name the PR before them as their base. If a base still names a branch that was already merged, change it to `main` on the PR page | 10 min | Free | Everything below |
 | 2 | Pull `main` and run `npm install` again | Terminal, after the merges | 3 min | Free | A clean install and EAS builds |
 | 3 | Publish `firestore.rules` | Firebase Console > Firestore Database > Rules > paste > Publish (1.1) | 2 min | Free | Messages, push lookup, calls, typing, group calls. Without it, most things fail quietly |
 | 4 | Run the rules tests (optional) | `cd tests/firestore-rules && npm install && npm test`. Needs Java 11+ and network for the first emulator download. Tell me any failing case | 10 min | Free | Confidence in the rules |
@@ -76,7 +76,7 @@ Left alone on purpose, both flagged by `expo-doctor` but neither a conflict: `@r
 | TURN server | You declined (it costs money). Some network pairs cannot connect: a 1-to-1 call ends with "failed", a group tile shows "Can't connect" |
 | iOS | Dev builds and push on iPhone need the paid Apple developer account, so Android only |
 | Push relay (`server/`) | Not needed: it needs an always-on host |
-| Live location | Phase 5, when you say |
+| Live location | Paused at your request. PR #11 stays open until you restart it in a later update |
 | Google and phone sign-in, full-history search | Section 3 |
 
 ## 1. Required now
@@ -281,5 +281,5 @@ Open a group chat: the header has a phone and a video icon. Tap one to start a c
 |---------|---------------|
 | Google sign-in (FR-01) | OAuth client IDs (Firebase Console > Authentication > Sign-in method > Google, plus Web/Android/iOS client IDs from Google Cloud), the SHA-1/SHA-256 fingerprints of your build keys, and a development build. Not built yet. |
 | Phone sign-in (FR-01) | Firebase's JS SDK cannot do phone sign-in cleanly in React Native (it needs reCAPTCHA or the native Firebase SDK), and SMS may need a paid plan. Decide whether it is required before anyone builds it. Not built. |
-| Live location sharing (Phase 5) | Parked on branch `claude/live-location`, not on `main`. Will replace nothing yet (the sticker button is gone). I will list what it needs, such as a map source, when you start it. |
+| Live location sharing (Phase 5) | Built in PR #11 (`claude/phase-5-location`) and paused at your request, not on `main`. Foreground sharing on a free OpenStreetMap map, no key needed. The open question when you restart it is whether to keep it going with the app closed (needs the "allow all the time" permission and a permanent notification). |
 | Search across full chat history (FR-11) | In-chat search covers the messages loaded on screen. Firestore has no full-text search; searching all history needs an external service (Algolia, Typesense, Meilisearch) and a small indexing function. |
