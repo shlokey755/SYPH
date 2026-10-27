@@ -39,7 +39,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-em-niggas.png",
+          "image": "./assets/images/splash_icon_new.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -67,9 +67,9 @@
       [
         "@variant-systems/expo-dynamic-app-icon",
         {
-          "cyan-black": { "image": "./assets/images/Cyber.png" },
-          "white-black": { "image": "./assets/images/Monochrome.png" },
-          "beige-purple": { "image": "./assets/images/Candy.png" },
+          "cyber": { "image": "./assets/images/Cyber.png" },
+          "monochrome": { "image": "./assets/images/Monochrome.png" },
+          "candy": { "image": "./assets/images/Candy.png" },
           "ocean": { "image": "./assets/images/Ocean.png" },
           "forest": { "image": "./assets/images/Forest.png" },
           "sunset": { "image": "./assets/images/Sunset.png" }

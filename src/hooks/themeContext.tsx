@@ -14,9 +14,9 @@ import { saveTheme } from '../services/userService';
 import { useAuth } from './useAuth';
 
 export type ThemeOption =
-  | 'cyan-black'
-  | 'white-black'
-  | 'beige-purple'
+  | 'cyber'
+  | 'monochrome'
+  | 'candy'
   | 'ocean'
   | 'forest'
   | 'sunset';
@@ -38,10 +38,10 @@ export interface ThemeColors {
   isDark: boolean;
 }
 
-export const DEFAULT_THEME: ThemeOption = 'cyan-black';
+export const DEFAULT_THEME: ThemeOption = 'cyber';
 
 export const themeSchemes: Record<ThemeOption, ThemeColors> = {
-  'cyan-black': {
+  'cyber': {
     background: '#000000',
     cardBackground: '#0D1117',
     text: '#FFFFFF',
@@ -53,7 +53,7 @@ export const themeSchemes: Record<ThemeOption, ThemeColors> = {
     danger: '#FF6B81',
     isDark: true,
   },
-  'white-black': {
+  'monochrome': {
     background: '#FFFFFF',
     cardBackground: '#F2F2F2',
     text: '#000000',
@@ -65,7 +65,7 @@ export const themeSchemes: Record<ThemeOption, ThemeColors> = {
     danger: '#C62828',
     isDark: false,
   },
-  'beige-purple': {
+  'candy': {
     background: '#F5F5DC',
     cardBackground: '#E8E8C8',
     text: '#333333',
@@ -116,9 +116,9 @@ export const themeSchemes: Record<ThemeOption, ThemeColors> = {
 };
 
 const THEME_LABELS: Record<ThemeOption, string> = {
-  'cyan-black': 'Cyber',
-  'white-black': 'Monochrome',
-  'beige-purple': 'Candy',
+  'cyber': 'Cyber',
+  'monochrome': 'Monochrome',
+  'candy': 'Candy',
   ocean: 'Ocean',
   forest: 'Forest',
   sunset: 'Sunset',
