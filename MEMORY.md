@@ -12,7 +12,7 @@ SYPH is a React Native / Expo chat app on Firebase. Expo SDK 57, React Native 0.
 |------|---------|
 | First time | `npm install`, copy `.env.example` to `.env` and fill the Firebase values (Console > Project settings > Your apps > Web) |
 | Everyday (chat, GIFs, themes, search, typing) | `npx expo start -c --go` and open in Expo Go |
-| Push while closed, calls, group calls | Android build, not Expo Go: `eas build --profile preview --platform android` (APK) or `--profile development` (dev client, then `npx expo start -c`). `.env` is committed to the repo, so EAS builds already include the `EXPO_PUBLIC_FIREBASE_*` values. `android/` and `ios/` are git-ignored and regenerated from `app.json` |
+| Push while closed, calls, group calls | Android build, not Expo Go: `eas build --profile preview --platform android` (APK) or `--profile development` (dev client, then `npx expo start -c`). EAS skips git-ignored files, so the `EXPO_PUBLIC_*` values for builds live in `eas.json` (`base` profile); keep it in step with `.env`. `android/` and `ios/` are git-ignored and regenerated from `app.json` |
 | Checks | `npm run typecheck`, `npm run test:unit`, `cd server && npm test` |
 
 Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*` values are client config, but keep them in `.env`.
@@ -25,6 +25,7 @@ Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*
 - 1-on-1 conversation id is `<uidA>_<uidB>` (sorted). Data model is in `API.md` section 2.
 - Security is the rules: `firestore.rules` (`storage.rules` is a leftover, the app no longer uses Storage). List queries must filter on the fields the rules use (for example `participantIds array-contains <uid>`).
 - Startup: the signed-in profile is cached on the device (`services/profileCache.ts`) so the app opens straight into the chat list, and the server copy is fetched right after. The cache is cleared at sign-out. Message objects are kept stable between snapshots (`utils/messages.ts`) so a new message does not re-render every bubble.
+- Splash: native splash (the owner's four-photo picture on black, padded copy `splash-icon.png`, from `app.json`) is held by `services/splashService.ts` and released by `hooks/useSplashGate.ts` once sign-in state is known, after at least 0.7 s and at most 8 s (`utils/splash.ts`). Expo Go shows the app icon instead, so test it on an installed build.
 - CI: `.github/workflows/ci.yml` runs typecheck, unit tests, an Android bundle and the relay tests on every PR. Run the same checks locally with `npm run typecheck`, `npm run test:unit`, `cd server && npm test`.
 - `server/` is the push relay (Node, Firebase Admin, Expo push). Optional; the app works without it.
 

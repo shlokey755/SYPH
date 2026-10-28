@@ -4,17 +4,30 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "base": {
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyCCvScn0DwsFVPxuyQJuDMIbp5Tx22MuUs",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "syph-3c8be.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "syph-3c8be",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "1075274178952",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:1075274178952:web:86ea7c40a52101d5b1da3d",
+        "EXPO_PUBLIC_GIPHY_API_KEY": "ly7uv6s10H0OfJMVyd0n5WDfNJF6tAVM"
+      }
+    },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal"
     },
     "preview": {
+      "extends": "base",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "extends": "base",
       "android": {
         "buildType": "app-bundle"
       }

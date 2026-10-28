@@ -10,6 +10,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { applyThemeIcon } from '../services/appIconService';
 import { saveTheme } from '../services/userService';
 import { useAuth } from './useAuth';
 
@@ -172,6 +173,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     if (isThemeOption(profileTheme)) {
       setSelectedTheme(profileTheme);
       AsyncStorage.setItem(STORAGE_KEY, profileTheme).catch(() => {});
+      applyThemeIcon(profileTheme); // a theme chosen on another phone also changes this phone's icon
     }
   }, [uid, profileTheme]);
 
@@ -179,6 +181,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     (theme: ThemeOption) => {
       setSelectedTheme(theme);
       AsyncStorage.setItem(STORAGE_KEY, theme).catch(() => {});
+      applyThemeIcon(theme);
       if (uid) saveTheme(uid, theme).catch((e) => console.warn('Could not save theme to profile:', e));
     },
     [uid]
