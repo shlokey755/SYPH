@@ -1,26 +1,27 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 
-// EAS skips files listed in .gitignore (and .env is one), so the client values must live in eas.json.
+const require = createRequire(import.meta.url);
+const { REQUIRED, missingKeys } = require('../../scripts/check-eas-env.cjs');
 const eas = JSON.parse(readFileSync('eas.json', 'utf8'));
-const REQUIRED = [
-  'EXPO_PUBLIC_FIREBASE_API_KEY',
-  'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN',
-  'EXPO_PUBLIC_FIREBASE_PROJECT_ID',
-  'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
-  'EXPO_PUBLIC_FIREBASE_APP_ID',
-];
 
-test('eas.json base profile carries the Firebase client values', () => {
-  const env = eas.build.base?.env ?? {};
-  for (const key of REQUIRED) {
-    assert.ok(typeof env[key] === 'string' && env[key].length > 0, `${key} missing in eas.json build.base.env`);
+test('eas.json holds no values and each profile names its EAS environment', () => {
+  assert.ok(!JSON.stringify(eas).includes('EXPO_PUBLIC_'), 'keep EXPO_PUBLIC_ values out of eas.json');
+  for (const name of ['development', 'preview', 'production']) {
+    assert.equal(eas.build[name]?.environment, name);
   }
 });
 
-test('every build profile extends base', () => {
-  for (const name of ['development', 'preview', 'production']) {
-    assert.equal(eas.build[name]?.extends, 'base', `${name} must extend base`);
-  }
+test('the pre-install hook is wired in package.json', () => {
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+  assert.equal(pkg.scripts['eas-build-pre-install'], 'node scripts/check-eas-env.cjs');
+});
+
+test('missingKeys flags absent and blank values', () => {
+  assert.deepEqual(missingKeys({}), REQUIRED);
+  const full = Object.fromEntries(REQUIRED.map((k) => [k, 'x']));
+  assert.deepEqual(missingKeys(full), []);
+  assert.deepEqual(missingKeys({ ...full, EXPO_PUBLIC_FIREBASE_API_KEY: '  ' }), ['EXPO_PUBLIC_FIREBASE_API_KEY']);
 });

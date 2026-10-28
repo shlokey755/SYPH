@@ -10,9 +10,9 @@ SYPH is a React Native / Expo chat app on Firebase. Expo SDK 57, React Native 0.
 
 | Goal | Command |
 |------|---------|
-| First time | `npm install`, copy `.env.example` to `.env` and fill the Firebase values (Console > Project settings > Your apps > Web) |
+| First time | `npm install`, copy `.env.example` to `.env.local` and fill the Firebase values (Console > Project settings > Your apps > Web) |
 | Everyday (chat, GIFs, themes, search, typing) | `npx expo start -c --go` and open in Expo Go |
-| Push while closed, calls, group calls | Android build, not Expo Go: `eas build --profile preview --platform android` (APK) or `--profile development` (dev client, then `npx expo start -c`). EAS skips git-ignored files, so the `EXPO_PUBLIC_*` values for builds live in `eas.json` (`base` profile); keep it in step with `.env`. `android/` and `ios/` are git-ignored and regenerated from `app.json` |
+| Push while closed, calls, group calls | Android build, not Expo Go: `eas build --profile preview --platform android` (APK) or `--profile development` (dev client, then `npx expo start -c`). EAS skips git-ignored files, so the `EXPO_PUBLIC_*` values for builds come from EAS environment variables (`eas env:push <environment> --path .env.local`, API.md 1.2); local runs read `.env.local`. A build with values missing stops at its start (`scripts/check-eas-env.cjs`). `android/` and `ios/` are git-ignored and regenerated from `app.json` |
 | Checks | `npm run typecheck`, `npm run test:unit`, `cd server && npm test` |
 
 Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*` values are client config, but keep them in `.env`.

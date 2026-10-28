@@ -45,12 +45,12 @@ Everything the app depends on that lives outside the code: console steps, keys, 
 | 2 | Pull `main` and run `npm install` again | Terminal, after the merges | 3 min | Free | A clean install and EAS builds |
 | 3 | Publish `firestore.rules` | Firebase Console > Firestore Database > Rules > paste > Publish (1.1) | 2 min | Free | Messages, push lookup, calls, typing, group calls. Without it, most things fail quietly |
 | 4 | Run the rules tests (optional) | `cd tests/firestore-rules && npm install && npm test`. Needs Java 11+ and network for the first emulator download. Tell me any failing case | 10 min | Free | Confidence in the rules |
-| 5 | Nothing to do: Firebase values for builds are in `eas.json` | EAS skips files listed in `.gitignore`, and `.env` is listed there, so a build had no Firebase values and crashed on launch with `auth/invalid-api-key` (found Oct 27). The `base` profile in `eas.json` now carries the `EXPO_PUBLIC_*` values and the development, preview and production profiles extend it. If you change `.env`, change `eas.json` too; a unit test checks the keys are present. These are client-side values, not secrets. | 0 min | Free | Any EAS build |
+| 5 | Store your Firebase values in EAS, once | In Command Prompt: `copy .env .env.local`, then `eas env:push development --path .env.local`, and the same for `preview` and `production`. Do this **before** you pull the PR that stops tracking `.env`: that pull deletes your local `.env` (your `.env.local` copy stays and works for local runs). EAS skips git-ignored files, so this is how builds get the values. A build with values missing now stops at its start with a clear message instead of crashing on launch. | 5 min | Free | Builds that work |
 | 6 | Upload the FCM V1 key | Firebase Console > Project settings > Service accounts > Generate new private key, then `eas credentials` > Android > Google Service Account Key for FCM V1 (1.5) | 10 min | Free | Push while the app is closed |
 | 7 | Build the Android app | `eas login`, then `eas build --profile preview --platform android` for an installable APK (simplest for testing), or `--profile development` for the dev client. Free plan: a monthly build limit and a queue | 15-45 min, mostly waiting | Free | Push, calls, group calls (none of them work in Expo Go) |
 | 8 | Test on 2-3 phones | Install the APK, sign in on each, allow notifications, set battery to "Unrestricted" (Xiaomi, Oppo, Vivo, Samsung). Then the push test in 1.5 and the 9-row group call checklist in 1.10 | 30-60 min | Free | Tells me what to fix |
 | 9 | Firestore TTL policies (optional) | Console > Firestore > Indexes > TTL on `expireAt` for collection groups `calls`, `candidates`, `media`, `peers`, `signals` (1.7, 1.10). Without them old call documents just stay | 5 min | Free | Tidy database |
-| 10 | Giphy key (optional) | developers.giphy.com, then `EXPO_PUBLIC_GIPHY_API_KEY` in `.env` (1.2). Without it the GIF picker says "not set up". Note `.env` is committed, so the key sits in your repo | 5 min | Free | GIFs |
+| 10 | Giphy key (optional) | developers.giphy.com, then `EXPO_PUBLIC_GIPHY_API_KEY` in `.env` (1.2). Without it the GIF picker says "not set up". `.env` is no longer committed, but the old key is in git history: regenerate it on giphy.com if you want it private | 5 min | Free | GIFs |
 
 ### 0.4 Install and build problems on `main` ("build-test", found Oct 26)
 
@@ -67,9 +67,9 @@ Checked on a clean `npm ci` of the fixed branch: one `expo-font`, `expo-doctor` 
 
 Left alone on purpose, both flagged by `expo-doctor` but neither a conflict: `@react-native-async-storage/async-storage` stays at 1.24.0 (Firebase 11's Auth lists `^1.18.1` as its peer; Expo lists 2.2.0), and `react-native-worklets` stays `^0.10.4` (Expo lists 0.10.1). Also on `main`: TypeScript 6.0.3, and `@variant-systems/expo-dynamic-app-icon` (a config plugin, so it needs a native build; PR #10 makes the icon follow the theme).
 
-`.env` is committed to the repo, although `.gitignore` lists it. It holds only client-side Firebase values and the Giphy key. EAS builds do not use it (EAS skips git-ignored files), so the same values live in `eas.json` under the `base` build profile.
+`.env` is no longer committed (it is git-ignored). It holds only client-side Firebase values and the Giphy key. For local runs keep it as `.env.local`; EAS builds read the same values from EAS environment variables (`eas env:push`, see 1.2). The old values remain in git history.
 
-**Update, Oct 27:** the APK built and installed, so the Gradle compile is fine. The next failure was a launch crash, `auth/invalid-api-key`: EAS skips git-ignored files and `.env` is git-ignored, so the build had no Firebase values. Fixed by the `base` profile in `eas.json`.
+**Update, Oct 27:** the APK built and installed, so the Gradle compile is fine. The next failure was a launch crash, `auth/invalid-api-key`: EAS skips git-ignored files and `.env` is git-ignored, so the build had no Firebase values. Fixed first with a `base` profile in `eas.json`, then moved to EAS environment variables so the repo holds no values.
 
 ### 0.5 Left alone on purpose
 
@@ -109,6 +109,17 @@ Left alone on purpose, both flagged by `expo-doctor` but neither a conflict: `@r
 | `EXPO_PUBLIC_GIPHY_API_KEY` (optional) | https://developers.giphy.com/ > Create an app (SDK/API). Without it the GIF picker shows a "not set up" message; everything else works. |
 
 These ship inside the app bundle, so they are client config, not secrets. Access control is the rules files.
+
+**Where they live now.** Local runs read `.env.local` (git-ignored). EAS skips git-ignored files, so builds read them from EAS environment variables, one set per environment (`development`, `preview`, `production`; each profile in `eas.json` names its own). Set them once from your local file:
+
+```
+copy .env .env.local
+eas env:push development --path .env.local
+eas env:push preview --path .env.local
+eas env:push production --path .env.local
+```
+
+If you change a value, run the same commands again and answer yes to overwrite. `scripts/check-eas-env.cjs` runs at the start of every EAS build and stops it with a clear message if a Firebase value is missing.
 
 ### 1.3 Expo Go
 
