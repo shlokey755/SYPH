@@ -1,6 +1,85 @@
 # API.md - what SYPH needs from you
 
-Everything the app depends on that lives outside the code: console steps, keys, services. Items are added here as each feature is built.
+Everything the app depends on that lives outside the code: console steps, keys, services. Section 0 is the Phase 4 report (what happened, what is left for you). Sections 1 to 3 are the detail behind it.
+
+## 0. Phase 4 report (Oct 24, 2026)
+
+**Total money needed from you: 0.** Nothing here uses Firebase Storage, Blaze, hosting, TURN or an Apple developer account.
+
+### 0.1 What happened
+
+| Phase | What was done | PR | State |
+|-------|---------------|----|-------|
+| 1 | Push while the app is closed, for messages and calls. The sender's phone calls Expo's free push service, so there is no server | #3, #5 | Merged |
+| 2 | Removed uploads (photo, video, document), voice notes, camera upload, Me-tab status and profile pictures. No file storage is used any more | #3 | Merged |
+| 2.5 | Typing indicator ("typing...", "Bob is typing...") | #3 | Merged |
+| Extra | Speaker / earpiece toggle in audio and video calls | #2 | Merged (confirmed present) |
+| Extra | Camera off shows an opaque panel with the username instead of a frozen frame; muted-mic icon for the other person | #4, #5 | Merged |
+| Extra | Stickers removed (old sticker messages stay readable) | #6 | **Open**, base fixed to `main` |
+| 3 | Group voice and video calls: 4 people for video, 6 for voice, Join bar, ring and push | #7 | **Open**, waiting for your phone test |
+| 4 | This report, `JOURNEY.md` and `MEMORY.md` updated | Phase 4 PR | Open |
+| 5 | Live location sharing | none | Built in PR #11 (`claude/phase-5-location`), then paused at your request. Do not merge #11 until you restart it in a later update |
+
+### 0.2 What I checked, and what I could not
+
+| Checked here (on `main` + #6 + #7 merged) | Result |
+|-------------------------------------------|--------|
+| TypeScript (`npm run typecheck`) | Clean |
+| Unit tests (`npm run test:unit`) | 138 pass |
+| Relay tests (`cd server && npm test`) | 55 pass |
+| Android bundle (`npx expo export --platform android`) | Builds |
+| Merge of #6 and #7 onto `main` | No conflicts |
+
+| Could not check | Why | So |
+|-----------------|-----|----|
+| Push actually arriving | `exp.host` is blocked from my environment | Your test, 0.3 step 8 |
+| 1-to-1 and group calls, speaker routing, mute / camera-off UI | WebRTC needs phones | Your test, 0.3 step 8 |
+| `firestore.rules` | The emulator cannot be downloaded here. Tests are written but have never run | Optional, 0.3 step 4 |
+| Typing indicator on a device | Needs two phones | Your test |
+
+### 0.3 What I need from you, in order
+
+| # | Task | Where / how | Effort | Cost | Unlocks |
+|---|------|-------------|--------|------|---------|
+| 1 | Merge the landing PR (it brings #7, #8, #10 and #12 onto `main`). Leave **#11** (live location) open and unmerged: it is paused. Before merging any PR, check its base says `main` | GitHub. #7 and #8 each name the PR before them as their base. If a base still names a branch that was already merged, change it to `main` on the PR page | 10 min | Free | Everything below |
+| 2 | Pull `main` and run `npm install` again | Terminal, after the merges | 3 min | Free | A clean install and EAS builds |
+| 3 | Publish `firestore.rules` | Firebase Console > Firestore Database > Rules > paste > Publish (1.1) | 2 min | Free | Messages, push lookup, calls, typing, group calls. Without it, most things fail quietly |
+| 4 | Run the rules tests (optional) | `cd tests/firestore-rules && npm install && npm test`. Needs Java 11+ and network for the first emulator download. Tell me any failing case | 10 min | Free | Confidence in the rules |
+| 5 | Nothing to do: Firebase values for builds are in `eas.json` | EAS skips files listed in `.gitignore`, and `.env` is listed there, so a build had no Firebase values and crashed on launch with `auth/invalid-api-key` (found Oct 27). The `base` profile in `eas.json` now carries the `EXPO_PUBLIC_*` values and the development, preview and production profiles extend it. If you change `.env`, change `eas.json` too; a unit test checks the keys are present. These are client-side values, not secrets. | 0 min | Free | Any EAS build |
+| 6 | Upload the FCM V1 key | Firebase Console > Project settings > Service accounts > Generate new private key, then `eas credentials` > Android > Google Service Account Key for FCM V1 (1.5) | 10 min | Free | Push while the app is closed |
+| 7 | Build the Android app | `eas login`, then `eas build --profile preview --platform android` for an installable APK (simplest for testing), or `--profile development` for the dev client. Free plan: a monthly build limit and a queue | 15-45 min, mostly waiting | Free | Push, calls, group calls (none of them work in Expo Go) |
+| 8 | Test on 2-3 phones | Install the APK, sign in on each, allow notifications, set battery to "Unrestricted" (Xiaomi, Oppo, Vivo, Samsung). Then the push test in 1.5 and the 9-row group call checklist in 1.10 | 30-60 min | Free | Tells me what to fix |
+| 9 | Firestore TTL policies (optional) | Console > Firestore > Indexes > TTL on `expireAt` for collection groups `calls`, `candidates`, `media`, `peers`, `signals` (1.7, 1.10). Without them old call documents just stay | 5 min | Free | Tidy database |
+| 10 | Giphy key (optional) | developers.giphy.com, then `EXPO_PUBLIC_GIPHY_API_KEY` in `.env` (1.2). Without it the GIF picker says "not set up". Note `.env` is committed, so the key sits in your repo | 5 min | Free | GIFs |
+
+### 0.4 Install and build problems on `main` ("build-test", found Oct 26)
+
+The EAS APK build kept failing. A real Android compile cannot run in the build environment (no Android SDK, and Google, Maven and Gradle hosts are blocked), so I reproduced what EAS does before the compile (clean `npm ci`, then Android prebuild) and ran `expo-doctor`. I do not have your EAS logs, so this is a diagnosis, not a confirmed cause.
+
+| # | Problem on `main` | Why it breaks a build | Fix (PR #9) |
+|---|-------------------|-----------------------|-------------|
+| 1 | `npm ci` stops with ERESOLVE. `react-native-drawer-layout` needs `react-native-reanimated`, npm picks 4.7.1, which needs `react-native-worklets` 0.13.x, but `package.json` pins `^0.10.4` | EAS fails at "Install dependencies", before any compile. Your eight "fix:" commits on Oct 21-22 (worklets 0.10 to 0.13 and back) were chasing this | Pin `react-native-reanimated` to `4.5.1`, which is the version Expo SDK 57 itself lists and works with worklets 0.10.x. Worklets 0.13 was the wrong direction |
+| 2 | `expo-font` is not in `package.json`. `@expo/vector-icons` and `expo-symbols` accept any version, so npm installs **58.0.9 (an SDK 58 package)** at the top level, beside the SDK 57 copy (57.0.4) inside `expo` | Gradle autolinking takes the top-level copy, so an SDK 58 native module is compiled against SDK 57. `expo-doctor` warns this causes "unexpected build errors". **The most likely reason a build fails after the install step, not proven** | Declare `expo-font` at `~57.0.4`. One copy remains |
+
+Checked on a clean `npm ci` of the fixed branch: one `expo-font`, `expo-doctor` duplicate check passes, typecheck, unit tests, `expo prebuild` for Android, Android bundle. I also scanned the Android sources of the other native libraries (webrtc, incall-manager, async-storage, webview) for React Native classes that RN 0.86 removed, and found none.
+
+**Not checked:** the Gradle compile, and an EAS build. If a build still fails after #9, send the log link for the failing build (expo.dev > your project > Builds > the failed one > "Run gradlew") and I will read the actual error.
+
+Left alone on purpose, both flagged by `expo-doctor` but neither a conflict: `@react-native-async-storage/async-storage` stays at 1.24.0 (Firebase 11's Auth lists `^1.18.1` as its peer; Expo lists 2.2.0), and `react-native-worklets` stays `^0.10.4` (Expo lists 0.10.1). Also on `main`: TypeScript 6.0.3, and `@variant-systems/expo-dynamic-app-icon` (a config plugin, so it needs a native build; PR #10 makes the icon follow the theme).
+
+`.env` is committed to the repo, although `.gitignore` lists it. It holds only client-side Firebase values and the Giphy key. EAS builds do not use it (EAS skips git-ignored files), so the same values live in `eas.json` under the `base` build profile.
+
+**Update, Oct 27:** the APK built and installed, so the Gradle compile is fine. The next failure was a launch crash, `auth/invalid-api-key`: EAS skips git-ignored files and `.env` is git-ignored, so the build had no Firebase values. Fixed by the `base` profile in `eas.json`.
+
+### 0.5 Left alone on purpose
+
+| Item | Why |
+|------|-----|
+| TURN server | You declined (it costs money). Some network pairs cannot connect: a 1-to-1 call ends with "failed", a group tile shows "Can't connect" |
+| iOS | Dev builds and push on iPhone need the paid Apple developer account, so Android only |
+| Push relay (`server/`) | Not needed: it needs an always-on host |
+| Live location | Paused at your request. PR #11 stays open until you restart it in a later update |
+| Google and phone sign-in, full-history search | Section 3 |
 
 ## 1. Required now
 
@@ -36,6 +115,8 @@ These ship inside the app bundle, so they are client config, not secrets. Access
 The project is on Expo SDK 57, which matches the current Expo Go from the store. After pulling: `npm install` then `npx expo start -c --go` (the `--go` flag opens it in Expo Go).
 
 `expo-dev-client` is installed (needed for the development build in 1.5 and 1.7). Because of it, a plain `npx expo start` now targets the development build; use `--go` whenever you want Expo Go. Expo Go cannot do closed-app push or calls.
+
+**Splash screen.** The splash is your four-photo picture on black, in light and dark mode, set in the `expo-splash-screen` entry of `app.json`. `assets/images/splash-icon.png` is what the build uses: the original (`splash_icon_new.png`) shrunk and centred on a transparent square so Android 12's round splash mask does not cut its corners. To change the picture, replace `splash_icon_new.png` and make a new padded copy (the photo's half-diagonal must stay under a third of the square's width). It stays up until the signed-in state is known, for at least 0.7 s, and is removed after 8 s at the latest, so a stuck sign-in check cannot leave it on screen (`src/utils/splash.ts`). **Expo Go shows the app icon instead of the splash, and a development build does not reflect every splash setting, so judge it on an installed APK** (`eas build --profile preview --platform android`). Changing the splash needs a new build, not a reload. Nothing to set up and no cost.
 
 ### 1.4 Media (removed)
 
@@ -79,14 +160,14 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 
 ### 1.7 Audio and video calls (FR-06)
 
-1-to-1 calls only. Media goes phone to phone over WebRTC; Firestore carries the handshake (`calls/{id}`). Everything else in the app works without any of this.
+1-to-1 calls (this section) and group calls (1.10). Media goes phone to phone over WebRTC; Firestore carries the handshake (`calls/{id}`). Everything else in the app works without any of this.
 
 | Step | How |
 |------|-----|
 | Re-publish `firestore.rules` | It now includes `calls`, `calls/{id}/candidates` and `calls/{id}/media` (same as 1.1). Without the `media` rule, a camera turned off still looks frozen to the other person and the muted icon never appears. |
 | Development build | WebRTC is a native module, so calls **do not work in Expo Go** (the call buttons explain this in a toast). `npm install`, then `eas build --profile development --platform android` or `npx expo run:android`. The camera/microphone permissions and the WebRTC config plugin are already in `app.json`. |
 | Regenerate native folders | `android/` and `ios/` are git-ignored and rebuilt from `app.json` (`npx expo prebuild --clean`). EAS does this for you. |
-| TURN server (strongly advised) | STUN alone connects phones on friendly networks only. Mobile data and many Wi-Fi networks need a TURN relay. Options: a hosted service (Twilio Network Traversal, Metered, Cloudflare Realtime TURN) or your own `coturn`. Put the values in `.env`: `EXPO_PUBLIC_TURN_URLS`, `EXPO_PUBLIC_TURN_USERNAME`, `EXPO_PUBLIC_TURN_CREDENTIAL`. Optional `EXPO_PUBLIC_STUN_URLS` replaces the default Google STUN servers. |
+| TURN server (optional, skipped) | Not required, and leaving it out costs nothing. Without one, calls use only the free public STUN servers: they connect on most home Wi-Fi and many mobile networks, but some pairs of networks (strict carrier, office or hotel networks) cannot reach each other and that call ends with "failed". If it ever matters, put the values in `.env`: `EXPO_PUBLIC_TURN_URLS`, `EXPO_PUBLIC_TURN_USERNAME`, `EXPO_PUBLIC_TURN_CREDENTIAL`. Optional `EXPO_PUBLIC_STUN_URLS` replaces the default Google STUN servers. |
 | Ringing while the app is closed | Works through the push set-up in 1.5 (a build that has the Android "Calls" channel). |
 | Optional cleanup | Calls, ICE candidates and camera-state documents carry an `expireAt` field (24 h). Firestore Console > Indexes > TTL: add a policy on `expireAt` for collection groups `calls`, `candidates` and `media` to have them deleted automatically. Without it they simply stay. |
 
@@ -99,7 +180,7 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 
 **Known limits**
 - There is no native call UI (CallKit / Android ConnectionService). A call that arrives while the app is closed shows as a notification; tapping it opens the chat and, if the call is still ringing, the Accept / Decline screen appears. It will not ring like the phone app while the device is locked.
-- No group calls and no "missed call" line in the chat history yet.
+- No "missed call" line in the chat history yet.
 - Muted: when the other person mutes their microphone, a small muted-microphone icon appears. In a video call it sits at the bottom-left over their video; if their camera is off, or it is a voice call, it sits on their profile circle instead. It travels in the same per-person document as the camera state (`calls/{id}/media/{uid}`), so it needs the same rules from 1.1. Your own mute is shown by the highlighted Mute button.
 - Camera off: when someone turns their camera off in a video call, both screens stop showing the video. The other person sees an opaque screen with that person's username and "Camera off", and the person sees their own small preview replaced by an opaque tile with their username. The camera state travels as one tiny document per person (`calls/{id}/media/{uid}`), so it needs the rules from 1.1.
 - Speaker/earpiece: voice calls start on the earpiece and video calls on the loudspeaker, with a toggle on the call screen. It uses `react-native-incall-manager` (react-native-webrtc has no audio routing), which is a native module, so it needs a **new development build** and is **unverified on a device**. It also switches to a wired or Bluetooth headset when one is connected and turns the screen off when a voice call is held to the ear. Bluetooth routing on Android 12+ needs the BLUETOOTH_CONNECT permission, which the app does not request yet, so a Bluetooth headset may not be picked up.
@@ -138,6 +219,44 @@ Shows "typing…" under the name in a 1-on-1 chat and "Bob is typing…" / "3 pe
 - It only runs while the chat is open, the app is in the foreground and the phone is online. Someone who loses signal or closes the app stops showing after about 6 seconds.
 - Not shown in the chat list, and there is no switch to turn it off yet.
 
+### 1.10 Group voice and video calls
+
+Open a group chat: the header has a phone and a video icon. Tap one to start a call, or to join one that is already going (a "Voice / Video call in progress · 2 people in the call · Join" bar shows under the header while it runs). Members whose app is open get the full-screen Accept / Decline ring for 45 seconds; members whose app is closed get a notification (not if they muted that group, but the Join bar is still there when they open it).
+
+| Step | How | Cost |
+|------|-----|------|
+| Re-publish `firestore.rules` | Adds the group call pointer on `conversations/{id}` and `conversations/{id}/groupCalls/{callId}/peers` and `/signals` (same as 1.1). Without it group calls fail with "Could not connect to the call". | Free |
+| Build the app (not Expo Go) | Same as 1-to-1 calls (1.7): WebRTC is a native module. Group calls reuse the camera, microphone and audio-routing set-up, so no new permissions. | Free |
+| TURN server | Skipped on purpose (hosted TURN costs money). Not needed. Without it, some people may be unable to connect to each other on certain networks: their tile shows "Can't connect" while everyone else still works. Group calls need more links than 1-to-1 (3 to 6 for 3 to 4 people), so you will notice this more. To fix it later, see the TURN row in 1.7. | Free (nothing to do) |
+| Optional cleanup | Presence and handshake documents carry `expireAt` (24 h). Firestore Console > Indexes > TTL: add a policy on `expireAt` for collection groups `peers` and `signals`. Without it they stay (small). | Free |
+
+**How it works:** every phone connects to every other phone (a "mesh"). That is why there is a limit: **4 people for video, 6 for voice**. A 5th person joining a video call is told "This call is full". Video in a group is sent smaller (480x360 at 15 fps) to keep phones cool.
+
+**Firestore use (free daily quota is 20,000 writes and 50,000 reads):** each person writes a heartbeat every 15 seconds and about 40 handshake documents per person they connect to. A one-hour 4-person call is roughly 1,000 writes and 3,000 reads in total.
+
+**Known limits**
+- Like 1-to-1 calls, there is no native ringing screen when the app is closed: it is a notification, and tapping it opens the chat with the Join bar.
+- Someone whose phone loses signal drops out of the call for the others after about 45 seconds, and can join again from the bar.
+- If the last person leaves, the Join bar can linger for up to about a minute before it disappears by itself.
+- Any member can end the "call in progress" marker (the rules allow any member to write it). Fine for friends, not for strangers.
+- No screen sharing, no adding people mid-call from inside the call screen, and calls stay alive until everyone has left (there is no host who can end it for all).
+- Audio keeps playing with the screen off but, as with 1-to-1 calls, Android may stop the microphone if the app is in the background for long.
+- **Not yet tested on real phones** (WebRTC cannot run in the build environment). The handshake logic is unit tested with fake phones, and the rules tests were written but have not been run.
+
+**Test checklist (two to four phones, new build, same group). Please also tell me which networks each phone was on when something does not connect.**
+
+| # | Do this | Expect |
+|---|---------|--------|
+| 1 | A taps the voice icon in the group | A sees "Waiting for others"; B and C get a ring (app open) or a notification (app closed) |
+| 2 | B accepts, then C joins from the Join bar | Everyone hears everyone; each screen has a tile per person with names |
+| 3 | A video call with 3 phones | Live video tiles; turning a camera off shows an opaque tile with that person's name; muting shows a mic-off icon on their tile |
+| 4 | Speaker button, mute button | Audio switches between speaker and earpiece; others see the muted icon |
+| 5 | B leaves and rejoins from the Join bar | B reconnects with A and C; no duplicate tiles |
+| 6 | Fifth person tries to join a video call | "This call is full" |
+| 7 | Everyone leaves | The Join bar disappears within about a minute |
+| 8 | Start a call while B's app is fully closed | B gets a notification from the group; tapping it opens the chat with the Join bar |
+| 9 | Put one phone on mobile data and another on Wi-Fi, then call | Shows how often STUN alone is enough. A tile saying "Can't connect" is the expected no-TURN failure, not a bug |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
@@ -152,6 +271,9 @@ Shows "typing…" under the name in a 1-on-1 chat and "Bob is typing…" / "3 pe
 | `calls/{id}/media/{uid}` | That person's own media state: `cameraOff` and `muted` (booleans), `expireAt`. Members read, each writes only their own |
 | `calls/{id}/candidates/{id}` | ICE candidates trickled by either side (`from`, `candidate`, `sdpMid`, `sdpMLineIndex`) |
 | `conversations/{id}/messages/{id}` | `type` (`text` or `gif`; the rules refuse anything else, and old photo, voice and sticker messages stay readable), `text`, `media` (GIF link only), `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
+| `conversations/{id}.activeCall` | Groups only: the "call in progress" pointer (`id`, `type`, `startedBy`, `startedByName`, `startedAt`, `beat`). Set when a call starts, refreshed by someone in the call, removed when the last person leaves |
+| `conversations/{id}/groupCalls/{callId}/peers/{uid}` | Who is in the call: `sid` (this join), `username`, `joinedAt`, `lastSeen` (heartbeat), `cameraOff`, `muted`, `expireAt`. Members read, each writes only their own |
+| `conversations/{id}/groupCalls/{callId}/signals/{id}` | Handshake between two members: `kind` (offer / answer / candidate), `from`, `fromSid`, `to`, `toSid`, `sdp` or `candidate`, `createdAt`, `expireAt`. Only the addressee reads it |
 | `conversations/{id}/typing/{uid}` | "I am typing" marker: `typing: true`, `at` (server time). Members read, each writes only their own, deleted when they stop |
 
 
@@ -163,4 +285,5 @@ Shows "typing…" under the name in a 1-on-1 chat and "Bob is typing…" / "3 pe
 |---------|---------------|
 | Google sign-in (FR-01) | OAuth client IDs (Firebase Console > Authentication > Sign-in method > Google, plus Web/Android/iOS client IDs from Google Cloud), the SHA-1/SHA-256 fingerprints of your build keys, and a development build. Not built yet. |
 | Phone sign-in (FR-01) | Firebase's JS SDK cannot do phone sign-in cleanly in React Native (it needs reCAPTCHA or the native Firebase SDK), and SMS may need a paid plan. Decide whether it is required before anyone builds it. Not built. |
+| Live location sharing (Phase 5) | Built in PR #11 (`claude/phase-5-location`) and paused at your request, not on `main`. Foreground sharing on a free OpenStreetMap map, no key needed. The open question when you restart it is whether to keep it going with the app closed (needs the "allow all the time" permission and a permanent notification). |
 | Search across full chat history (FR-11) | In-chat search covers the messages loaded on screen. Firestore has no full-text search; searching all history needs an external service (Algolia, Typesense, Meilisearch) and a small indexing function. |
