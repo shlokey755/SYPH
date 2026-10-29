@@ -50,14 +50,14 @@
 
 <table align="center">
   <tr>
-    <td align="center"><img src="docs/screenshots/onboarding.png" width="200" alt="Onboarding"><br><sub>Onboarding</sub></td>
-    <td align="center"><img src="docs/screenshots/chat-list.png" width="200" alt="Chat list"><br><sub>Chat list</sub></td>
-    <td align="center"><img src="docs/screenshots/chat.png" width="200" alt="Conversation"><br><sub>Conversation</sub></td>
+    <td align="center"><img src="docs/screenshots/onboarding.jpeg" width="200" alt="Onboarding"><br><sub>Onboarding</sub></td>
+    <td align="center"><img src="docs/screenshots/chat-list.jpeg" width="200" alt="Chat list"><br><sub>Chat list</sub></td>
+    
   </tr>
   <tr>
     <td align="center"><img src="docs/screenshots/themes.png" width="200" alt="Themes"><br><sub>Themes</sub></td>
-    <td align="center"><img src="docs/screenshots/call.png" width="200" alt="Video call"><br><sub>Video call</sub></td>
-    <td align="center"><img src="docs/screenshots/group-call.png" width="200" alt="Group call"><br><sub>Group call</sub></td>
+    <td align="center"><img src="docs/screenshots/chat.jpeg" width="200" alt="Conversation"><br><sub>Conversation</sub></td>
+    
   </tr>
 </table>
 
