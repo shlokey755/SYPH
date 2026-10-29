@@ -178,5 +178,5 @@ eas.json        build profiles
 ---
 
 <p align="center">
-  Made with ☕ by <a href="https://github.com/shlokey755">shlokey755</a>
+  Made by <a href="https://github.com/shlokey755">shlokey755</a> using AI.
 </p>
