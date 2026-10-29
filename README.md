@@ -55,7 +55,7 @@
     
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/themes.png" width="200" alt="Themes"><br><sub>Themes</sub></td>
+    <td align="center"><img src="docs/screenshots/themes.jpeg" width="200" alt="Themes"><br><sub>Themes</sub></td>
     <td align="center"><img src="docs/screenshots/chat.jpeg" width="200" alt="Conversation"><br><sub>Conversation</sub></td>
     
   </tr>
