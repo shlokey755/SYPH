@@ -12,10 +12,20 @@ interface Props {
   onSend: (text: string) => void;
   /** Called with the new text on every edit (drives the "typing…" indicator). */
   onTextChange?: (text: string) => void;
+  /** Holding the send button opens the "Share location" popup. */
+  onOpenLocation: () => void;
   onOpenGif: () => void;
 }
 
-export function MessageInput({ colors, replyTo, onCancelReply, onSend, onTextChange, onOpenGif }: Props) {
+export function MessageInput({
+  colors,
+  replyTo,
+  onCancelReply,
+  onSend,
+  onTextChange,
+  onOpenLocation,
+  onOpenGif,
+}: Props) {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const canSend = text.trim().length > 0;
@@ -71,10 +81,13 @@ export function MessageInput({ colors, replyTo, onCancelReply, onSend, onTextCha
           multiline
           maxLength={4000}
         />
+        {/* Stays pressable when the box is empty: a disabled button ignores a long press. */}
         <Pressable
           onPress={submit}
-          disabled={!canSend}
+          onLongPress={onOpenLocation}
+          delayLongPress={350}
           accessibilityLabel="Send message"
+          accessibilityHint="Hold to share your location"
           accessibilityState={{ disabled: !canSend }}
           style={[styles.send, { backgroundColor: colors.accent }, !canSend && styles.sendIdle]}
         >

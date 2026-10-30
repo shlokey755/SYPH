@@ -25,8 +25,9 @@ export function MessageActionSheet({ message, isMine, colors, onSelect, onClose 
     ...(message.type === 'text' && message.text
       ? [{ id: 'copy' as const, label: 'Copy', icon: 'copy-outline' as const }]
       : []),
-    // An old photo / voice note / document has no file behind it any more, so there is nothing to forward.
-    ...(isLegacyMediaType(message.type)
+    // An old photo / voice note / document has no file behind it any more, and a live location belongs to the person
+    // sharing it, so there is nothing to forward.
+    ...(isLegacyMediaType(message.type) || message.type === 'location'
       ? []
       : [{ id: 'forward' as const, label: 'Forward', icon: 'arrow-redo' as const }]),
     { id: 'deleteForMe', label: 'Delete for me', icon: 'trash-outline', danger: true },

@@ -16,11 +16,24 @@ export interface UserProfile {
 
 // ---------- Messages ----------
 /**
- * The app sends 'text' and 'gif'. 'sticker', 'image', 'video', 'audio' and 'document' were removed (stickers were
- * only bigger emoji; the rest needed file storage)
- * and only appear in messages sent before that; they render as a label (see utils/messageType.ts).
+ * The app sends 'text', 'gif' and 'location' (a live location share). 'sticker', 'image', 'video', 'audio' and
+ * 'document' were removed (stickers were only bigger emoji; the rest needed file storage) and only appear in messages
+ * sent before that; they render as a label (see utils/messageType.ts).
  */
-export type MessageType = 'text' | 'gif' | 'sticker' | 'image' | 'video' | 'audio' | 'document';
+export type MessageType = 'text' | 'gif' | 'location' | 'sticker' | 'image' | 'video' | 'audio' | 'document';
+
+/**
+ * A location message, one of two kinds:
+ *   - a live share: the moving position lives in conversations/{id}/locations/{messageId}; the message only records when
+ *     the share ends (epoch ms), so a bubble can say "Live" or "Ended" without its own listener;
+ *   - a pin ("Send current location"): `pin` is true, `expiresAt` is 0 and the position is stored right here.
+ */
+export interface MessageLocation {
+  expiresAt: number;
+  pin?: boolean;
+  lat?: number;
+  lng?: number;
+}
 
 /** A GIF link (Giphy). Old file messages may carry extra fields; they are ignored. */
 export interface MessageMedia {
@@ -44,6 +57,7 @@ export interface Message {
   type: MessageType;
   text: string;
   media?: MessageMedia;
+  location?: MessageLocation;
   senderId: string;
   senderUsername: string;
   replyTo?: ReplyPreview;

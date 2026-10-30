@@ -4,7 +4,7 @@ Newest first. Part 3 is the phased work of October 20 to 24, 2026; Part 2 is the
 
 ---
 
-## Part 3: Phases 1 to 4 (Oct 20-24, 2026)
+## Part 3: Phases 1 to 5 (Oct 20-25, 2026)
 
 The owner split the work into phases and set one rule: this is a hobby project, so nothing may cost money.
 
@@ -19,7 +19,8 @@ The owner split the work into phases and set one rule: this is a hobby project, 
 | Extra | Stickers removed (old sticker messages still render) | #6 |
 | 3 | Group calls: every phone connects to every other (mesh), 4 for video and 6 for voice. A "call in progress" pointer on the conversation drives the Join bar. Handshake logic is a pure module tested with fake peers | #7 |
 | 4 | `API.md` section 0: what happened and what is needed from the owner, with effort and cost. `MEMORY.md` and this file brought up to date | Phase 4 PR |
-| 5 | Live location: built (PR #11), then paused on request (Oct 27) to be continued in a later update | none |
+| 5 | Live location: built (PR #11, paused Oct 27), then resumed in the next update: opened by holding the send button, with a one-time pin and background sharing | none |
+| 6 | Update button in the Me tab (OTA via EAS Update, or a link to a new APK) | none |
 
 ### Decisions
 
@@ -29,7 +30,9 @@ The owner split the work into phases and set one rule: this is a hobby project, 
 | No TURN | The owner declined ("Turn is monetary"). Some network pairs cannot connect, and the docs say so |
 | Group calls as a mesh, with hard limits | No media server is affordable. The limits keep phones and the free Firestore quota healthy |
 | Group call push honours chat mute; 1-to-1 call push does not | A muted group should not ring every phone, but a person calling you directly is different |
-| Location parked | Owner: "We'll come to location in phase 5" |
+| Location waited for Phase 5 | Owner: "We'll come to location in phase 5" |
+| Location is foreground only for now | Background sharing needs the "allow all the time" permission and a permanent notification, and cannot be tested from the build environment. Left for the owner to decide |
+| OpenStreetMap + Leaflet instead of Google Maps | Google Maps needs a billing account. Leaflet's integrity hashes were checked against the published 1.9.4 files |
 
 ### Problems met
 
@@ -43,10 +46,13 @@ The owner split the work into phases and set one rule: this is a hobby project, 
 | Stacked PRs #7, #8, #10 and #12 were merged into their old base branches, not `main` | GitHub only retargets when the base branch is deleted. One landing PR brought them onto `main`. Lesson: check the PR's base says `main` before merging |
 | `npm ci` on `main` fails with ERESOLVE (reanimated 4.7.1 vs worklets 0.10.x), and the EAS APK build keeps failing ("build-test") | Not caused by this work. Pinning `react-native-reanimated` to 4.5.1 (the version Expo SDK 57 lists) fixes the install. `expo-doctor` then showed a second problem: `expo-font` was undeclared, so npm installed the SDK 58 package (58.0.9) at the top level beside SDK 57's own copy, a duplicate native module that can break the Gradle build. Declared at `~57.0.4`. Both fixes are PR #9. No Android compile is possible in the build environment, so the Gradle step and an EAS build are unchecked; details in `API.md` 0.4 |
 | PR #6 still named an already-merged branch as its base | Base changed to `main` |
+| Porting the parked location commit onto the current stack | Cherry-picked without committing, 11 conflicts, nearly all where the old sticker removal differed from PR #6. Resolved by hand, then retyped and retested |
+| A utils file importing another with `./location.ts` fails the app's typecheck, but without the ending Node's test runner cannot load it | The tiny coordinate check is repeated in `mapHtml.ts` instead |
+| The dynamic app icon plugin was on `main` but nothing called it | PR #10 adds the switch when the theme changes |
 
 ### Still open
 
-Phone test of push, calls and group calls; running the rules tests; merging the PRs in order (#9, #6, #7, #8, then #10 and #12); restarting Phase 5 location (PR #11, paused); Google and phone sign-in; full-history search.
+Phone test of push, calls and group calls; running the rules tests; merging the PRs in order (#9, #6, #7, #8, then #10 and #12); phone-testing live location (hold send), background sharing and the Update button; Google and phone sign-in; full-history search.
 
 ---
 
