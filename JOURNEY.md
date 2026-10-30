@@ -19,7 +19,8 @@ The owner split the work into phases and set one rule: this is a hobby project, 
 | Extra | Stickers removed (old sticker messages still render) | #6 |
 | 3 | Group calls: every phone connects to every other (mesh), 4 for video and 6 for voice. A "call in progress" pointer on the conversation drives the Join bar. Handshake logic is a pure module tested with fake peers | #7 |
 | 4 | `API.md` section 0: what happened and what is needed from the owner, with effort and cost. `MEMORY.md` and this file brought up to date | Phase 4 PR |
-| 5 | Live location: the parked branch `claude/live-location` was rebuilt on the current stack (it predated the sticker and group call work). Share for 15 min, 1 h or 8 h; one position document per share; map is Leaflet on OpenStreetMap in a WebView, so no API key. Foreground only. Paused on request (Oct 27) to be continued in a later update | Phase 5 PR |
+| 5 | Live location: built (PR #11, paused Oct 27), then resumed in the next update: opened by holding the send button, with a one-time pin and background sharing | none |
+| 6 | Update button in the Me tab (OTA via EAS Update, or a link to a new APK) | none |
 
 ### Decisions
 
@@ -51,7 +52,7 @@ The owner split the work into phases and set one rule: this is a hobby project, 
 
 ### Still open
 
-Phone test of push, calls and group calls; running the rules tests; merging the PRs in order (#9, #6, #7, #8, then #10 and #12); restarting Phase 5 location (PR #11, paused); Google and phone sign-in; full-history search.
+Phone test of push, calls and group calls; running the rules tests; merging the PRs in order (#9, #6, #7, #8, then #10 and #12); phone-testing live location (hold send), background sharing and the Update button; Google and phone sign-in; full-history search.
 
 ---
 

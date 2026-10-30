@@ -59,7 +59,7 @@ const toParticipant = (m: Member): ConversationParticipant => ({
 export const directConversationId = (a: string, b: string) => [a, b].sort().join('_');
 
 /** Short label for the chat list / reply bar / push body. */
-export function messagePreview(type: MessageType, text?: string): string {
+export function messagePreview(type: MessageType, text?: string, location?: MessageLocation): string {
   switch (type) {
     case 'image':
       return 'Photo';
@@ -72,7 +72,7 @@ export function messagePreview(type: MessageType, text?: string): string {
     case 'gif':
       return 'GIF';
     case 'location':
-      return 'Live location';
+      return location?.pin ? 'Location' : 'Live location';
     default:
       return (text ?? '').trim().substring(0, 50);
   }
@@ -220,7 +220,7 @@ export function sendMessage(
   batch.set(msgRef, data);
 
   const summary: Record<string, unknown> = {
-    lastMessage: messagePreview(message.type, text),
+    lastMessage: messagePreview(message.type, text, message.location),
     lastMessageType: message.type,
     lastMessageTime: serverTimestamp(),
     lastMessageSenderId: sender.uid,
@@ -238,7 +238,7 @@ export function sendMessage(
       conversation,
       senderUid: sender.uid,
       senderName: sender.username,
-      preview: messagePreview(message.type, text),
+      preview: messagePreview(message.type, text, message.location),
     });
   });
 }

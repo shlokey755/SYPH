@@ -35,6 +35,7 @@ import { LocationShareSheet } from '../../components/chat/LocationShareSheet';
 import { LocationViewer } from '../../components/chat/LocationViewer';
 import { OfflineBanner } from '../../components/OfflineBanner';
 import { useTheme } from '../../hooks/themeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useToast } from '../../hooks/toastNotifications';
 import { useActiveGroupCall } from '../../hooks/useActiveGroupCall';
 import { useAuth } from '../../hooks/useAuth';
@@ -47,7 +48,13 @@ import { useProfiles } from '../../hooks/useProfiles';
 import { useIsOffline } from '../../hooks/useOnlineStatus';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import * as chat from '../../services/chatService';
-import { startLiveShare, stopLiveShare } from '../../services/liveLocationManager';
+import {
+  isBackgroundAllowed,
+  requestBackgroundAccess,
+  sendCurrentLocation,
+  startLiveShare,
+  stopLiveShare,
+} from '../../services/liveLocationManager';
 import { isCallingSupported } from '../../services/webrtc';
 import { CallType, Conversation, Message, ReplyPreview } from '../../types';
 import {
@@ -69,6 +76,9 @@ function useAppIsActive() {
   }, []);
   return active;
 }
+
+const HINT_KEY = 'syph.hint.holdSendForLocation';
+const BACKGROUND_ASKED_KEY = 'syph.hint.backgroundLocationAsked';
 
 export default function ChatScreen() {
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
@@ -97,7 +107,8 @@ export default function ChatScreen() {
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [gifOpen, setGifOpen] = useState(false);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
-  const [startingShare, setStartingShare] = useState(false);
+  const [shareBusy, setShareBusy] = useState<'none' | 'pin' | 'live'>('none');
+  const [backgroundOn, setBackgroundOn] = useState(false);
   const [viewerMessage, setViewerMessage] = useState<Message | null>(null);
 
   const me = useMemo(
@@ -257,24 +268,36 @@ export default function ChatScreen() {
   const myShare = useLiveShareIn(conversationId);
   const shareAudience = conversation?.isGroup ? 'Everyone in this group' : title;
 
-  const handleStartShare = async (durationMs: number) => {
-    if (!conversation || !me) return;
-    if (offline) {
-      toast.error("You're offline", 'Connect to the internet to share your live location');
-      return;
-    }
-    setStartingShare(true);
-    const result = await startLiveShare({ conversation, sender: me, durationMs });
-    setStartingShare(false);
-    if (result.ok) {
-      setLocationSheetOpen(false);
-      toast.success('Sharing your live location', 'Keep SYPH open so it stays up to date');
-      return;
-    }
-    switch (result.reason) {
+  /** Explains why, then opens the system page where "Allow all the time" is chosen (Android 11 and later). */
+  const askBackground = () => {
+    Alert.alert(
+      'Keep sharing when SYPH is closed?',
+      'To keep your live location updating with SYPH in the background, choose "Allow all the time" on the next screen. ' +
+        'While you share, a notification stays visible. Stop sharing any time from the chat.',
+      [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'Continue',
+          onPress: async () => {
+            const access = await requestBackgroundAccess();
+            setBackgroundOn(access === 'granted');
+          },
+        },
+      ]
+    );
+  };
+
+  // Checked each time the popup opens, since the person may have changed it in Settings.
+  useEffect(() => {
+    if (locationSheetOpen) void isBackgroundAllowed().then(setBackgroundOn);
+  }, [locationSheetOpen]);
+
+  /** Tells the person why a location could not be read or sent. Returns true when the message was handled. */
+  const explainLocationFailure = (reason: string, message?: string) => {
+    switch (reason) {
       case 'permission-blocked':
         setLocationSheetOpen(false);
-        Alert.alert('Location is off for SYPH', 'Turn it on in Settings to share your live location.', [
+        Alert.alert('Location is off for SYPH', 'Turn it on in Settings to share your location.', [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Open settings', onPress: () => Linking.openSettings() },
         ]);
@@ -286,10 +309,50 @@ export default function ChatScreen() {
         toast.error('Could not find your location', 'Check that location is turned on and try again');
         break;
       default:
-        toast.error(
-          'Could not start sharing',
-          result.message === 'timeout' ? 'The connection is too slow. Try again.' : result.message ?? 'Try again'
-        );
+        toast.error('Could not share', message === 'timeout' ? 'The connection is too slow. Try again.' : message ?? 'Try again');
+    }
+  };
+
+  const handleSendCurrent = async () => {
+    if (!conversation || !me) return;
+    if (offline) {
+      toast.error("You're offline", 'Connect to the internet to share your location');
+      return;
+    }
+    setShareBusy('pin');
+    const result = await sendCurrentLocation({ conversation, sender: me });
+    setShareBusy('none');
+    if (result.ok) {
+      setLocationSheetOpen(false);
+      toast.success('Location sent');
+      return;
+    }
+    explainLocationFailure(result.reason, result.message);
+  };
+
+  const handleStartShare = async (durationMs: number) => {
+    if (!conversation || !me) return;
+    if (offline) {
+      toast.error("You're offline", 'Connect to the internet to share your live location');
+      return;
+    }
+    setShareBusy('live');
+    const result = await startLiveShare({ conversation, sender: me, durationMs });
+    setShareBusy('none');
+    if (!result.ok) {
+      explainLocationFailure(result.reason, result.message);
+      return;
+    }
+    setLocationSheetOpen(false);
+    if (await isBackgroundAllowed()) {
+      toast.success('Sharing your live location', 'It keeps updating when SYPH is in the background');
+    } else {
+      toast.success('Sharing your live location', 'Keep SYPH open so it stays up to date');
+      // Offered once; the popup keeps a "Keep it going" link for later.
+      if (!(await AsyncStorage.getItem(BACKGROUND_ASKED_KEY).catch(() => 'x'))) {
+        void AsyncStorage.setItem(BACKGROUND_ASKED_KEY, '1').catch(() => {});
+        askBackground();
+      }
     }
   };
 
@@ -298,6 +361,17 @@ export default function ChatScreen() {
     void stopLiveShare(shareId);
     toast.info('Stopped sharing your location');
   };
+
+  // A hold on the send button is easy to miss, so say so once.
+  useEffect(() => {
+    AsyncStorage.getItem(HINT_KEY)
+      .then((seen) => {
+        if (seen) return;
+        void AsyncStorage.setItem(HINT_KEY, '1').catch(() => {});
+        toast.info('Tip', 'Hold the send button to share your location');
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 1-on-1 chats call the other person (below); group chats use startOrJoinGroupCall.
   const callee = conversation && !conversation.isGroup ? getOtherParticipant(conversation, myUid) : undefined;
@@ -537,7 +611,6 @@ export default function ChatScreen() {
           onSend={handleSend}
           onTextChange={typingReporter.onTextChange}
           onOpenLocation={() => setLocationSheetOpen(true)}
-          sharingLocation={!!myShare}
           onOpenGif={() => setGifOpen(true)}
         />
       ) : (
@@ -557,9 +630,12 @@ export default function ChatScreen() {
         visible={locationSheetOpen}
         colors={themeColors}
         activeShare={myShare}
-        starting={startingShare}
+        busy={shareBusy}
         audience={shareAudience}
-        onStart={handleStartShare}
+        backgroundOn={backgroundOn}
+        onSendCurrent={handleSendCurrent}
+        onStartLive={handleStartShare}
+        onEnableBackground={askBackground}
         onStop={() => myShare && handleStopShare(myShare.id)}
         onClose={() => setLocationSheetOpen(false)}
       />

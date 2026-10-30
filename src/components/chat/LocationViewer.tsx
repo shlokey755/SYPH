@@ -7,13 +7,14 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
 import { LiveLocation, subscribeLiveLocation } from '../../services/locationService';
 import { Message } from '../../types';
-import { describeShare, isValidCoords, mapsUrl } from '../../utils/location';
+import { describeShare, isValidCoords, mapsUrl, pinPosition } from '../../utils/location';
 import { MAP_BASE_URL, buildMapHtml, setPositionScript } from '../../utils/mapHtml';
+import { loadWebView } from './loadWebView';
 
 interface Props {
   conversationId: string;
@@ -24,19 +25,6 @@ interface Props {
   colors: ThemeColors;
   onStop: (message: Message) => void;
   onClose: () => void;
-}
-
-type WebViewModule = typeof import('react-native-webview');
-
-/** Loaded on demand: the web build has no WebView, and a build without the native module should not crash. */
-function loadWebView(): WebViewModule['WebView'] | null {
-  if (Platform.OS === 'web') return null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return (require('react-native-webview') as WebViewModule).WebView;
-  } catch {
-    return null;
-  }
 }
 
 const STATUS_TICK_MS = 15_000;
@@ -59,10 +47,18 @@ function Viewer({ conversationId, message, sharerName, isMine, colors, onStop, o
   // The page is built once from the first position; after that it is moved with injected scripts.
   const [html, setHtml] = useState<string | null>(null);
 
+  // A pin ("Send current location") carries its position and never changes, so it needs no listener.
+  const pin = pinPosition(message.location);
+
   useEffect(() => {
     setLoaded(false);
     setFailed(false);
     setHtml(null);
+    if (pin) {
+      setLocation({ senderId: message.senderId, ...pin, accuracy: null, active: false, expiresAt: 0, updatedAtMs: 0 });
+      setLoaded(true);
+      return;
+    }
     return subscribeLiveLocation(
       conversationId,
       message.id,
@@ -75,7 +71,7 @@ function Viewer({ conversationId, message, sharerName, isMine, colors, onStop, o
         setFailed(true);
       }
     );
-  }, [conversationId, message.id]);
+  }, [conversationId, message.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!html && location && isValidCoords(location.lat, location.lng)) setHtml(buildMapHtml(location));
@@ -93,10 +89,12 @@ function Viewer({ conversationId, message, sharerName, isMine, colors, onStop, o
   }, []);
 
   const hasPosition = !!location && isValidCoords(location.lat, location.lng);
-  const status = location
-    ? describeShare({ now, expiresAt: location.expiresAt, active: location.active, updatedAtMs: location.updatedAtMs })
-    : null;
-  const canStop = isMine && status !== null && status.state !== 'ended';
+  const status = pin
+    ? ({ state: 'live', label: 'Shared location' } as const)
+    : location
+      ? describeShare({ now, expiresAt: location.expiresAt, active: location.active, updatedAtMs: location.updatedAtMs })
+      : null;
+  const canStop = !pin && isMine && status !== null && status.state !== 'ended';
   const statusColor = status?.state === 'live' ? colors.accent : colors.subText;
 
   const openInMaps = () => {
@@ -121,7 +119,13 @@ function Viewer({ conversationId, message, sharerName, isMine, colors, onStop, o
             <Ionicons name="close" size={26} color={colors.text} />
           </Pressable>
           <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-            {isMine ? 'Your live location' : `${sharerName}'s live location`}
+            {pin
+              ? isMine
+                ? 'Your location'
+                : `${sharerName}'s location`
+              : isMine
+                ? 'Your live location'
+                : `${sharerName}'s live location`}
           </Text>
         </View>
 

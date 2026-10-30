@@ -111,3 +111,26 @@ export function mapsUrl(lat: number, lng: number): string | null {
   if (!isValidCoords(lat, lng)) return null;
   return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 }
+
+// ---------- one-time pin ("Send current location") ----------
+
+/** The position stored on a pin message. A pin never ends and has no document of its own. */
+export interface PinPosition {
+  lat: number;
+  lng: number;
+}
+
+/** The `location` field of a pin message, or null when the coordinates are not real numbers. */
+export function buildPin(lat: number, lng: number): { expiresAt: 0; pin: true; lat: number; lng: number } | null {
+  if (!isValidCoords(lat, lng)) return null;
+  return { expiresAt: 0, pin: true, lat, lng };
+}
+
+/** The position of a pin message, or null when it is a live share (or not a valid pin). */
+export function pinPosition(
+  location: { pin?: boolean; lat?: number; lng?: number } | null | undefined
+): PinPosition | null {
+  if (!location || location.pin !== true) return null;
+  const { lat, lng } = location;
+  return isValidCoords(lat, lng) ? { lat: lat as number, lng: lng as number } : null;
+}

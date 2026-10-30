@@ -81,6 +81,14 @@ const no = (n, p) => check(n, p, false);
   await no('the end time must be a number', sendAs(alice, 'alice', { type: 'location', text: '', location: { expiresAt: 'soon' } }));
   await no('a share cannot run for days', sendAs(alice, 'alice', { type: 'location', text: '', location: { expiresAt: inHours(24) } }));
   await no('a location message cannot carry extra fields', sendAs(alice, 'alice', { type: 'location', text: '', location: { expiresAt: inHours(1), admin: true } }));
+  const pin = (extra = {}) => ({ type: 'location', text: '', location: { expiresAt: 0, pin: true, lat: 12.97, lng: 77.59, ...extra } });
+  await ok('a one-time pin can be sent', sendAs(alice, 'alice', pin()));
+  await no('a pin needs expiresAt 0', sendAs(alice, 'alice', pin({ expiresAt: inHours(1) })));
+  await no('a pin latitude must be real', sendAs(alice, 'alice', pin({ lat: 91 })));
+  await no('a pin longitude must be real', sendAs(alice, 'alice', pin({ lng: -181 })));
+  await no('a pin must have a position', sendAs(alice, 'alice', { type: 'location', text: '', location: { expiresAt: 0, pin: true } }));
+  await no('a pin cannot carry extra fields', sendAs(alice, 'alice', pin({ admin: true })));
+  await no('pin must be true', sendAs(alice, 'alice', pin({ pin: false })));
   await ok('a GIF link can be sent', sendAs(alice, 'alice', { type: 'gif', text: '', media: { url: 'https://media.giphy.com/x.gif' } }));
   await no('a photo can no longer be sent', sendAs(alice, 'alice', { type: 'image', media: { url: 'https://x/y.jpg' } }));
   await no('a voice note can no longer be sent', sendAs(alice, 'alice', { type: 'audio' }));
@@ -136,6 +144,19 @@ const no = (n, p) => check(n, p, false);
   await msgDoc(alice, 'txt1').set(txtMsg);
   await ok('a text message can still be deleted for everyone', msgDoc(alice, 'txt1').update({ deletedForEveryone: true, text: '', media: FV.delete(), location: FV.delete() }));
   await no('a text message cannot grow a location', msgDoc(alice, 'txt1').update({ location: { expiresAt: 1 } }));
+
+  console.log('\nOne-time pin');
+  const pinMsg = { type: 'location', text: '', senderId: 'alice', senderUsername: 'alice', deletedFor: [], deletedForEveryone: false, createdAt: FV.serverTimestamp(), location: { expiresAt: 0, pin: true, lat: 12.97, lng: 77.59 } };
+  await msgDoc(alice, 'pin1').set(pinMsg);
+  await no('a pin position cannot be edited', msgDoc(alice, 'pin1').update({ location: { expiresAt: 0, pin: true, lat: 1, lng: 1 } }));
+  await no('a pin cannot be turned into a live share', msgDoc(alice, 'pin1').update({ location: { expiresAt: inHours(1) } }));
+  await no('the other member cannot change a pin', msgDoc(bob, 'pin1').update({ location: FV.delete() }));
+  await ok('the sender deletes a pin for everyone (position removed)', msgDoc(alice, 'pin1').update({ deletedForEveryone: true, text: '', media: FV.delete(), location: FV.delete() }));
+
+  console.log('\nApp config (Update button)');
+  await ok('signed-in users can read the app config', carol.doc('appConfig/latest').get());
+  await no('anonymous cannot read the app config', anon.doc('appConfig/latest').get());
+  await no('nobody can write the app config from the app', alice.doc('appConfig/latest').set({ latestVersion: '9.9.9', apkUrl: 'https://example.com/a.apk' }));
 
   console.log('\nTyping indicator');
   const marker = (extra = {}) => ({ typing: true, at: FV.serverTimestamp(), ...extra });

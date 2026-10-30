@@ -38,7 +38,8 @@ Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*
 | 2.5 | Typing indicator | Merged |
 | 3 | Group voice and video calls (mesh WebRTC, 4 video / 6 voice) | PR #7 open, untested on phones |
 | 4 | `API.md` report: what happened, what is needed from the owner | PR #8 open |
-| 5 | Live location sharing (foreground, free OpenStreetMap map) | Built in PR #11, paused at the owner's request (Oct 27). Do not merge until they restart it |
+| 5 | Live location sharing, now opened by holding the send button, with background sharing | This update's PR (Oct 31) |
+| 6 | Update button in the Me tab (OTA + new APK link) | This update's PR (Oct 31) |
 
 Extras done on the way: speaker toggle, camera-off panel with username, muted icon, stickers removed (PR #6), app icon follows the theme (PR #10), splash held until the app is ready (PR #12), install and build fix (PR #9). Merge order: #9, #6, #7, #8, then #10 and #12. PR #11 stays unmerged.
 
@@ -58,7 +59,8 @@ Extras done on the way: speaker toggle, camera-off panel with username, muted ic
 | Offline banner, queued sends (NFR-07) | Built |
 | Audio and video calls (FR-06) | Built, 1-to-1, speaker toggle, camera-off panel, muted icon. Needs a dev build or APK. No TURN, so some networks cannot connect (API.md 1.7) |
 | Group voice and video calls | Built (PR #7), mesh of up to 4 video / 6 voice, Join bar, ring and push. Untested on phones (API.md 1.10) |
-| Live location | **Not on main.** Built in PR #11 (`claude/phase-5-location`) and paused by the owner to be continued in a later update: 15 min / 1 h / 8 h, map in a WebView (Leaflet on OpenStreetMap, no key). Updates only while SYPH is open on the sharer's phone. Untested on phones (API.md 1.11) |
+| Live location | Built: hold the send button for a Google Maps style popup, send a one-time pin or share live for 15 min / 1 h / 8 h. Background sharing with a foreground-service notification and "allow all the time". Map is Leaflet on OpenStreetMap, no key. Untested on phones (API.md 1.11) |
+| Update button | Built: Me tab card, OTA through EAS Update, or a link to a new APK read from `appConfig/latest`. Needs the new APK once (API.md 1.12) |
 | Google and phone sign-in (FR-01) | **Not built** (API.md section 3) |
 | Search across full history | **Not built**, needs an external search service (API.md section 3) |
 

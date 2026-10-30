@@ -156,7 +156,7 @@ eas.json        build profiles
 | Status | Item |
 |---|---|
 |  Done | Chat, groups, receipts, GIFs, themes, push, typing, calls and group calls, dynamic app icon, splash |
-|  Paused | Live location sharing (built, kept as a draft pull request) |
+|  Done | Share location (hold send): one-time pin and live sharing, also in the background |
 |  Planned | Hosted web version |
 |  Not built | Google and phone sign-in, search across full message history |
 

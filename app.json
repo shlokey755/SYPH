@@ -2,7 +2,7 @@
   "expo": {
     "name": "SYPH",
     "slug": "SYPH",
-    "version": "7.5.5",
+    "version": "7.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "syph",
@@ -58,8 +58,11 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "SYPH uses your location only while you share it in a chat.",
-          "locationWhenInUsePermission": "SYPH uses your location only while you share it in a chat."
+          "locationAlwaysAndWhenInUsePermission": "SYPH uses your location to share it with the people you choose, even when the app is closed.",
+          "locationWhenInUsePermission": "SYPH uses your location to share it with the people you choose.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "androidForegroundServiceIcon": "./assets/images/location-service-icon.png"
         }
       ],
       [
@@ -74,12 +77,24 @@
       [
         "@variant-systems/expo-dynamic-app-icon",
         {
-          "cyber": { "image": "./assets/images/Cyber.png" },
-          "monochrome": { "image": "./assets/images/Monochrome.png" },
-          "candy": { "image": "./assets/images/Candy.png" },
-          "ocean": { "image": "./assets/images/Ocean.png" },
-          "forest": { "image": "./assets/images/Forest.png" },
-          "sunset": { "image": "./assets/images/Sunset.png" }
+          "cyber": {
+            "image": "./assets/images/Cyber.png"
+          },
+          "monochrome": {
+            "image": "./assets/images/Monochrome.png"
+          },
+          "candy": {
+            "image": "./assets/images/Candy.png"
+          },
+          "ocean": {
+            "image": "./assets/images/Ocean.png"
+          },
+          "forest": {
+            "image": "./assets/images/Forest.png"
+          },
+          "sunset": {
+            "image": "./assets/images/Sunset.png"
+          }
         }
       ]
     ],
@@ -89,6 +104,12 @@
         "projectId": "7e0c1857-df34-4098-a4b2-5a4cd4d561de"
       }
     },
-    "owner": "shlokey755"
+    "owner": "shlokey755",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/7e0c1857-df34-4098-a4b2-5a4cd4d561de"
+    }
   }
 }

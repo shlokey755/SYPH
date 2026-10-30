@@ -12,10 +12,8 @@ interface Props {
   onSend: (text: string) => void;
   /** Called with the new text on every edit (drives the "typing…" indicator). */
   onTextChange?: (text: string) => void;
-  /** Opens the live-location sheet. */
+  /** Holding the send button opens the "Share location" popup. */
   onOpenLocation: () => void;
-  /** True while a live location share is running in this chat (the icon fills in). */
-  sharingLocation?: boolean;
   onOpenGif: () => void;
 }
 
@@ -26,7 +24,6 @@ export function MessageInput({
   onSend,
   onTextChange,
   onOpenLocation,
-  sharingLocation,
   onOpenGif,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -67,14 +64,6 @@ export function MessageInput({
       )}
 
       <View style={styles.row}>
-        <Pressable
-          onPress={onOpenLocation}
-          hitSlop={8}
-          style={styles.iconButton}
-          accessibilityLabel={sharingLocation ? 'Live location is on' : 'Share live location'}
-        >
-          <Ionicons name={sharingLocation ? 'location' : 'location-outline'} size={28} color={colors.accent} />
-        </Pressable>
         <Pressable onPress={onOpenGif} hitSlop={8} style={styles.iconButton} accessibilityLabel="GIFs">
           <View style={[styles.gifBadge, { borderColor: colors.accent }]}>
             <Text style={[styles.gifText, { color: colors.accent }]}>GIF</Text>
@@ -92,10 +81,13 @@ export function MessageInput({
           multiline
           maxLength={4000}
         />
+        {/* Stays pressable when the box is empty: a disabled button ignores a long press. */}
         <Pressable
           onPress={submit}
-          disabled={!canSend}
+          onLongPress={onOpenLocation}
+          delayLongPress={350}
           accessibilityLabel="Send message"
+          accessibilityHint="Hold to share your location"
           accessibilityState={{ disabled: !canSend }}
           style={[styles.send, { backgroundColor: colors.accent }, !canSend && styles.sendIdle]}
         >

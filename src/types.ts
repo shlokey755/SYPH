@@ -23,11 +23,16 @@ export interface UserProfile {
 export type MessageType = 'text' | 'gif' | 'location' | 'sticker' | 'image' | 'video' | 'audio' | 'document';
 
 /**
- * A live location share. The moving position lives in conversations/{id}/locations/{messageId}; the message only
- * records when the share ends (epoch ms), so a bubble can say "Live" or "Ended" without its own listener.
+ * A location message, one of two kinds:
+ *   - a live share: the moving position lives in conversations/{id}/locations/{messageId}; the message only records when
+ *     the share ends (epoch ms), so a bubble can say "Live" or "Ended" without its own listener;
+ *   - a pin ("Send current location"): `pin` is true, `expiresAt` is 0 and the position is stored right here.
  */
 export interface MessageLocation {
   expiresAt: number;
+  pin?: boolean;
+  lat?: number;
+  lng?: number;
 }
 
 /** A GIF link (Giphy). Old file messages may carry extra fields; they are ignored. */

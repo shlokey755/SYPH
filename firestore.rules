@@ -120,7 +120,8 @@ service cloud.firestore {
         // Only text, GIFs and live locations can be sent. Stickers (just bigger emoji) were removed, and so were photos,
         // video, voice notes and documents (no file storage). Old messages of those kinds stay readable.
         // A live location message carries the time the share ends (epoch ms, at most 9 hours ahead: 8 h plus slack
-        // for phone clocks that disagree).
+        // for phone clocks that disagree). A one-time pin ("send current location") carries its own position instead,
+        // with pin == true and expiresAt == 0.
         allow create: if isMemberOf(cid)
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.type in ['text', 'gif', 'location']
@@ -130,6 +131,15 @@ service cloud.firestore {
               request.resource.data.location.keys().hasOnly(['expiresAt'])
               && request.resource.data.location.expiresAt is number
               && request.resource.data.location.expiresAt <= request.time.toMillis() + 32400000
+            )
+            || (
+              request.resource.data.location.keys().hasOnly(['expiresAt', 'pin', 'lat', 'lng'])
+              && request.resource.data.location.pin == true
+              && request.resource.data.location.expiresAt == 0
+              && request.resource.data.location.lat is number
+              && request.resource.data.location.lat >= -90 && request.resource.data.location.lat <= 90
+              && request.resource.data.location.lng is number
+              && request.resource.data.location.lng >= -180 && request.resource.data.location.lng <= 180
             )
           )
           && request.resource.data.createdAt == request.time;
@@ -151,8 +161,14 @@ service cloud.firestore {
               || (
                 resource.data.type == 'location'
                 && (
+                  // Deleting for everyone removes the field (and so a pin's position).
                   !('location' in request.resource.data)
-                  || request.resource.data.location.expiresAt <= resource.data.location.expiresAt
+                  // Ending a live share: only a live share can change, and only to an earlier end.
+                  || (
+                    resource.data.location.keys().hasOnly(['expiresAt'])
+                    && request.resource.data.location.keys().hasOnly(['expiresAt'])
+                    && request.resource.data.location.expiresAt <= resource.data.location.expiresAt
+                  )
                 )
               )
             )
@@ -370,6 +386,14 @@ service cloud.firestore {
     }
 
     // Everything else is closed.
+    // ---------------- App config ----------------
+    // appConfig/latest names the newest APK ({ latestVersion, apkUrl, notes }) for the Update button in the Me tab.
+    // Signed-in users read it; nobody writes it from the app. The owner edits it by hand in the Firebase Console.
+    match /appConfig/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Message } from '../../types';
-import { bubbleStatus } from '../../utils/location';
+import { bubbleStatus, pinPosition } from '../../utils/location';
 
 interface Props {
   message: Message;
@@ -26,16 +26,17 @@ export function LocationBubble({ message, textColor, onOpen, onLongPress }: Prop
 
   // Re-check every so often while live, and once more right when it ends.
   useEffect(() => {
-    if (!(expiresAt > Date.now())) return;
+    if (message.location?.pin || !(expiresAt > Date.now())) return;
     const tick = setInterval(() => setNow(Date.now()), TICK_MS);
     const end = setTimeout(() => setNow(Date.now()), Math.max(0, expiresAt - Date.now()) + 250);
     return () => {
       clearInterval(tick);
       clearTimeout(end);
     };
-  }, [expiresAt]);
+  }, [expiresAt, message.location?.pin]);
 
-  const status = bubbleStatus(expiresAt, now);
+  const isPin = pinPosition(message.location) !== null;
+  const status = isPin ? { live: false, label: 'Location' } : bubbleStatus(expiresAt, now);
 
   return (
     <Pressable
@@ -47,11 +48,13 @@ export function LocationBubble({ message, textColor, onOpen, onLongPress }: Prop
       style={styles.row}
     >
       <View style={[styles.icon, { borderColor: textColor }]}>
-        <Ionicons name={status.live ? 'location' : 'location-outline'} size={22} color={textColor} />
+        <Ionicons name={status.live || isPin ? 'location' : 'location-outline'} size={22} color={textColor} />
       </View>
       <View style={styles.texts}>
         <Text style={[styles.title, { color: textColor }]}>{status.label}</Text>
-        <Text style={[styles.hint, { color: textColor }]}>{status.live ? 'Tap to see where they are' : 'Tap to see the last position'}</Text>
+        <Text style={[styles.hint, { color: textColor }]}>
+          {isPin ? 'Tap to open the map' : status.live ? 'Tap to see where they are' : 'Tap to see the last position'}
+        </Text>
       </View>
     </Pressable>
   );
