@@ -27,43 +27,43 @@
 
 ---
 
-## ✨ Features
+##  Features
 
 | | What you get |
 |---|---|
-| 💬 **Chat** | One-to-one and group chats in real time. Reply, forward, copy, and delete for me or for everyone. Typing indicator and in-chat search. |
-| ✅ **Receipts** | Sent, delivered and read, shown on every message. |
-| 🎞️ **GIFs** | Built-in Giphy picker (needs a free Giphy key). |
-| 📞 **Calls** | One-to-one audio and video with a speaker toggle. Group calls with up to 4 on video or 6 on voice. |
-| 🔔 **Notifications** | Push alerts while the app is closed, per-chat mute and a global switch. |
-| 🎨 **Themes** | Six themes saved to your profile. The app icon follows your theme on Android. |
-| 📶 **Offline** | An offline banner, and messages you send are queued until you are back online. |
-| 🔐 **Sign-in** | Username or email, password reset, optional display name. |
+|  **Chat** | One-to-one and group chats in real time. Reply, forward, copy, and delete for me or for everyone. Typing indicator and in-chat search. |
+|  **Receipts** | Sent, delivered and read, shown on every message. |
+|  **GIFs** | Built-in Giphy picker (needs a free Giphy key). |
+|  **Calls** | One-to-one audio and video with a speaker toggle. Group calls with up to 4 on video or 6 on voice. |
+|  **Notifications** | Push alerts while the app is closed, per-chat mute and a global switch. |
+|  **Themes** | Six themes saved to your profile. The app icon follows your theme on Android. |
+|  **Offline** | An offline banner, and messages you send are queued until you are back online. |
+|  **Sign-in** | Username or email, password reset, optional display name. |
 
-### 🎨 Themes
+###  Themes
 
 <p align="center">
   <img src="docs/themes.png" alt="Cyber, Monochrome, Candy, Ocean, Forest and Sunset themes" width="100%">
 </p>
 
-## 📸 Screenshots
+##  Screenshots
 
 <table align="center">
   <tr>
-    <td align="center"><img src="docs/screenshots/onboarding.png" width="200" alt="Onboarding"><br><sub>Onboarding</sub></td>
-    <td align="center"><img src="docs/screenshots/chat-list.png" width="200" alt="Chat list"><br><sub>Chat list</sub></td>
-    <td align="center"><img src="docs/screenshots/chat.png" width="200" alt="Conversation"><br><sub>Conversation</sub></td>
+    <td align="center"><img src="docs/screenshots/onboarding.jpeg" width="200" alt="Onboarding"><br><sub>Onboarding</sub></td>
+    <td align="center"><img src="docs/screenshots/chat-list.jpeg" width="200" alt="Chat list"><br><sub>Chat list</sub></td>
+    
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/themes.png" width="200" alt="Themes"><br><sub>Themes</sub></td>
-    <td align="center"><img src="docs/screenshots/call.png" width="200" alt="Video call"><br><sub>Video call</sub></td>
-    <td align="center"><img src="docs/screenshots/group-call.png" width="200" alt="Group call"><br><sub>Group call</sub></td>
+    <td align="center"><img src="docs/screenshots/themes.jpeg" width="200" alt="Themes"><br><sub>Themes</sub></td>
+    <td align="center"><img src="docs/screenshots/chat.jpeg" width="200" alt="Conversation"><br><sub>Conversation</sub></td>
+    
   </tr>
 </table>
 
-> 📌 **These are placeholders.** To add real screenshots, replace the PNG files in [`docs/screenshots/`](docs/screenshots) with the same file names (around 1080 × 2340 works well). The README needs no edit.
+>  **These are placeholders.** To add real screenshots, replace the PNG files in [`docs/screenshots/`](docs/screenshots) with the same file names (around 1080 × 2340 works well). The README needs no edit.
 
-## 🚀 Quick start
+##  Quick start
 
 Run the everyday features (chat, GIFs, themes, search, typing) in Expo Go:
 
@@ -80,7 +80,7 @@ You need a Firebase project with **Authentication** (email/password) and **Fires
 
 > Calls, group calls, push while closed and the dynamic app icon need a real Android build, not Expo Go.
 
-## 📱 Build the APK
+##  Build the APK
 
 Builds run on [EAS](https://expo.dev/eas) (free tier). EAS skips git-ignored files, so your Firebase values live in EAS environment variables rather than in the repo.
 
@@ -94,12 +94,12 @@ Builds run on [EAS](https://expo.dev/eas) (free tier). EAS skips git-ignored fil
 
 A build with missing Firebase values stops at its start with a clear message, instead of crashing on launch. Details and gotchas: [`API.md`](API.md).
 
-## 🧠 How it works
+##  How it works
 
 ```mermaid
 flowchart LR
-    A["📱 SYPH app<br/>Expo + React Native"] -->|"sign-in, chats,<br/>call signalling"| F[("🔥 Firebase<br/>Auth + Firestore")]
-    F -.->|"real-time updates"| B["📱 Friend's phone"]
+    A[" SYPH app<br/>Expo + React Native"] -->|"sign-in, chats,<br/>call signalling"| F[(" Firebase<br/>Auth + Firestore")]
+    F -.->|"real-time updates"| B[" Friend's phone"]
     A -->|"push request"| E["Expo push service"] --> G["FCM"] --> B
     A <-->|"audio / video<br/>(WebRTC, direct)"| B
 ```
@@ -110,7 +110,7 @@ flowchart LR
 - **Push:** the sender's phone asks Expo's free push service to notify the recipient, so no server is needed. An optional relay lives in [`server/`](server).
 - **No file storage:** chats carry text and GIF links only, so there is no Firebase Storage and no billing plan.
 
-### 🧰 Tech stack
+###  Tech stack
 
 | Layer | Choice |
 |---|---|
@@ -122,7 +122,7 @@ flowchart LR
 | Builds | EAS Build |
 | CI | GitHub Actions: typecheck, unit tests, Android bundle, relay tests |
 
-## 🧪 Checks
+##  Checks
 
 ```bash
 npm run typecheck        # TypeScript
@@ -133,7 +133,7 @@ cd server && npm test    # push relay tests
 CI runs the same checks, plus an Android bundle, on every pull request.
 
 <details>
-<summary><b>🗂️ Project structure</b></summary>
+<summary><b> Project structure</b></summary>
 
 ```text
 src/
@@ -151,23 +151,23 @@ eas.json        build profiles
 
 </details>
 
-## 🧭 Roadmap
+##  Roadmap
 
 | Status | Item |
 |---|---|
-| ✅ Done | Chat, groups, receipts, GIFs, themes, push, typing, calls and group calls, dynamic app icon, splash |
-| 🚧 Paused | Live location sharing (built, kept as a draft pull request) |
-| 🔜 Planned | Hosted web version |
-| 🧱 Not built | Google and phone sign-in, search across full message history |
+|  Done | Chat, groups, receipts, GIFs, themes, push, typing, calls and group calls, dynamic app icon, splash |
+|  Paused | Live location sharing (built, kept as a draft pull request) |
+|  Planned | Hosted web version |
+|  Not built | Google and phone sign-in, search across full message history |
 
-## ⚠️ Known limits
+##  Known limits
 
 - **No TURN server** (it costs money), so a few network pairs cannot connect a call, mostly mobile data on both sides.
 - **Push is sent from the sender's phone**, which must be online at that moment.
 - **Android first.** iOS builds and push need a paid Apple developer account.
 - Web is not supported yet.
 
-## 📚 More docs
+##  More docs
 
 | File | What is inside |
 |---|---|
@@ -178,5 +178,5 @@ eas.json        build profiles
 ---
 
 <p align="center">
-  Made with ☕ by <a href="https://github.com/shlokey755">shlokey755</a>
+  Made by <a href="https://github.com/shlokey755">shlokey755</a> using AI.
 </p>
