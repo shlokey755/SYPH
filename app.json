@@ -56,6 +56,13 @@
         }
       ],
       [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "SYPH uses your location only while you share it in a chat.",
+          "locationWhenInUsePermission": "SYPH uses your location only while you share it in a chat."
+        }
+      ],
+      [
         "@config-plugins/react-native-webrtc",
         {
           "cameraPermission": "Allow SYPH to use the camera for video calls.",

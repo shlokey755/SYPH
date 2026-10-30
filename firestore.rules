@@ -117,11 +117,21 @@ service cloud.firestore {
       match /messages/{mid} {
         allow read: if isMemberOf(cid);
 
-        // Only text and GIFs can be sent. Stickers (just bigger emoji) were removed, and so were photos, video,
-        // voice notes and documents (no file storage). Old messages of those kinds stay readable.
+        // Only text, GIFs and live locations can be sent. Stickers (just bigger emoji) were removed, and so were photos,
+        // video, voice notes and documents (no file storage). Old messages of those kinds stay readable.
+        // A live location message carries the time the share ends (epoch ms, at most 9 hours ahead: 8 h plus slack
+        // for phone clocks that disagree).
         allow create: if isMemberOf(cid)
           && request.resource.data.senderId == request.auth.uid
-          && request.resource.data.type in ['text', 'gif']
+          && request.resource.data.type in ['text', 'gif', 'location']
+          && (
+            request.resource.data.type != 'location'
+            || (
+              request.resource.data.location.keys().hasOnly(['expiresAt'])
+              && request.resource.data.location.expiresAt is number
+              && request.resource.data.location.expiresAt <= request.time.toMillis() + 32400000
+            )
+          )
           && request.resource.data.createdAt == request.time;
 
         allow update: if isMemberOf(cid) && (
@@ -131,11 +141,21 @@ service cloud.firestore {
             && request.resource.data.deletedFor.toSet()
                  .difference(resource.data.deletedFor.toSet()).hasOnly([request.auth.uid])
           )
-          // Only the sender can delete for everyone.
+          // Only the sender can delete for everyone, or end a live location (its end time can only move earlier).
           || (
             resource.data.senderId == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys()
-                 .hasOnly(['deletedForEveryone', 'text', 'media'])
+                 .hasOnly(['deletedForEveryone', 'text', 'media', 'location'])
+            && (
+              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['location'])
+              || (
+                resource.data.type == 'location'
+                && (
+                  !('location' in request.resource.data)
+                  || request.resource.data.location.expiresAt <= resource.data.location.expiresAt
+                )
+              )
+            )
           )
         );
 
@@ -181,6 +201,33 @@ service cloud.firestore {
             && request.resource.data.createdAt == request.time;
           allow update, delete: if false;
         }
+      }
+
+      // ---------------- Live locations ----------------
+      // One document per live location share, named after its message. Members read it; only the sharer writes it,
+      // and only the position and on/off switch can change after it is created.
+      match /locations/{lid} {
+        function validPosition(d) {
+          return d.lat is number && d.lat >= -90 && d.lat <= 90
+            && d.lng is number && d.lng >= -180 && d.lng <= 180
+            && (d.accuracy == null || d.accuracy is number);
+        }
+
+        allow read: if isMemberOf(cid);
+        allow create: if isMemberOf(cid)
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.keys().hasOnly(
+               ['senderId', 'lat', 'lng', 'accuracy', 'active', 'updatedAt', 'expiresAt', 'expireAt'])
+          && request.resource.data.active == true
+          && validPosition(request.resource.data)
+          && request.resource.data.expiresAt is number
+          && request.resource.data.expiresAt <= request.time.toMillis() + 32400000;
+        allow update: if isMemberOf(cid)
+          && resource.data.senderId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['lat', 'lng', 'accuracy', 'active', 'updatedAt'])
+          && validPosition(request.resource.data);
+        allow delete: if false;
       }
 
       // ---------------- Typing indicator ----------------
