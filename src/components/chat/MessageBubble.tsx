@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ThemeColors } from '../../hooks/themeContext';
 import { Message, MessageStatus } from '../../types';
 import { formatClock } from '../../utils/conversation';
+import { LinkPreviewCard } from './LinkPreviewCard';
 import { MessageContent } from './MessageContent';
 
 interface Props {
@@ -106,6 +107,15 @@ function MessageBubbleBase({
           </View>
         ) : (
           <MessageContent message={message} textColor={textColor} />
+        )}
+
+        {!deleted && message.type === 'text' && (
+          <LinkPreviewCard
+            text={message.text}
+            isMine={isMine}
+            colors={colors}
+            onLongPress={() => onLongPress(message)}
+          />
         )}
 
         <View style={styles.footer}>

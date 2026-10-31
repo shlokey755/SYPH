@@ -298,3 +298,36 @@ Open a group chat: the header has a phone and a video icon. Tap one to start a c
 | Phone sign-in (FR-01) | Firebase's JS SDK cannot do phone sign-in cleanly in React Native (it needs reCAPTCHA or the native Firebase SDK), and SMS may need a paid plan. Decide whether it is required before anyone builds it. Not built. |
 | Live location sharing (Phase 5) | Built in PR #11 (`claude/phase-5-location`) and paused at your request, not on `main`. Foreground sharing on a free OpenStreetMap map, no key needed. The open question when you restart it is whether to keep it going with the app closed (needs the "allow all the time" permission and a permanent notification). |
 | Search across full chat history (FR-11) | In-chat search covers the messages loaded on screen. Firestore has no full-text search; searching all history needs an external service (Algolia, Typesense, Meilisearch) and a small indexing function. |
+
+## 4. Link previews: YouTube and Shorts
+
+**Needs from you: nothing.** No key, no billing, no Firestore rules change.
+
+A text message with a YouTube or Shorts link gets a card under the text: thumbnail, title, channel. Tapping it opens YouTube (app or browser). The link stays in the message text. Only the first YouTube link in a message gets a card.
+
+| Item | Detail |
+|------|--------|
+| Source | YouTube's free oEmbed endpoint, called from the phone while the card is on screen. Nothing is stored in Firestore or on disk; answers are remembered in memory until the app closes. |
+| Links read | `youtube.com/watch?v=`, `youtu.be/`, `youtube.com/shorts/`, plus `m.youtube.com`, `/embed/` and `/live/` |
+| 200 | Card with thumbnail, title, channel (badge says YouTube or Short) |
+| 404 / 400 | Muted "Video unavailable" card, not tappable |
+| 401 / 403 | "YouTube video: no preview, tap to open" (the video exists but cannot be previewed) |
+| Offline, timeout, 5xx, 429 | "Couldn't load preview, tap to open". Never shown as "unavailable": a network problem says nothing about the video. |
+| Re-check | A good answer is trusted for 6 h, "unavailable" for 1 h, an error for 30 s. A video deleted later turns into the unavailable card the next time its message is shown after that. |
+| Privacy | The phone contacts YouTube only for messages that contain a YouTube link, the same as opening the link would. |
+| Shipping | JavaScript only: no new APK, no version bump. After PR #16 is merged and the 7.6.0 APK is installed: `eas update --channel preview --message "YouTube link previews"` |
+
+Phone test (about 3 minutes):
+
+| # | Do | Expect |
+|---|----|--------|
+| 1 | Send yourself `https://youtu.be/dQw4w9WgXcQ` | Card appears under the text within a few seconds |
+| 2 | Send a Shorts link (`youtube.com/shorts/...`) | Card with a "Short" badge |
+| 3 | Send "watch this https://youtu.be/dQw4w9WgXcQ lol" | Text stays, card below |
+| 4 | Tap the card | YouTube opens on that video |
+| 5 | Long-press the card | The normal message menu (reply, delete) |
+| 6 | Send `https://youtu.be/aaaaaaaaaaa` (no such video) | "Video unavailable", not tappable |
+| 7 | Airplane mode, then send a new YouTube link | "Couldn't load preview, tap to open". Turn airplane mode off, wait 30 s, reopen the chat: the card loads |
+| 8 | Delete a message with a card for everyone | The card goes with it |
+
+Not built: in-app reels (SYPH has no reels feature), Instagram and other site previews (other sites need a server to read their pages; Instagram was parked), a card for every link in a message.
