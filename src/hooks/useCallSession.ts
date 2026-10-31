@@ -25,10 +25,17 @@ import {
   subscribeMediaState,
   subscribeRemoteCandidates,
 } from '../services/callService';
-import { setCallSpeaker, startCallAudio, stopCallAudio } from '../services/callAudio';
+import {
+  chooseCallRoute,
+  ensureBluetoothAccess,
+  onAudioRouteChange,
+  startCallAudio,
+  stopCallAudio,
+} from '../services/callAudio';
 import { notifyCall } from '../services/pushSender';
 import { getIceServers, getWebRTC, PeerEvents } from '../services/webrtc';
 import { Call, CallCandidate, CallStatus, CallType } from '../types';
+import { AudioRoute, nextRoute, RouteState } from '../utils/audioRoute';
 import {
   CallEndReason,
   DEFAULT_MEDIA_STATE,
@@ -80,7 +87,7 @@ export function useCallSession({ callId, outgoing, me }: Params) {
   const [cameraOff, setCameraOff] = useState(false);
   const [remoteMedia, setRemoteMedia] = useState<MediaState>(DEFAULT_MEDIA_STATE);
   const [frontCamera, setFrontCamera] = useState(true);
-  const [speakerOn, setSpeakerOn] = useState(false);
+  const [audioRoute, setAudioRoute] = useState<AudioRoute>('earpiece');
   const [reconnecting, setReconnecting] = useState(false);
   const [seconds, setSeconds] = useState(0);
 
@@ -104,7 +111,8 @@ export function useCallSession({ callId, outgoing, me }: Params) {
     let remoteDescriptionSet = false;
     let answeringStarted = false;
     let connectedOnce = false;
-    let speaker = false; // where audio currently comes out
+    let routes: RouteState = { available: [], selected: null }; // where audio can come out, as the phone reported it
+    let stopRouteUpdates: (() => void) | null = null;
     let audioRouted = false; // true once this call has taken over audio routing, so it is handed back afterwards
     let cameraIsOff = false; // mirror the camera / mute state for code that runs outside React
     let micMuted = false;
@@ -127,6 +135,8 @@ export function useCallSession({ callId, outgoing, me }: Params) {
     };
 
     const releaseMedia = () => {
+      stopRouteUpdates?.();
+      stopRouteUpdates = null;
       if (audioRouted) {
         audioRouted = false;
         stopCallAudio();
@@ -248,8 +258,14 @@ export function useCallSession({ callId, outgoing, me }: Params) {
 
       // Voice calls start on the earpiece and video calls on the speaker (see defaultSpeakerOn); the audio library's
       // "auto" mode does the same, and also follows a headset being plugged in.
-      speaker = defaultSpeakerOn(type);
-      setSpeakerOn(speaker);
+      setAudioRoute(defaultSpeakerOn(type) ? 'speaker' : 'earpiece');
+      // Android 12+ hides Bluetooth earphones from an app that has not been allowed to use them, so ask first.
+      await ensureBluetoothAccess();
+      if (disposed) return false;
+      stopRouteUpdates = onAudioRouteChange((state) => {
+        routes = state;
+        if (state.selected) setAudioRoute(state.selected);
+      });
       audioRouted = startCallAudio(type);
 
       const peer = new WebRTC.RTCPeerConnection({ iceServers: getIceServers() });
@@ -443,12 +459,13 @@ export function useCallSession({ callId, outgoing, me }: Params) {
         setCameraOff(nextOff);
         shareMediaState();
       },
+      // Steps through the routes the phone can use: earphones (Bluetooth or wired), speaker, earpiece.
       toggleSpeaker: () => {
-        const wanted = !speaker;
-        // If the system refuses (or there is no audio module), keep showing what is really happening.
-        if (!setCallSpeaker(wanted)) return;
-        speaker = wanted;
-        setSpeakerOn(wanted);
+        const next = nextRoute(routes);
+        // Nothing else to switch to, or no audio module: keep showing what is really happening.
+        if (!next || !chooseCallRoute(next)) return;
+        routes = { ...routes, selected: next };
+        setAudioRoute(next);
       },
       switchCamera: () => {
         const track = stream?.getVideoTracks()[0];
@@ -509,7 +526,7 @@ export function useCallSession({ callId, outgoing, me }: Params) {
     remoteCameraOff: remoteMedia.cameraOff,
     remoteMuted: remoteMedia.muted,
     frontCamera,
-    speakerOn,
+    audioRoute,
     reconnecting,
     seconds,
     hangUp,

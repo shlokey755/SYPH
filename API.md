@@ -194,10 +194,21 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 - No "missed call" line in the chat history yet.
 - Muted: when the other person mutes their microphone, a small muted-microphone icon appears. In a video call it sits at the bottom-left over their video; if their camera is off, or it is a voice call, it sits on their profile circle instead. It travels in the same per-person document as the camera state (`calls/{id}/media/{uid}`), so it needs the same rules from 1.1. Your own mute is shown by the highlighted Mute button.
 - Camera off: when someone turns their camera off in a video call, both screens stop showing the video. The other person sees an opaque screen with that person's username and "Camera off", and the person sees their own small preview replaced by an opaque tile with their username. The camera state travels as one tiny document per person (`calls/{id}/media/{uid}`), so it needs the rules from 1.1.
-- Speaker/earpiece: voice calls start on the earpiece and video calls on the loudspeaker, with a toggle on the call screen. It uses `react-native-incall-manager` (react-native-webrtc has no audio routing), which is a native module, so it needs a **new development build** and is **unverified on a device**. It also switches to a wired or Bluetooth headset when one is connected and turns the screen off when a voice call is held to the ear. Bluetooth routing on Android 12+ needs the BLUETOOTH_CONNECT permission, which the app does not request yet, so a Bluetooth headset may not be picked up.
+- Audio route (speaker, earpiece, earphones): voice calls start on the earpiece and video calls on the loudspeaker. The audio button on the call screen steps through what the phone can use right now: Bluetooth earphones, a wired headset, speaker, earpiece (the icon shows which). Earphones that are already connected are used automatically, and the button follows them being plugged in or paired during the call. It works the same in 1-to-1 and group calls, voice and video. It uses `react-native-incall-manager`, which is a native module, so it needs a **new development build or APK**, and it is **unverified on a device**. **Bluetooth earphones need the Android 12+ "Nearby devices" permission** (`BLUETOOTH_CONNECT`): `app.json` now declares it and the app asks once when a call starts. That permission is part of the app manifest, so it needs a new APK (raise `version`); the button itself can go out with `eas update`, but Bluetooth stays missing on an older APK. If you tap "Not now", wired headsets, speaker and earpiece still work; allow it later in Android Settings > Apps > SYPH > Permissions > Nearby devices.
 - TURN credentials in `EXPO_PUBLIC_*` ship inside the app, so anyone who unpacks it can use your TURN server. Fine for testing; for production have the relay hand out short-lived credentials instead.
 - **Not verified on a device.** The signalling logic and call-state rules are unit tested (`npm run test:unit`, `cd server && npm test`), the app bundles, and the Firestore rules for calls are written but not run against the emulator. Whether audio/video actually connects on react-native-webrtc 124 with React Native 0.86 needs a real two-phone test.
 - Web is not a supported target of this project (it has no `react-native-web` dependency), and calls are not available there.
+
+**Earphone test (new build; Bluetooth earphones and, if you have them, a wired headset)**
+
+| # | Do this | Expect |
+|---|---------|--------|
+| 1 | Connect Bluetooth earphones, then start a voice call | Android asks to allow "Nearby devices": Allow. Sound comes out of the earphones within a few seconds, and the audio button shows the Bluetooth icon |
+| 2 | Tap the audio button | Sound moves to the speaker, then the earpiece, then back to the earphones. The icon changes each time |
+| 3 | Start a video call with the earphones already connected | Sound goes to the earphones, not the loudspeaker |
+| 4 | Plug in a wired headset during a call, then unplug it | Sound moves to the headset, then back to the earpiece or speaker |
+| 5 | Repeat 1 and 2 in a group call | Same results |
+| 6 | Tap "Not now" on the permission (clear the app's data to see it again) | The call works; Bluetooth earphones are not offered, wired ones still are |
 
 ### 1.8 Accounts: email sign-in, password reset, names (FR-01, FR-02)
 

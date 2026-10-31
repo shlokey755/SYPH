@@ -56,7 +56,7 @@ Extras done on the way: speaker toggle, camera-off panel with username, muted ic
 | Push notifications while closed | Built: the sender's phone sends it, no server. Needs an Android build, an FCM V1 key and the rules (API.md 1.5). The `server/` relay is optional and unused |
 | Typing indicator | Built (API.md 1.9) |
 | Offline banner, queued sends (NFR-07) | Built |
-| Audio and video calls (FR-06) | Built, 1-to-1, speaker toggle, camera-off panel, muted icon. Needs a dev build or APK. No TURN, so some networks cannot connect (API.md 1.7) |
+| Audio and video calls (FR-06) | Built, 1-to-1, audio button that steps through Bluetooth earphones, wired headset, speaker and earpiece (needs the new APK for Bluetooth, API.md 1.7), camera-off panel, muted icon. Needs a dev build or APK. No TURN, so some networks cannot connect (API.md 1.7) |
 | Group voice and video calls | Built (PR #7), mesh of up to 4 video / 6 voice, Join bar, ring and push. Untested on phones (API.md 1.10) |
 | Live location | **Not on main.** Built in PR #11 (`claude/phase-5-location`), paused by the owner to be continued in a later update |
 | Google and phone sign-in (FR-01) | **Not built** (API.md section 3) |
