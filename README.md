@@ -34,7 +34,7 @@
 |  **Chat** | One-to-one and group chats in real time. Reply, forward, copy, and delete for me or for everyone. Typing indicator and in-chat search. |
 |  **Receipts** | Sent, delivered and read, shown on every message. |
 |  **GIFs** | Built-in Giphy picker (needs a free Giphy key). |
-|  **Link previews** | YouTube and Shorts links turn into cards (thumbnail, title, channel). A removed video shows "Video unavailable". Free, no key. |
+|  **Link previews** | YouTube and Shorts links turn into cards (thumbnail, title, channel) that play in an in-app pop-up. A removed video shows "Video unavailable". Free, no key. |
 |  **Calls** | One-to-one audio and video with a speaker toggle. Group calls with up to 4 on video or 6 on voice. |
 |  **Notifications** | Push alerts while the app is closed, per-chat mute and a global switch. |
 |  **Themes** | Six themes saved to your profile. The app icon follows your theme on Android. |

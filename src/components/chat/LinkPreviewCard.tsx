@@ -1,17 +1,19 @@
 /**
  * LinkPreviewCard.tsx
  * A card under a text message that contains a YouTube or YouTube Shorts link: thumbnail, title and channel while the
- * video exists, and a muted "Video unavailable" card once it is gone. Tapping opens YouTube (app or browser).
+ * video exists, and a muted "Video unavailable" card once it is gone. Tapping a card with a preview plays the video in
+ * an in-app pop-up (VideoPlayerModal); a video that cannot be previewed opens YouTube (app or browser) instead.
  * Long-press is passed through so the message menu still works on the card.
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ThemeColors } from '../../hooks/themeContext';
 import { useLinkPreview } from '../../hooks/useLinkPreview';
 import { extractYouTube, YouTubeLink } from '../../utils/linkPreview';
+import { VideoPlayerModal } from './VideoPlayerModal';
 
 interface Props {
   text: string;
@@ -58,14 +60,17 @@ function Note({
 function LinkPreviewCardBase({ text, isMine, colors, onLongPress }: Props) {
   const link: YouTubeLink | null = useMemo(() => extractYouTube(text), [text]);
   const preview = useLinkPreview(link);
+  const [playing, setPlaying] = useState(false);
   if (!link) return null;
 
   const textColor = isMine ? colors.buttonText : colors.text;
   const subColor = isMine ? colors.buttonText : colors.subText;
   const background = isMine ? 'rgba(0,0,0,0.15)' : colors.inputBg;
-  const open = () => {
+  const openYouTube = () => {
     Linking.openURL(link.openUrl).catch(() => {});
   };
+  // A video with a good preview plays right here; one that cannot be previewed goes to YouTube itself.
+  const open = preview.state === 'ok' ? () => setPlaying(true) : openYouTube;
   // A video that is gone has nothing to open, so the card stops being a button (long-press still works).
   const gone = preview.state === 'unavailable';
 
@@ -150,18 +155,23 @@ function LinkPreviewCardBase({ text, isMine, colors, onLongPress }: Props) {
   }
 
   return (
-    <Pressable
-      onPress={gone ? undefined : open}
-      onLongPress={onLongPress}
-      delayLongPress={250}
-      accessibilityRole={gone ? undefined : 'link'}
-      accessibilityLabel={
-        preview.state === 'ok' ? `YouTube: ${preview.title}` : gone ? 'Video unavailable' : 'YouTube link'
-      }
-      style={[styles.card, { backgroundColor: background }, gone && styles.gone]}
-    >
-      {body}
-    </Pressable>
+    <>
+      <Pressable
+        onPress={gone ? undefined : open}
+        onLongPress={onLongPress}
+        delayLongPress={250}
+        accessibilityRole={gone ? undefined : preview.state === 'ok' ? 'button' : 'link'}
+        accessibilityLabel={
+          preview.state === 'ok' ? `Play: ${preview.title}` : gone ? 'Video unavailable' : 'YouTube link'
+        }
+        style={[styles.card, { backgroundColor: background }, gone && styles.gone]}
+      >
+        {body}
+      </Pressable>
+      {playing && preview.state === 'ok' && (
+        <VideoPlayerModal link={link} title={preview.title} colors={colors} onClose={() => setPlaying(false)} />
+      )}
+    </>
   );
 }
 

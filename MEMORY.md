@@ -53,7 +53,7 @@ Extras done on the way: speaker toggle, camera-off panel with username, muted ic
 | Themes | Built |
 | In-chat search, per-chat mute, global notification switch | Built (search covers loaded messages only) |
 | Media: GIFs only (photos, video, voice, documents, stickers, profile photos and status were removed on purpose) | Built, needs a free Giphy key for the picker (API.md 1.2, 1.4) |
-| Link previews: YouTube and Shorts cards, free oEmbed, "Video unavailable" state for dead links | Built (JavaScript only, no key needed, API.md section 4) |
+| Link previews: YouTube and Shorts cards that play in an in-app pop-up (web view), free oEmbed, "Video unavailable" state for dead links | Built (JavaScript only, no key needed, API.md section 4) |
 | Push notifications while closed | Built: the sender's phone sends it, no server. Needs an Android build, an FCM V1 key and the rules (API.md 1.5). The `server/` relay is optional and unused |
 | Typing indicator | Built (API.md 1.9) |
 | Offline banner, queued sends (NFR-07) | Built |
