@@ -151,6 +151,7 @@ In-app toasts and unread badges work everywhere, including Expo Go. Alerts while
 | FCM credentials (Android) | Firebase Console > Project settings > Service accounts > Generate new private key, then `eas credentials` > Android > Google Service Account Key for FCM V1 and upload it. Guide: https://docs.expo.dev/push-notifications/fcm-credentials/ . Without this the build installs fine but no push arrives. | Free |
 | Allow notifications | Both people sign in once on the new build and accept the notification permission (Android 13+ asks). The app saves the device at that point. | Free |
 | Phone settings | On some phones (Xiaomi, Oppo, Vivo, Samsung power saving) set SYPH battery use to "Unrestricted" or allow auto-start, otherwise the system kills delivery when the app is closed. | Free |
+| Notification icon | The small icon in the status bar and in the notification is `assets/images/notification-icon.png`, made from `favicon5.png`. Android uses only its shape (it must be white on transparent, 96x96); the status bar draws it white or grey by itself, and in the pulled-down shade it takes the `color` of the `expo-notifications` entry in `app.json` (black). Changing either needs a new APK. Without an icon Android shows the app's launcher icon instead. | Free |
 
 **Limits of the free approach (accepted trade-offs)**
 - The *sender's* phone must be online at the moment of sending. A message written offline is pushed when it finally uploads.
