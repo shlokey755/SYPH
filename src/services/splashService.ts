@@ -15,10 +15,23 @@ import { SPLASH_MAX_WAIT_MS } from '../utils/splash';
 export const splashStartedAt = Date.now();
 
 let hidden = false;
+const hiddenListeners = new Set<() => void>();
+
+export function isSplashHidden(): boolean {
+  return hidden;
+}
+
+export function subscribeSplashHidden(listener: () => void): () => void {
+  hiddenListeners.add(listener);
+  return () => {
+    hiddenListeners.delete(listener);
+  };
+}
 
 export function hideSplash(): void {
   if (hidden) return;
   hidden = true;
+  hiddenListeners.forEach((listener) => listener());
   try {
     SplashScreen.hide();
   } catch (error) {

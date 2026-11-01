@@ -139,6 +139,8 @@ const STORAGE_KEY = 'syph.theme';
 
 interface ThemeContextType {
   selectedTheme: ThemeOption;
+  /** True once the theme saved on this device has been read. The splash waits for it so the colours never switch after it. */
+  isReady: boolean;
   themeColors: ThemeColors;
   setTheme: (theme: ThemeOption) => void;
 }
@@ -151,6 +153,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const profileTheme = currentUser?.theme;
 
   const [selectedTheme, setSelectedTheme] = useState<ThemeOption>(DEFAULT_THEME);
+  const [isReady, setIsReady] = useState(false);
   const profileAppliedFor = useRef<string | null>(null);
 
   // Device cache: gives the right theme immediately on launch, before the profile has loaded.
@@ -159,7 +162,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       .then((stored) => {
         if (isThemeOption(stored) && profileAppliedFor.current === null) setSelectedTheme(stored);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setIsReady(true));
   }, []);
 
   // Profile wins after sign-in (applied once per sign-in, not on every profile update).
@@ -188,8 +192,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const value = useMemo(
-    () => ({ selectedTheme, themeColors: themeSchemes[selectedTheme], setTheme }),
-    [selectedTheme, setTheme]
+    () => ({ selectedTheme, isReady, themeColors: themeSchemes[selectedTheme], setTheme }),
+    [selectedTheme, isReady, setTheme]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

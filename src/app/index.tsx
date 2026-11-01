@@ -3,12 +3,15 @@
 //   signed in                        -> tabs
 //   signed out, first launch         -> onboarding
 //   signed out, onboarding already seen -> login
+// The native splash stays up until this has navigated (markStartupRouted), so the spinner below is only ever seen if
+// the splash time limit is reached first.
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useTheme } from '../hooks/themeContext';
 import { useAuth } from '../hooks/useAuth';
 import { hasSeenOnboarding } from '../services/onboarding';
+import { markStartupRouted } from '../services/startupRoute';
 
 export default function Index() {
   const router = useRouter();
@@ -20,6 +23,7 @@ export default function Index() {
 
     if (currentUser) {
       router.replace('/(tabs)');
+      markStartupRouted();
       return;
     }
 
@@ -27,6 +31,7 @@ export default function Index() {
     hasSeenOnboarding().then((seen) => {
       if (cancelled) return;
       router.replace(seen ? '/(auth)/login' : '/onboarding');
+      markStartupRouted();
     });
     return () => {
       cancelled = true;

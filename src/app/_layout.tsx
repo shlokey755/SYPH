@@ -6,6 +6,7 @@ import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { ThemeProvider, useTheme } from '../hooks/themeContext';
+import { StartupStack } from '../components/StartupStack';
 import { ToastProvider } from '../hooks/toastNotifications';
 import { AuthProvider, useAuth } from '../hooks/useAuth';
 import { ConversationsProvider } from '../hooks/useConversations';
@@ -33,12 +34,7 @@ function RootNav() {
   return (
     <>
       <StatusBar barStyle={themeColors.isDark ? 'light-content' : 'dark-content'} />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: themeColors.background },
-        }}
-      >
+      <StartupStack>
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(auth)" />
@@ -47,7 +43,7 @@ function RootNav() {
         {/* No swipe-back: leaving the call screen hangs up, so it should only happen on purpose. */}
         <Stack.Screen name="call/[id]" options={{ gestureEnabled: false, animation: 'slide_from_bottom' }} />
         <Stack.Screen name="group-call/[id]" options={{ gestureEnabled: false, animation: 'slide_from_bottom' }} />
-      </Stack>
+      </StartupStack>
     </>
   );
 }

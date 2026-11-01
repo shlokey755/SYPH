@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { SPLASH_MAX_WAIT_MS, SPLASH_MIN_VISIBLE_MS, splashHideDelay } from '../../src/utils/splash.ts';
+import {
+  firstScreenChosen,
+  isIndexRoute,
+  SPLASH_MAX_WAIT_MS,
+  SPLASH_MIN_VISIBLE_MS,
+  SPLASH_SETTLE_MS,
+  splashHideDelay,
+} from '../../src/utils/splash.ts';
 
 const START = 1_000_000;
 
@@ -12,12 +19,18 @@ test('waits while the app is not ready', () => {
 
 test('a fast start still shows the logo for the minimum time', () => {
   assert.equal(splashHideDelay({ startedAt: START, now: START + 100, ready: true }), SPLASH_MIN_VISIBLE_MS - 100);
+  assert.equal(splashHideDelay({ startedAt: START, now: START + 600, ready: true }), SPLASH_SETTLE_MS);
   assert.equal(splashHideDelay({ startedAt: START, now: START, ready: true }), SPLASH_MIN_VISIBLE_MS);
 });
 
-test('hides at once when the minimum time has already passed', () => {
-  assert.equal(splashHideDelay({ startedAt: START, now: START + SPLASH_MIN_VISIBLE_MS, ready: true }), 0);
-  assert.equal(splashHideDelay({ startedAt: START, now: START + 3_000, ready: true }), 0);
+test('once the minimum time has passed it still waits a moment so the first screen is drawn', () => {
+  assert.equal(splashHideDelay({ startedAt: START, now: START + SPLASH_MIN_VISIBLE_MS, ready: true }), SPLASH_SETTLE_MS);
+  assert.equal(splashHideDelay({ startedAt: START, now: START + 3_000, ready: true }), SPLASH_SETTLE_MS);
+});
+
+test('the settle time is short and never later than the maximum wait', () => {
+  assert.ok(SPLASH_SETTLE_MS > 0 && SPLASH_SETTLE_MS <= 250);
+  assert.ok(SPLASH_MIN_VISIBLE_MS + SPLASH_SETTLE_MS < SPLASH_MAX_WAIT_MS);
 });
 
 test('hides after the maximum wait even when the app never becomes ready', () => {
@@ -31,7 +44,8 @@ test('a clock that moved backwards does not break the answer', () => {
 });
 
 test('limits can be overridden', () => {
-  assert.equal(splashHideDelay({ startedAt: 0, now: 50, ready: true, minVisibleMs: 200 }), 150);
+  assert.equal(splashHideDelay({ startedAt: 0, now: 50, ready: true, minVisibleMs: 400, settleMs: 20 }), 350);
+  assert.equal(splashHideDelay({ startedAt: 0, now: 50, ready: true, minVisibleMs: 60, settleMs: 20 }), 20);
   assert.equal(splashHideDelay({ startedAt: 0, now: 600, ready: false, maxWaitMs: 500 }), 0);
 });
 
@@ -69,4 +83,24 @@ test('the splash image is a square PNG with transparent margins, so Android 12 d
   assert.equal(width, height, 'the splash image must be square');
   assert.ok(width >= 1024, 'the splash image should be at least 1024 px');
   assert.equal(colorType, 6, 'the splash image needs an alpha channel (RGBA) for its transparent margin');
+});
+
+test('the entry route is recognised, other screens are not', () => {
+  assert.equal(isIndexRoute([]), true);
+  assert.equal(isIndexRoute(['index']), true);
+  assert.equal(isIndexRoute(['(tabs)']), false);
+  assert.equal(isIndexRoute(['onboarding']), false);
+  assert.equal(isIndexRoute(['chat', '[id]']), false);
+});
+
+test('the splash waits for the entry route to navigate, but not when the app opens on another screen', () => {
+  assert.equal(firstScreenChosen({ onIndexRoute: true, routed: false }), false);
+  assert.equal(firstScreenChosen({ onIndexRoute: true, routed: true }), true);
+  // Opened from a link or a notification straight onto a chat: the entry route never shows, so nothing is awaited.
+  assert.equal(firstScreenChosen({ onIndexRoute: false, routed: false }), true);
+});
+
+test('the window behind the app is black, so no white frame can show between the splash and the first screen', () => {
+  const config = JSON.parse(readFileSync('app.json', 'utf8'));
+  assert.equal(String(config.expo.backgroundColor).toLowerCase(), '#000000');
 });
