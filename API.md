@@ -186,7 +186,7 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 - Ringing lasts 45 s, then the call is marked missed. A ringing call older than 75 s is ignored, so a caller whose app died never rings forever.
 - A dropped connection gets 15 s to recover before the call ends.
 - If you are on a call, a second caller is declined and you get a toast.
-- Push notifications for calls honour the account-wide notification switch but **not** per-chat mute.
+- Push notifications for calls honour the account-wide switch (Me tab > Notifications > "Mute all messages", when it is on no call alert arrives while SYPH is closed) but **not** per-chat mute.
 - Leaving the call screen hangs up.
 
 **Known limits**
