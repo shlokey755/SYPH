@@ -191,9 +191,9 @@ export default function MeTab() {
         <Text style={[styles.sectionTitle, { color: themeColors.subText }]}>Notifications</Text>
         <View style={[styles.switchRow, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.border }]}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.switchLabel, { color: themeColors.text }]}>Message notifications</Text>
+            <Text style={[styles.switchLabel, { color: themeColors.text }]}>Mute all messages</Text>
             <Text style={{ color: themeColors.subText, fontSize: 12 }}>
-              Mute a single chat from its header bell.
+              Silences message alerts, and call alerts while SYPH is closed. To mute one chat, use the bell in its header.
             </Text>
             {!isPushSupported() && (
               <Text style={{ color: themeColors.subText, fontSize: 12, marginTop: 4 }}>
@@ -201,9 +201,10 @@ export default function MeTab() {
               </Text>
             )}
           </View>
+          {/* The stored setting is "notifications enabled", so the switch shows the opposite: on means muted. */}
           <Switch
-            value={settings.notificationsEnabled}
-            onValueChange={handleToggleNotifications}
+            value={!settings.notificationsEnabled}
+            onValueChange={(muted) => handleToggleNotifications(!muted)}
             trackColor={{ true: themeColors.accent, false: themeColors.border }}
           />
         </View>
