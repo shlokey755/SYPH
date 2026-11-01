@@ -4,8 +4,8 @@
  * (rules in utils/splash.ts, the hard time limit lives in services/splashService.ts).
  */
 
-import { useEffect } from 'react';
-import { hideSplash, splashStartedAt } from '../services/splashService';
+import { useEffect, useSyncExternalStore } from 'react';
+import { hideSplash, isSplashHidden, splashStartedAt, subscribeSplashHidden } from '../services/splashService';
 import { splashHideDelay } from '../utils/splash';
 
 export function useSplashGate(ready: boolean): void {
@@ -19,4 +19,9 @@ export function useSplashGate(ready: boolean): void {
     const timer = setTimeout(hideSplash, delay);
     return () => clearTimeout(timer);
   }, [ready]);
+}
+
+/** True once the splash is gone. Screen transitions are switched off until then (see _layout.tsx). */
+export function useSplashHidden(): boolean {
+  return useSyncExternalStore(subscribeSplashHidden, isSplashHidden, isSplashHidden);
 }

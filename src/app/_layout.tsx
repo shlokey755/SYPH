@@ -1,23 +1,39 @@
 // src/app/_layout.tsx
-import { Stack } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
+import { Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'react-native';
 import { ThemeProvider, useTheme } from '../hooks/themeContext';
 import { ToastProvider } from '../hooks/toastNotifications';
 import { AuthProvider, useAuth } from '../hooks/useAuth';
 import { ConversationsProvider } from '../hooks/useConversations';
 import { IncomingCallsProvider } from '../hooks/useIncomingCalls';
-import { useSplashGate } from '../hooks/useSplashGate';
+import { useSplashGate, useSplashHidden } from '../hooks/useSplashGate';
 import { UserSettingsProvider } from '../hooks/useUserSettings';
 import { keepSplashVisible } from '../services/splashService';
+import { useStartupRouted } from '../services/startupRoute';
+import { firstScreenChosen, isIndexRoute } from '../utils/splash';
 
 // In global scope on purpose: the native splash stays up until the app is ready (see utils/splash.ts), and this must run
 // before the first render, otherwise the splash can already be gone.
 keepSplashVisible();
 
 function RootNav() {
-  const { themeColors } = useTheme();
+  const { themeColors, isReady: themeReady } = useTheme();
   const { isLoading } = useAuth();
-  useSplashGate(!isLoading);
+  const segments = useSegments();
+  const routed = useStartupRouted();
+  // Icons draw blank until their font is loaded, so it is loaded here, before the splash goes. A failed load must not
+  // block the app: the icons are then missing, which is what would have happened anyway.
+  const [fontsLoaded, fontError] = useFonts(Ionicons.font);
+
+  // The splash goes only when nothing can change on screen afterwards: signed-in state known, saved theme read, icon
+  // font loaded and the first real screen already open underneath (rules and time limits in utils/splash.ts).
+  const firstScreenReady = firstScreenChosen({ onIndexRoute: isIndexRoute(segments), routed });
+  useSplashGate(!isLoading && themeReady && (fontsLoaded || fontError != null) && firstScreenReady);
+
+  // The hand-off to the first screen happens under the splash, so it must not slide or fade in while the splash goes.
+  const splashHidden = useSplashHidden();
 
   return (
     <>
@@ -25,6 +41,7 @@ function RootNav() {
       <Stack
         screenOptions={{
           headerShown: false,
+          animation: splashHidden ? 'default' : 'none',
           contentStyle: { backgroundColor: themeColors.background },
         }}
       >
