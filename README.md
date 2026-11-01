@@ -64,7 +64,7 @@
   </tr>
 </table>
 
->  **These are placeholders.** To add real screenshots, replace the PNG files in [`docs/screenshots/`](docs/screenshots) with the same file names (around 1080 × 2340 works well). The README needs no edit.
+
 
 ##  Quick start
 
