@@ -317,7 +317,7 @@ A text message with a YouTube or Shorts link gets a card under the text: thumbna
 | Playing | The pop-up uses YouTube's own embedded player inside a web view (free, no key). Close it with X, a tap outside, or Back (the sound stops). "Open in YouTube" is always in it. A card with no preview (401 / 403, offline) still opens YouTube itself. |
 | Player limits | Some owners switch embedding off. YouTube also refuses embeds that do not identify the app (error 153), so the player page is loaded with `https://com.syph.chat` as its origin; this is **unverified on a phone**. When a video cannot play, the pop-up says why and offers "Open in YouTube". No fullscreen button (it cannot work inside a pop-up): the pop-up fills the screen width instead. |
 | Privacy | The phone contacts YouTube only for messages that contain a YouTube link, the same as opening the link would. |
-| Shipping | JavaScript only: no new APK, no version bump. It needs the web view that PR #16 adds (`react-native-webview`, already in the 7.6.0 APK), so after #16 is merged and the 7.6.0 APK is installed: `eas update --channel preview --message "YouTube link previews"` |
+| Shipping | JavaScript only: no new APK, nothing to raise. It needs the web view that PR #16 adds (`react-native-webview`, already in the new APK), so after #16 is merged and that APK is installed: `eas update --channel preview --message "YouTube link previews"` |
 
 Phone test (about 3 minutes):
 
