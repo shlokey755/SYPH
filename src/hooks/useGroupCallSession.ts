@@ -12,7 +12,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MediaStream } from 'react-native-webrtc';
-import { setCallSpeaker, startCallAudio, stopCallAudio } from '../services/callAudio';
+import {
+  chooseCallRoute,
+  ensureBluetoothAccess,
+  onAudioRouteChange,
+  startCallAudio,
+  stopCallAudio,
+} from '../services/callAudio';
 import {
   beatPeer,
   beatPointer,
@@ -29,6 +35,7 @@ import {
 import { notifyGroupCall } from '../services/pushSender';
 import { getIceServers, getWebRTC, PeerEvents } from '../services/webrtc';
 import { CallType } from '../types';
+import { AudioRoute, nextRoute, RouteState } from '../utils/audioRoute';
 import { defaultSpeakerOn } from '../utils/call';
 import { canJoin, createPresenceTracker, GroupEndReason, PEER_BEAT_MS, POINTER_BEAT_MS } from '../utils/groupCall';
 import { createMesh, MeshPeerInfo, PeerConnectionLike } from '../utils/groupMesh';
@@ -73,7 +80,7 @@ export function useGroupCallSession({ conversationId, conversation, callId, type
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [frontCamera, setFrontCamera] = useState(true);
-  const [speakerOn, setSpeakerOn] = useState(false);
+  const [audioRoute, setAudioRoute] = useState<AudioRoute>('earpiece');
   const [seconds, setSeconds] = useState(0);
 
   const controlsRef = useRef<{
@@ -102,7 +109,8 @@ export function useGroupCallSession({ conversationId, conversation, callId, type
     let stream: MediaStream | null = null;
     let cameraIsOff = false;
     let micMuted = false;
-    let speaker = false;
+    let routes: RouteState = { available: [], selected: null };
+    let stopRouteUpdates: (() => void) | null = null;
     let audioRouted = false;
     let lastPointerBeat = 0;
     let beatTimer: ReturnType<typeof setInterval> | null = null;
@@ -158,6 +166,8 @@ export function useGroupCallSession({ conversationId, conversation, callId, type
       mesh?.close();
       mesh = null;
       unsubs.splice(0).forEach((unsub) => unsub());
+      stopRouteUpdates?.();
+      stopRouteUpdates = null;
       if (audioRouted) {
         audioRouted = false;
         stopCallAudio();
@@ -269,8 +279,14 @@ export function useGroupCallSession({ conversationId, conversation, callId, type
         return false;
       }
       setLocalStream(stream);
-      speaker = defaultSpeakerOn(wantedType);
-      setSpeakerOn(speaker);
+      setAudioRoute(defaultSpeakerOn(wantedType) ? 'speaker' : 'earpiece');
+      // Android 12+ hides Bluetooth earphones from an app that has not been allowed to use them, so ask first.
+      await ensureBluetoothAccess();
+      if (disposed) return false;
+      stopRouteUpdates = onAudioRouteChange((state) => {
+        routes = state;
+        if (state.selected) setAudioRoute(state.selected);
+      });
       audioRouted = startCallAudio(wantedType);
       return true;
     };
@@ -427,11 +443,12 @@ export function useGroupCallSession({ conversationId, conversation, callId, type
         setCameraOff(nextOff);
         shareMedia();
       },
+      // Steps through the routes the phone can use: earphones (Bluetooth or wired), speaker, earpiece.
       toggleSpeaker: () => {
-        const wanted = !speaker;
-        if (!setCallSpeaker(wanted)) return;
-        speaker = wanted;
-        setSpeakerOn(wanted);
+        const next = nextRoute(routes);
+        if (!next || !chooseCallRoute(next)) return;
+        routes = { ...routes, selected: next };
+        setAudioRoute(next);
       },
       switchCamera: () => {
         const track = stream?.getVideoTracks()[0];
@@ -480,7 +497,7 @@ export function useGroupCallSession({ conversationId, conversation, callId, type
     muted,
     cameraOff,
     frontCamera,
-    speakerOn,
+    audioRoute,
     seconds,
     hangUp,
     toggleMute,

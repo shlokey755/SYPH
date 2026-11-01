@@ -23,6 +23,7 @@ import { useConversations } from '../../hooks/useConversations';
 import { useGroupCallSession } from '../../hooks/useGroupCallSession';
 import { useIncomingCalls } from '../../hooks/useIncomingCalls';
 import { CallType } from '../../types';
+import { routeIcon, routeLabel } from '../../utils/audioRoute';
 import { formatCallClock } from '../../utils/call';
 import { groupEndReasonText, gridLayout, participantCountLabel, tileMode } from '../../utils/groupCall';
 
@@ -159,9 +160,9 @@ export default function GroupCallScreen() {
               onPress={session.toggleMute}
             />
             <ControlButton
-              icon={session.speakerOn ? 'volume-high' : 'ear'}
-              label={session.speakerOn ? 'Switch to earpiece' : 'Switch to speaker'}
-              active={session.speakerOn}
+              icon={routeIcon(session.audioRoute)}
+              label={`Sound: ${routeLabel(session.audioRoute)}. Tap to switch`}
+              active={session.audioRoute !== 'earpiece'}
               onPress={session.toggleSpeaker}
             />
             {isVideo && (

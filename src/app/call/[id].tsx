@@ -21,6 +21,7 @@ import { useCallSession } from '../../hooks/useCallSession';
 import { useIncomingCalls } from '../../hooks/useIncomingCalls';
 import { getWebRTC } from '../../services/webrtc';
 import { CallType } from '../../types';
+import { routeIcon, routeLabel } from '../../utils/audioRoute';
 import { callTiles, endReasonText, formatCallClock, muteIndicator } from '../../utils/call';
 
 /** How long the "Call ended" line stays up before the screen closes by itself. */
@@ -214,9 +215,9 @@ export default function CallScreen() {
               onPress={session.toggleMute}
             />
             <ControlButton
-              icon={session.speakerOn ? 'volume-high' : 'ear'}
-              label={session.speakerOn ? 'Switch to earpiece' : 'Switch to speaker'}
-              active={session.speakerOn}
+              icon={routeIcon(session.audioRoute)}
+              label={`Sound: ${routeLabel(session.audioRoute)}. Tap to switch`}
+              active={session.audioRoute !== 'earpiece'}
               onPress={session.toggleSpeaker}
             />
             {isVideo && (
