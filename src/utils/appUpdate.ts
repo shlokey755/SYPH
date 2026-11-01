@@ -4,14 +4,14 @@
  *   - OTA (expo-updates): new JavaScript and assets, downloaded in the app, no reinstall.
  *   - A new APK: anything native changed, so the person downloads and installs the file. The newest version and the
  *     download link are read from the Firestore document appConfig/latest (edited by hand in the Firebase Console).
- *     Builds are told apart by a hidden build number, never by the version people see.
+ *     Builds are told apart by their build number (versionCode), never by the version people see.
  * No React Native imports, so it is unit tested.
  */
 
 /**
- * The build number of an APK: the `runtimeVersion` in app.json ("1", "2", ...). It is hidden from people (the version
- * they see stays the same) and goes up by one whenever something native changes. Null when it is not a positive whole
- * number, for example in Expo Go or a development build.
+ * The build number of an APK: Android's versionCode. EAS raises it by one on every preview build (eas.json
+ * autoIncrement), people never see it, and the version they see stays the same. Null when it is not a positive whole
+ * number, for example on web.
  */
 export function parseBuild(value: unknown): number | null {
   const text = typeof value === 'number' ? String(value) : typeof value === 'string' ? value.trim() : '';

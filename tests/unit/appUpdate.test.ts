@@ -51,12 +51,11 @@ test('isNewerApk only claims an update for a known, older build', () => {
   assert.equal(isNewerApk(1, null), false);
 });
 
-test('the build number is its own fixed value in app.json, so the visible version can stay put', () => {
-  const config = JSON.parse(readFileSync('app.json', 'utf8')).expo;
-  // A plain string: not the "appVersion" policy, which would tie new APKs and OTA updates to the visible version.
-  assert.equal(typeof config.runtimeVersion, 'string');
-  assert.notEqual(parseBuild(config.runtimeVersion), null, 'runtimeVersion must be a positive whole number such as "1"');
-  assert.equal(config.version, '7.5.5', 'the version people see is meant to stay 7.5.5');
+test('every preview APK gets a higher build number, so the version people see never has to change', () => {
+  // The Update button compares build numbers (Android versionCode). Without autoIncrement it would stay 1 forever.
+  const eas = JSON.parse(readFileSync('eas.json', 'utf8'));
+  assert.equal(eas.build.preview.autoIncrement, true);
+  assert.equal(eas.cli.appVersionSource, 'remote');
 });
 
 test('decideUpdate priorities', () => {

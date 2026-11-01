@@ -105,7 +105,9 @@
       }
     },
     "owner": "shlokey755",
-    "runtimeVersion": "1",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "updates": {
       "url": "https://u.expo.dev/7e0c1857-df34-4098-a4b2-5a4cd4d561de"
     }

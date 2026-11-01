@@ -13,7 +13,7 @@ import { AppConfig, RECHECK_AFTER_MS, UpdateKind, decideUpdate, isNewerApk, pars
 
 export interface AppUpdate {
   kind: UpdateKind;
-  /** The version people see ("7.5.5"), or null if unknown. It never changes between APKs; see installedBuild. */
+  /** The version people see ("7.5.5"), or null if unknown. It stays the same from APK to APK. */
   installedVersion: string | null;
   /** The OTA update running right now (first 8 characters), or null when running the version built into the APK. */
   runningUpdate: string | null;
@@ -38,8 +38,9 @@ export function useAppUpdate(): AppUpdate {
   useEffect(() => subscribeAppConfig(setConfig), []);
 
   const installedVersion = Application.nativeApplicationVersion ?? null;
-  // The hidden build number is the runtime version baked into the APK (app.json "runtimeVersion").
-  const apkNewer = isNewerApk(parseBuild(Updates.runtimeVersion), config);
+  // The build number is Android's versionCode. EAS raises it on every preview build (eas.json autoIncrement), nobody
+  // sees it, and the version people see stays 7.5.5.
+  const apkNewer = isNewerApk(parseBuild(Application.nativeBuildVersion), config);
 
   const check = useCallback(async () => {
     if (!Updates.isEnabled) return;
