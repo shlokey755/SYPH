@@ -2,7 +2,7 @@
   "expo": {
     "name": "SYPH",
     "slug": "SYPH",
-    "version": "7.6.0",
+    "version": "7.5.5",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "syph",
@@ -105,9 +105,7 @@
       }
     },
     "owner": "shlokey755",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1",
     "updates": {
       "url": "https://u.expo.dev/7e0c1857-df34-4098-a4b2-5a4cd4d561de"
     }

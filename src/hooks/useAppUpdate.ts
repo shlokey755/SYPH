@@ -9,11 +9,11 @@ import * as Updates from 'expo-updates';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Linking } from 'react-native';
 import { subscribeAppConfig } from '../services/appConfigService';
-import { AppConfig, RECHECK_AFTER_MS, UpdateKind, decideUpdate, isNewerApk } from '../utils/appUpdate';
+import { AppConfig, RECHECK_AFTER_MS, UpdateKind, decideUpdate, isNewerApk, parseBuild } from '../utils/appUpdate';
 
 export interface AppUpdate {
   kind: UpdateKind;
-  /** The version installed on this phone ("7.6.0"), or null if unknown. */
+  /** The version people see ("7.5.5"), or null if unknown. It never changes between APKs; see installedBuild. */
   installedVersion: string | null;
   /** The OTA update running right now (first 8 characters), or null when running the version built into the APK. */
   runningUpdate: string | null;
@@ -38,7 +38,8 @@ export function useAppUpdate(): AppUpdate {
   useEffect(() => subscribeAppConfig(setConfig), []);
 
   const installedVersion = Application.nativeApplicationVersion ?? null;
-  const apkNewer = isNewerApk(installedVersion, config);
+  // The hidden build number is the runtime version baked into the APK (app.json "runtimeVersion").
+  const apkNewer = isNewerApk(parseBuild(Updates.runtimeVersion), config);
 
   const check = useCallback(async () => {
     if (!Updates.isEnabled) return;

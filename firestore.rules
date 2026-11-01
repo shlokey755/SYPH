@@ -387,7 +387,7 @@ service cloud.firestore {
 
     // Everything else is closed.
     // ---------------- App config ----------------
-    // appConfig/latest names the newest APK ({ latestVersion, apkUrl, notes }) for the Update button in the Me tab.
+    // appConfig/latest names the newest APK ({ latestBuild, apkUrl, notes }) for the Update button in the Me tab.
     // Signed-in users read it; nobody writes it from the app. The owner edits it by hand in the Firebase Console.
     match /appConfig/{docId} {
       allow read: if request.auth != null;

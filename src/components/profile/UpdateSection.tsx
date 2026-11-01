@@ -19,7 +19,7 @@ export function UpdateSection() {
   const label = (() => {
     switch (kind) {
       case 'apk-available':
-        return `Download version ${config?.latestVersion ?? ''}`.trim();
+        return 'Download the new version';
       case 'ota-available':
         return 'Update now';
       case 'ota-ready':

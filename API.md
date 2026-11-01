@@ -51,7 +51,7 @@ Everything the app depends on that lives outside the code: console steps, keys, 
 | 8 | Test on 2-3 phones | Install the APK, sign in on each, allow notifications, set battery to "Unrestricted" (Xiaomi, Oppo, Vivo, Samsung). Then the push test in 1.5, the 9-row group call checklist in 1.10 and the 8-row live location checklist in 1.11 | 30-60 min | Free | Tells me what to fix |
 | 9 | Firestore TTL policies (optional) | Console > Firestore > Indexes > TTL on `expireAt` for collection groups `calls`, `candidates`, `media`, `peers`, `signals` (1.7, 1.10). Without them old call documents just stay | 5 min | Free | Tidy database |
 | 10 | Giphy key (optional) | developers.giphy.com, then `EXPO_PUBLIC_GIPHY_API_KEY` in `.env` (1.2). Without it the GIF picker says "not set up". `.env` is no longer committed, but the old key is in git history: regenerate it on giphy.com if you want it private | 5 min | Free | GIFs |
-| 11 | Set up the Update button | Firebase Console > Firestore Database > Data > Start collection `appConfig`, document id `latest`, fields `latestVersion` (string, e.g. `7.6.0`), `apkUrl` (string, the build's download link) and `notes` (string, optional). Repeat the edit after every new APK (1.12) | 5 min | Free | The button offering new APKs |
+| 11 | Set up the Update button | Firebase Console > Firestore Database > Data > Start collection `appConfig`, document id `latest`, fields `latestBuild` (number: the `runtimeVersion` of the newest APK, `1` for the first one, see 1.12), `apkUrl` (string, the build's download link) and `notes` (string, optional). Repeat the edit after every new APK (1.12) | 5 min | Free | The button offering new APKs |
 
 ### 0.4 Install and build problems on `main` ("build-test", found Oct 26)
 
@@ -318,12 +318,12 @@ The first time you hold the button a tip appears ("Hold the send button to share
 
 ### 1.12 Update button (Me tab)
 
-The **App update** card sits in the Me tab, just under the sign-in email. It shows the installed version. The button is grey until an update exists; then it turns active:
+The **App update** card sits in the Me tab, just under the sign-in email. It shows the installed version, which stays the same from APK to APK (7.5.5): new APKs are told apart by a hidden build number instead (below). The button is grey until an update exists; then it turns active:
 
 | Kind | When | What the button does |
 |------|------|----------------------|
 | **OTA update** | You changed only JavaScript, screens, text or images | "Update now": downloads in the app, then SYPH restarts. No reinstall |
-| **New APK** | You added or changed a native library or permission, or want a fresh install | "Download version X": opens the download link. The person installs it over the old app |
+| **New APK** | You added or changed a native library or permission, or want a fresh install | "Download the new version": opens the download link. The person installs it over the old app |
 
 SYPH checks for an OTA update when the Me tab opens and when the app returns to the front (at most every 5 minutes). "Check for updates" is also under the button. In Expo Go or a development build the button says updates are off. A newer APK always wins over an OTA update.
 
@@ -331,20 +331,20 @@ SYPH checks for an OTA update when the Me tab opens and when the app returns to 
 ```
 eas update --channel preview --message "what changed"
 ```
-Use the channel of the build people installed (`preview` for the APK from `eas build --profile preview`). An OTA update reaches only phones whose installed app has the **same version number** in `app.json` (`runtimeVersion` follows `version`), so a phone with an older APK never receives code that needs newer native libraries.
+Use the channel of the build people installed (`preview` for the APK from `eas build --profile preview`). An OTA update reaches only phones whose installed APK has the same **`runtimeVersion`** in `app.json`, so a phone with an older APK never receives code that needs newer native libraries.
 
 **Publishing a new APK:**
 
 | # | Do this |
 |---|---------|
-| 1 | In `app.json`, raise `version` (for example `7.6.0` to `7.7.0`) |
+| 1 | In `app.json`, raise `runtimeVersion` by one (a text value: `"1"` to `"2"`). **Leave `version` alone**: `runtimeVersion` is a hidden build number, nobody sees it, and the version people see stays 7.5.5 |
 | 2 | `eas build --profile preview --platform android`, and when it is done copy the download link of the APK |
-| 3 | Firebase Console > Firestore Database > Data > `appConfig` > `latest`: set `latestVersion` to the new version, `apkUrl` to the link (must start with `https://`) and optionally `notes` |
-| 4 | Phones on an older version now show "Download version X" |
+| 3 | Firebase Console > Firestore Database > Data > `appConfig` > `latest`: set `latestBuild` to the same number you put in `runtimeVersion` (a number, for example `2`), `apkUrl` to the link (must start with `https://`) and optionally `notes` |
+| 4 | Phones on an older build now show "Download the new version" |
 
-**Rule of thumb:** native change (new package with native code, new permission, `app.json` plugin change) = raise `version` and build a new APK. Everything else = `eas update`.
+**Rule of thumb:** native change (new package with native code, new permission, `app.json` plugin change) = raise `runtimeVersion` and build a new APK. Everything else = `eas update`. If you forget to raise it, an OTA update can reach phones whose APK lacks the new native code and crash them.
 
-**First time:** this update is itself a new APK (it adds `expo-updates`). Phones on 7.5.5 have no Update button until they install it, once, by hand.
+**First time:** this update is itself a new APK (it adds `expo-updates`). Phones on the old APK have no Update button until they install this one, once, by hand. Android also needs a higher internal `versionCode` for every APK to install over the last one; `eas.json` sets `autoIncrement` for the preview profile, so EAS does that for you and nobody sees it.
 
 **Cost and limits:** EAS Update is included in the free Expo plan and a free account cannot be charged for overage. Expo does not publish exact free limits (check expo.dev/pricing). `appConfig` is one tiny Firestore document that signed-in users read and nobody can write from the app.
 
@@ -352,10 +352,10 @@ Use the channel of the build people installed (`preview` for the APK from `eas b
 
 | # | Do this | Expect |
 |---|---------|--------|
-| 1 | Open Me on the new build | "Version 7.6.0", grey button "Up to date" |
+| 1 | Open Me on the new build | "Version 7.5.5" (unchanged), grey button "Up to date" |
 | 2 | Run `eas update --channel preview --message test` and reopen SYPH, then open Me | The button turns active ("Update now") |
 | 3 | Tap it | Downloads, SYPH restarts, and the card shows "· update xxxxxxxx" |
-| 4 | Set `latestVersion` in `appConfig/latest` to `7.9.0` with a valid https link | The button shows "Download version 7.9.0" and opens the link |
+| 4 | Set `latestBuild` in `appConfig/latest` to `99` (a number) with a valid https link | The button shows "Download the new version" and opens the link. Set it back to `1` afterwards |
 
 ## 2. Data model (Firestore)
 
@@ -365,7 +365,7 @@ Use the channel of the build people installed (`preview` for the APK from `eas b
 | `users/{uid}/private/settings` | Owner-only: `mutedChats[]`, `notificationsEnabled`, `expoPushTokens[]` |
 | `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `groupActivity` (latest rename / removal / leave, read by the push relay), `hiddenBy[]`, `readState{uid:{deliveredAt,readAt}}`, `unread{uid:n}` |
 | `usernames/{lowercase name}` | Claim registry: `uid`, `createdAt`. One document per name, create-once, so two accounts cannot take the same name. Readable one at a time, never listed |
-| `appConfig/latest` | Newest APK for the Update button: `latestVersion`, `apkUrl` (https), `notes`. Signed-in users read it, nobody writes it from the app; you edit it in the Console (1.12) |
+| `appConfig/latest` | Newest APK for the Update button: `latestBuild` (number), `apkUrl` (https), `notes`. Signed-in users read it, nobody writes it from the app; you edit it in the Console (1.12) |
 | `pushTokens/{token}` | Which account is signed in on a device (`uid`, `platform`, `updatedAt`). A sender checks it before using a token; readable one at a time, never listed |
 | `userPush/{uid}` | Copy of the push-relevant settings: `tokens[]` (newest 5), `notificationsEnabled`, `mutedChats[]`. Written only by the owner, readable one at a time by signed-in users so a sender's phone can notify them |
 | `calls/{id}` | One call: `callerId`, `calleeId`, `participantIds`, `type` (audio/video), `status` (ringing, accepted, declined, cancelled, missed, ended), `offer`, `answer`, `createdAt`, `expireAt` |

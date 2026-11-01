@@ -156,7 +156,7 @@ const no = (n, p) => check(n, p, false);
   console.log('\nApp config (Update button)');
   await ok('signed-in users can read the app config', carol.doc('appConfig/latest').get());
   await no('anonymous cannot read the app config', anon.doc('appConfig/latest').get());
-  await no('nobody can write the app config from the app', alice.doc('appConfig/latest').set({ latestVersion: '9.9.9', apkUrl: 'https://example.com/a.apk' }));
+  await no('nobody can write the app config from the app', alice.doc('appConfig/latest').set({ latestBuild: 99, apkUrl: 'https://example.com/a.apk' }));
 
   console.log('\nTyping indicator');
   const marker = (extra = {}) => ({ typing: true, at: FV.serverTimestamp(), ...extra });
