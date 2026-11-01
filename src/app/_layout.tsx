@@ -1,5 +1,9 @@
 // src/app/_layout.tsx
+// Defines the background location task. It must be loaded in the global scope of the bundle, because Android can start
+// the app only to run it (live location sharing while SYPH is closed).
+import '../services/liveLocationTask';
 import { Stack } from 'expo-router';
+import { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { ThemeProvider, useTheme } from '../hooks/themeContext';
 import { ToastProvider } from '../hooks/toastNotifications';
@@ -8,6 +12,7 @@ import { ConversationsProvider } from '../hooks/useConversations';
 import { IncomingCallsProvider } from '../hooks/useIncomingCalls';
 import { useSplashGate } from '../hooks/useSplashGate';
 import { UserSettingsProvider } from '../hooks/useUserSettings';
+import { restoreLiveShares } from '../services/liveLocationManager';
 import { keepSplashVisible } from '../services/splashService';
 
 // In global scope on purpose: the native splash stays up until the app is ready (see utils/splash.ts), and this must run
@@ -16,8 +21,14 @@ keepSplashVisible();
 
 function RootNav() {
   const { themeColors } = useTheme();
-  const { isLoading } = useAuth();
+  const { isLoading, firebaseUser } = useAuth();
   useSplashGate(!isLoading);
+
+  // A live location share that was running when SYPH closed continues, or is ended if its time ran out.
+  const uid = firebaseUser?.uid;
+  useEffect(() => {
+    if (uid) void restoreLiveShares(uid).catch(() => {});
+  }, [uid]);
 
   return (
     <>

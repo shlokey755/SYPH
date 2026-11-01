@@ -26,6 +26,7 @@ function toMessage(docSnap: QueryDocumentSnapshot): Message {
     type: data.type ?? 'text',
     text: data.text ?? '',
     media: data.media,
+    location: typeof data.location?.expiresAt === 'number' ? { expiresAt: data.location.expiresAt } : undefined,
     senderId: data.senderId ?? '',
     senderUsername: data.senderUsername ?? 'Anonymous',
     replyTo: data.replyTo,

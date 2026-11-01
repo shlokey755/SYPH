@@ -24,6 +24,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import { AccountEmailSection } from '../../components/profile/AccountEmailSection';
+import { UpdateSection } from '../../components/profile/UpdateSection';
 import { NameSection } from '../../components/profile/NameSection';
 import { isPushSupported, registerForPush } from '../../services/pushService';
 
@@ -181,6 +182,9 @@ export default function MeTab() {
 
       {/* Sign-in email (FR-01) */}
       <AccountEmailSection />
+
+      {/* App update: active only when a new update arrives */}
+      <UpdateSection />
 
       {/* Notifications Section */}
       <View style={styles.section}>

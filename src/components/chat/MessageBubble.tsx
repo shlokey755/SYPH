@@ -16,6 +16,8 @@ interface Props {
   colors: ThemeColors;
   onLongPress: (message: Message) => void;
   onReplyPress?: (messageId: string) => void;
+  /** Tapping a live-location message opens the map. */
+  onOpenLocation?: (message: Message) => void;
 }
 
 function StatusIcon({ status, color }: { status: MessageStatus; color: string }) {
@@ -41,6 +43,7 @@ function MessageBubbleBase({
   colors,
   onLongPress,
   onReplyPress,
+  onOpenLocation,
 }: Props) {
   const textColor = isMine ? colors.buttonText : colors.text;
   const subColor = isMine ? colors.buttonText : colors.subText;
@@ -105,7 +108,12 @@ function MessageBubbleBase({
             <Text style={[styles.deleted, { color: subColor }]}>This message was deleted</Text>
           </View>
         ) : (
-          <MessageContent message={message} textColor={textColor} />
+          <MessageContent
+            message={message}
+            textColor={textColor}
+            onOpenLocation={onOpenLocation}
+            onLongPress={onLongPress}
+          />
         )}
 
         <View style={styles.footer}>

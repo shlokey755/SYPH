@@ -36,9 +36,9 @@ const SLIDES: Slide[] = [
   },
   {
     id: 'share',
-    icon: 'images',
+    icon: 'location',
     title: 'More than text',
-    body: 'Send GIFs, and start a voice or video call from any one-to-one chat.',
+    body: 'Send GIFs, start a voice or video call, and share your live location for 15 minutes, 1 hour or 8 hours. You can stop any time.',
   },
   {
     id: 'yours',
