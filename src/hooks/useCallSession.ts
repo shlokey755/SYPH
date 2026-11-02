@@ -32,7 +32,7 @@ import {
   startCallAudio,
   stopCallAudio,
 } from '../services/callAudio';
-import { notifyCall } from '../services/pushSender';
+import { notifyCall, notifyMissedCall } from '../services/pushSender';
 import { getIceServers, getWebRTC, PeerEvents } from '../services/webrtc';
 import { Call, CallCandidate, CallStatus, CallType } from '../types';
 import { AudioRoute, nextRoute, RouteState } from '../utils/audioRoute';
@@ -107,6 +107,7 @@ export function useCallSession({ callId, outgoing, me }: Params) {
     let disposed = false;
     let finished = false;
     let activeCallId: string | null = callId;
+    let ringedPlan: OutgoingCall | null = null; // set once the callee's phone has been rung; a missed-call notice follows only then
     let lastStatus: CallStatus | null = null;
     let remoteDescriptionSet = false;
     let answeringStarted = false;
@@ -171,12 +172,28 @@ export function useCallSession({ callId, outgoing, me }: Params) {
       }
     };
 
+    /** The callee's phone was rung and the ring ended unanswered: tell them it was missed (best effort, once). */
+    const tellCalleeMissed = () => {
+      const plan = ringedPlan;
+      const id = activeCallId;
+      if (!plan || !id) return;
+      ringedPlan = null;
+      void notifyMissedCall({
+        callId: id,
+        conversationId: plan.conversationId,
+        callerName: self.username,
+        type: plan.type,
+        calleeUid: plan.callee.uid,
+      });
+    };
+
     /** Writes the right "I am leaving" status for wherever the call currently is. */
     const tellRemoteIAmLeaving = () => {
       const id = activeCallId;
       if (!id || !lastStatus) return;
       if (lastStatus === 'ringing') {
         (isCaller ? cancelCall(id) : declineCall(id)).catch(warn('leave while ringing'));
+        if (isCaller) tellCalleeMissed(); // hung up before they answered
       } else if (lastStatus === 'accepted') {
         endCall(id, self.uid).catch(warn('end call'));
       }
@@ -415,6 +432,7 @@ export function useCallSession({ callId, outgoing, me }: Params) {
           type: plan.type,
           calleeUid: plan.callee.uid,
         });
+        ringedPlan = plan;
 
         while (pendingLocal.length > 0) sendCandidate(pendingLocal.shift()!);
         setPhase('ringing');
@@ -422,6 +440,7 @@ export function useCallSession({ callId, outgoing, me }: Params) {
         ringTimer = setTimeout(() => {
           if (lastStatus !== 'ringing') return;
           markCallMissed(id).catch(warn('mark missed'));
+          tellCalleeMissed();
           lastStatus = 'missed';
           finish('missed');
         }, RING_TIMEOUT_MS);

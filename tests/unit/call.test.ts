@@ -12,6 +12,7 @@ import {
   formatCallClock,
   isRingingFresh,
   isTerminalStatus,
+  isUnansweredEnd,
   muteIndicator,
 } from '../../src/utils/call.ts';
 
@@ -160,5 +161,16 @@ describe('muted icon placement', () => {
 
   it('nothing once the call has ended', () => {
     assert.equal(muteIndicator({ remoteMuted: true, ended: true, remoteTile: 'panel' }), 'none');
+  });
+});
+
+describe('missed calls', () => {
+  it('a ringing call that ends without me counts as missed only when the caller gave up or the ring ran out', () => {
+    assert.equal(isUnansweredEnd('missed'), true);
+    assert.equal(isUnansweredEnd('cancelled'), true);
+    for (const status of ['declined', 'accepted', 'ended', 'ringing'] as const) assert.equal(isUnansweredEnd(status), false);
+    // unknown (offline, no access) is never reported
+    assert.equal(isUnansweredEnd(null), false);
+    assert.equal(isUnansweredEnd(undefined), false);
   });
 });

@@ -5,6 +5,8 @@
  * - Listens for calls addressed to the user that are still "ringing" and shows a full-screen Accept / Decline overlay.
  * - Ignores calls that look abandoned (caller's app died) so a dead call never rings forever.
  * - If the user is already on a call, a new one is declined and reported with a toast.
+ * - A call that was ringing and ends without this phone answering or declining it (the caller hung up, or the ring ran
+ *   out) is reported with a "Missed call" toast. While the app is closed the caller's phone sends a push instead.
  * - If this build cannot place calls (Expo Go, web), it says so instead of ringing something that cannot be answered.
  * - A group call rings the same way for a short while after someone starts it (the group's `activeCall` pointer, which
  *   the conversations listener already delivers). Declining a group call only dismisses it on this phone.
@@ -19,11 +21,12 @@ import { useRouter } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { declineCall, subscribeIncomingCalls } from '../services/callService';
+import { declineCall, getCallStatus, subscribeIncomingCalls } from '../services/callService';
 import { isCallingSupported } from '../services/webrtc';
 import { ActiveGroupCall, Call, CallType } from '../types';
-import { STALE_RING_MS, isRingingFresh } from '../utils/call';
+import { STALE_RING_MS, isRingingFresh, isUnansweredEnd } from '../utils/call';
 import { RING_WINDOW_MS, callHeadline, shouldRing } from '../utils/groupCall';
+import { missedCallText } from '../utils/push';
 import { useAuth } from './useAuth';
 import { useConversations } from './useConversations';
 import { useTheme } from './themeContext';
@@ -76,6 +79,12 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
   const handledRef = useRef<Set<string>>(new Set());
   const toastRef = useRef(toast);
   toastRef.current = toast;
+  const routerRef = useRef(router);
+  routerRef.current = router;
+  /** The calls in the last "ringing" snapshot, so one that disappears can be looked at. */
+  const knownRef = useRef<Map<string, Call>>(new Map());
+  /** Calls already reported as missed, so a late or repeated snapshot never shows the alert twice. */
+  const missedReportedRef = useRef<Set<string>>(new Set());
 
   const setOnCall = useCallback((onCall: boolean) => {
     onCallRef.current = onCall;
@@ -84,12 +93,34 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     handledRef.current = new Set();
     groupHandledRef.current = new Set();
+    knownRef.current = new Map();
+    missedReportedRef.current = new Set();
     setRinging([]);
     if (!uid) return;
+
+    /** A call left the ringing list without this phone handling it: if it ended unanswered, say so. */
+    const reportIfMissed = (call: Call) => {
+      void getCallStatus(call.id).then((status) => {
+        if (!isUnansweredEnd(status) || missedReportedRef.current.has(call.id) || handledRef.current.has(call.id)) return;
+        missedReportedRef.current.add(call.id);
+        toastRef.current.show({
+          type: 'message',
+          title: call.callerName || 'Someone',
+          message: missedCallText(call.type),
+          onPress: () => routerRef.current.push({ pathname: '/chat/[id]', params: { id: call.conversationId } }),
+        });
+      });
+    };
 
     return subscribeIncomingCalls(
       uid,
       (calls) => {
+        const stillRinging = new Set(calls.map((c) => c.id));
+        for (const [id, call] of knownRef.current) {
+          if (!stillRinging.has(id) && !handledRef.current.has(id)) reportIfMissed(call);
+        }
+        knownRef.current = new Map(calls.map((c) => [c.id, c]));
+
         const fresh = calls.filter((c) => !handledRef.current.has(c.id) && isRingingFresh(createdAtMs(c), Date.now()));
 
         const next: Call[] = [];

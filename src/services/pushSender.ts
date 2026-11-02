@@ -17,6 +17,7 @@ import {
   buildCallPushes,
   buildGroupCallPushes,
   buildMessagePushes,
+  buildMissedCallPushes,
   chunk,
   parsePushMode,
 } from '../utils/push';
@@ -119,6 +120,29 @@ export async function notifyCall(request: CallPushRequest): Promise<void> {
     );
   } catch (error) {
     warn('call')(error);
+  }
+}
+
+/**
+ * Tells the callee's phone that a call it was rung for ended unanswered, so a closed app still shows "Missed call".
+ * Same rules as the ring: the account-wide switch ("Mute all messages") applies, the chat mute does not.
+ */
+export async function notifyMissedCall(request: CallPushRequest): Promise<void> {
+  if (MODE !== 'client') return;
+  try {
+    const target = await getPushTarget(request.calleeUid);
+    if (!target || target.tokens.length === 0 || !allowsCallPush(target)) return;
+    await postToExpo(
+      buildMissedCallPushes({
+        callId: request.callId,
+        conversationId: request.conversationId,
+        callerName: request.callerName,
+        type: request.type,
+        tokens: target.tokens,
+      })
+    );
+  } catch (error) {
+    warn('missed call')(error);
   }
 }
 

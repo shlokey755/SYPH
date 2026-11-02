@@ -6,12 +6,15 @@ import {
   MAX_MIRROR_MUTED,
   MAX_MIRROR_TOKENS,
   MESSAGES_CHANNEL_ID,
+  MISSED_CALL_PUSH_TTL_SECONDS,
   allowsCallPush,
   allowsMessagePush,
   buildCallPushes,
   buildMessagePushes,
+  buildMissedCallPushes,
   chunk,
   isExpoPushToken,
+  missedCallText,
   mirrorFromSettings,
   mirrorKey,
   parsePushMode,
@@ -141,6 +144,20 @@ describe('notification content', () => {
     assert.equal(m.ttl, CALL_PUSH_TTL_SECONDS);
     assert.deepEqual(m.data, { type: 'call', conversationId: 'a_b', callId: 'call9' });
     assert.equal(buildCallPushes({ callId: 'c', conversationId: 'x', callerName: '', type: 'audio', tokens: [T('1')] })[0].body, 'Incoming voice call');
+  });
+
+  it('missed-call push uses the messages channel, not the ringtone one, and keeps for a day', () => {
+    const [m] = buildMissedCallPushes({ callId: 'call9', conversationId: 'a_b', callerName: 'Alice', type: 'video', tokens: [T('1')] });
+    assert.equal(m.title, 'Alice');
+    assert.equal(m.body, 'Missed video call');
+    assert.equal(m.channelId, MESSAGES_CHANNEL_ID);
+    assert.equal(m.ttl, MISSED_CALL_PUSH_TTL_SECONDS);
+    assert.ok(MISSED_CALL_PUSH_TTL_SECONDS >= 3600);
+    // tapping it opens the chat (the app reads conversationId); the type tells it apart from a ring
+    assert.deepEqual(m.data, { type: 'missed-call', conversationId: 'a_b', callId: 'call9' });
+    assert.equal(buildMissedCallPushes({ callId: 'c', conversationId: 'x', callerName: ' ', type: 'audio', tokens: [T('1')] })[0].title, 'Someone');
+    assert.equal(buildMissedCallPushes({ callId: 'c', conversationId: 'x', callerName: 'A', type: 'audio', tokens: [T('1'), T('2')] }).length, 2);
+    assert.equal(missedCallText('audio'), 'Missed voice call');
   });
 });
 

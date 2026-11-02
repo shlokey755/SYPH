@@ -25,6 +25,13 @@ const TERMINAL: readonly CallStatus[] = ['declined', 'cancelled', 'missed', 'end
 
 export const isTerminalStatus = (status: CallStatus): boolean => TERMINAL.includes(status);
 
+/**
+ * True when a call that was ringing for me ended without me answering or declining it: the caller gave up first
+ * ("cancelled") or the ring ran out ("missed"). Unknown (null) is not reported: a call that is simply too old or whose
+ * status could not be read must not produce a false alert.
+ */
+export const isUnansweredEnd = (status: CallStatus | null | undefined): boolean => status === 'missed' || status === 'cancelled';
+
 /** Statuses `role` may move the call to from `current`. Mirrors validCallMove() in firestore.rules. */
 export function allowedNextStatuses(role: CallRole, current: CallStatus): CallStatus[] {
   if (current === 'ringing') {
