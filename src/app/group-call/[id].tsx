@@ -4,15 +4,18 @@
  *
  *   /group-call/new?conversationId=…&type=audio|video     start a call in this group
  *   /group-call/<callId>?conversationId=…&type=…          join the call that is in progress
+ *   /group-call/active                                    show the call that is already running
  *
- * Media and signalling live in useGroupCallSession; this file only draws the state. Everyone, yourself included, gets an
- * equal tile. Leaving the screen leaves the call (the others carry on).
+ * Media and signalling live in useGroupCallSession, which runs in the app-level host (components/call/ActiveCallHost.tsx),
+ * not here: this file asks for the call when it opens and then only draws the state. Everyone, yourself included, gets an
+ * equal tile. Going back leaves the call running (the bubble and the notification bring you back); only the leave button
+ * ends it for you (the others carry on).
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ControlButton } from '../../components/call/ControlButton';
@@ -20,11 +23,11 @@ import { ParticipantTile } from '../../components/call/ParticipantTile';
 import { useTheme } from '../../hooks/themeContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
-import { useGroupCallSession } from '../../hooks/useGroupCallSession';
-import { useIncomingCalls } from '../../hooks/useIncomingCalls';
+import { getActiveCall, GroupSession, releaseCall, startCall, useActiveCall, useGroupSession } from '../../services/activeCallStore';
 import { CallType } from '../../types';
 import { routeIcon, routeLabel } from '../../utils/audioRoute';
 import { formatCallClock } from '../../utils/call';
+import { ACTIVE_CALL_ID, CALL_ROUTE } from '../../utils/callBackground';
 import { groupEndReasonText, gridLayout, participantCountLabel, tileMode } from '../../utils/groupCall';
 
 /** How long the "You left the call" line stays up before the screen closes by itself. */
@@ -33,50 +36,95 @@ const CLOSE_DELAY_MS = 1500;
 export default function GroupCallScreen() {
   const params = useLocalSearchParams<{ id: string; conversationId?: string; type?: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { themeColors } = useTheme();
-  const { currentUser } = useAuth();
-  const { setOnCall } = useIncomingCalls();
-  const { getConversation } = useConversations();
-
-  useKeepAwake();
+  const active = useActiveCall();
+  const session = useGroupSession();
 
   const isNew = params.id === 'new';
+  const isAttach = params.id === ACTIVE_CALL_ID;
   const conversationId = params.conversationId;
-  const conversation = conversationId ? getConversation(conversationId) : undefined;
   const requestedType: CallType = params.type === 'video' ? 'video' : 'audio';
 
-  const me = useMemo(
-    () => (currentUser ? { uid: currentUser.uid, username: currentUser.username } : null),
-    [currentUser]
-  );
-
-  const session = useGroupCallSession({
-    conversationId,
-    conversation,
-    callId: isNew ? null : params.id,
-    type: requestedType,
-    me,
-  });
-  const { phase } = session;
-  const isVideo = session.callType === 'video';
-
-  // Tell the incoming-call provider this device is busy for as long as the screen is open.
-  useEffect(() => {
-    setOnCall(true);
-    return () => setOnCall(false);
-  }, [setOnCall]);
-
-  const close = useCallback(() => {
+  const goBack = useCallback(() => {
     if (router.canGoBack()) router.back();
     else router.replace('/(tabs)');
   }, [router]);
 
+  // Opening this screen asks the app-level host for the call, once. If a different call is already running, that one is
+  // shown instead (one call at a time).
+  const asked = useRef(false);
+  useEffect(() => {
+    if (asked.current) return;
+    asked.current = true;
+    const running = getActiveCall();
+    if (isAttach) {
+      if (!running) goBack();
+      else if (running.kind !== 'group') router.replace(CALL_ROUTE[running.kind]);
+      return;
+    }
+    if (!conversationId) {
+      goBack();
+      return;
+    }
+    const outcome = startCall({
+      kind: 'group',
+      callId: isNew ? null : params.id,
+      conversationId,
+      type: requestedType,
+    });
+    if (outcome === 'busy') router.replace(CALL_ROUTE[getActiveCall()?.kind ?? 'group']);
+  }, [isAttach, isNew, params.id, conversationId, requestedType, goBack, router]);
+
+  // Closing after the call has ended lets go of it. (Going back mid-call does not.)
+  const close = useCallback(() => {
+    releaseCall();
+    goBack();
+  }, [goBack]);
+
+  // Until the host has published the call (a moment after opening) there is nothing to draw.
+  if (!session || active?.kind !== 'group') {
+    return <View style={[styles.container, { backgroundColor: themeColors.background }]} />;
+  }
+  return (
+    <GroupCallView
+      session={session}
+      conversationId={active.conversationId}
+      isNew={active.callId === null}
+      onClose={close}
+      onMinimize={goBack}
+    />
+  );
+}
+
+function GroupCallView({
+  session,
+  conversationId,
+  isNew,
+  onClose,
+  onMinimize,
+}: {
+  session: GroupSession;
+  conversationId: string;
+  /** True when this device started the call, false when it joined one. */
+  isNew: boolean;
+  onClose: () => void;
+  onMinimize: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const { themeColors } = useTheme();
+  const { currentUser } = useAuth();
+  const { getConversation } = useConversations();
+  const conversation = getConversation(conversationId);
+  const { phase } = session;
+  const isVideo = session.callType === 'video';
+
+  useKeepAwake();
+
   useEffect(() => {
     if (phase !== 'ended') return;
-    const timer = setTimeout(close, CLOSE_DELAY_MS);
+    const timer = setTimeout(onClose, CLOSE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [phase, close]);
+  }, [phase, onClose]);
 
   // ----- grid -----
   const [grid, setGrid] = useState({ width: 0, height: 0 });
@@ -104,6 +152,18 @@ export default function GroupCallScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+      {!ended && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Minimise call"
+          onPress={onMinimize}
+          hitSlop={8}
+          style={[styles.minimize, { top: insets.top + 8 }]}
+        >
+          <Ionicons name="chevron-down" size={30} color={themeColors.text} />
+        </Pressable>
+      )}
+
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={[styles.title, { color: themeColors.text }]} numberOfLines={1}>
           {title}
@@ -146,7 +206,7 @@ export default function GroupCallScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close"
-            onPress={close}
+            onPress={onClose}
             style={[styles.pill, { backgroundColor: themeColors.accent }]}
           >
             <Text style={[styles.pillText, { color: themeColors.buttonText }]}>Close</Text>
@@ -193,6 +253,7 @@ export default function GroupCallScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  minimize: { position: 'absolute', left: 8, width: 48, height: 48, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
   header: { alignItems: 'center', gap: 4, paddingHorizontal: 24, paddingBottom: 8 },
   title: { fontSize: 20, fontWeight: '600', maxWidth: 320 },
   status: { fontSize: 14 },

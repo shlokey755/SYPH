@@ -190,7 +190,7 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 - A dropped connection gets 15 s to recover before the call ends.
 - If you are on a call, a second caller is declined and you get a toast.
 - Push notifications for calls honour the account-wide switch (Me tab > Notifications > "Mute all messages", when it is on no call alert arrives while SYPH is closed) but **not** per-chat mute.
-- Leaving the call screen hangs up.
+- Leaving the call screen does not hang up any more: the call keeps running in the background (1.13). Only the hang-up button, the other person, or a lost connection ends it.
 
 **Known limits**
 - There is no native call UI (CallKit / Android ConnectionService). A call that arrives while the app is closed shows as a notification; tapping it opens the chat and, if the call is still ringing, the Accept / Decline screen appears. It will not ring like the phone app while the device is locked.
@@ -276,7 +276,7 @@ Open a group chat: the header has a phone and a video icon. Tap one to start a c
 - If the last person leaves, the Join bar can linger for up to about a minute before it disappears by itself.
 - Any member can end the "call in progress" marker (the rules allow any member to write it). Fine for friends, not for strangers.
 - No screen sharing, no adding people mid-call from inside the call screen, and calls stay alive until everyone has left (there is no host who can end it for all).
-- Audio keeps playing with the screen off but, as with 1-to-1 calls, Android may stop the microphone if the app is in the background for long.
+- Leaving the group call screen leaves the call running in the background (1.13). The leave button is what ends it for you.
 - **Not yet tested on real phones** (WebRTC cannot run in the build environment). The handshake logic is unit tested with fake phones, and the rules tests were written but have not been run.
 
 **Test checklist (two to four phones, new build, same group). Please also tell me which networks each phone was on when something does not connect.**
@@ -381,6 +381,49 @@ Use the channel of the build people installed (`preview` for the APK from `eas b
 | 2 | Run `eas update --channel preview --message test` and reopen SYPH, then open Me | The button turns active ("Update now") |
 | 3 | Tap it | Downloads, SYPH restarts, and the card shows "· update xxxxxxxx" |
 | 4 | Set `latestBuild` in `appConfig/latest` to `99` (a number) with a valid https link | The button shows "Download the new version" and opens the link. Set it back to this APK's build number afterwards |
+
+### 1.13 Calls in the background (needs a new APK)
+
+A call now keeps going when you press Home, lock the phone, or go back to the chat. While it runs there is one ongoing notification with the name, a clock and an **End call** button; tapping it returns to the call. Works for voice, video and group calls. Nothing to set up on your side except installing a new APK.
+
+| Step | How | Cost |
+|------|-----|------|
+| Build a new APK | This adds native Android code (`modules/syph-call-service`, a small foreground service) and three permissions in `app.json` (`FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MICROPHONE`, `WAKE_LOCK`), so an OTA update cannot deliver it. `eas build --profile preview --platform android` (the version stays 7.5.5). Until the new APK is installed, the update that carries this change still works: calls just behave as before on the old APK. | Free |
+| Allow notifications | Android 13+ asks once. If it is refused the call still keeps going, but the notification and its End call button are hidden. | Free |
+| Nothing else | No key, no server, no rules change. | Free |
+
+**Behaviour**
+- Going back from the call screen (Android back button or the arrow at the top left) leaves the call running. A small round bubble with the call clock floats over the other screens: tap it to return, drag it out of the way (it settles against a side edge).
+- Pressing Home or locking the phone keeps the call and its audio going (the service holds the microphone and keeps the processor awake, capped at 4 hours).
+- Video: Android takes the camera away from an app that is not on screen, so SYPH turns your camera off when it goes to the background (the other person sees "Camera off") and turns it back on when you return, unless you had turned it off yourself. Audio carries on.
+- **End call** on the notification hangs up for you (in a group call, you leave and the others carry on). The notification disappears when the call ends for any reason.
+- One call at a time, as before. Starting a second call, or opening another call's screen, shows the one that is running.
+- Signing out ends the call.
+
+**Known limits**
+- **Not compiled or tested.** The Kotlin could not be built where this was written (no Android toolchain), so the first compile is your EAS build. If that build fails, copy me the Gradle error; the module is isolated in `modules/syph-call-service/` and can be removed on its own. Everything else (screens, rules for which call is shown, camera rule, notification text) is unit tested (`tests/unit/callBackground.test.ts`) and type-checks.
+- Android only. iPhones would need background modes and a paid Apple developer account (not planned).
+- A call cannot be started while SYPH is in the background (Android forbids starting the microphone service from there). Accepting from the notification opens SYPH first, so that works.
+- Some phones (Xiaomi, Oppo, Vivo, Samsung with aggressive battery saving) stop apps anyway. If a call drops a minute after pressing Home, set SYPH's battery use to "Unrestricted" in Android settings.
+- Swiping SYPH away from the recent-apps list during a call may end it or may not, depending on the phone.
+- The bubble sits under pop-ups such as the GIF picker, and hides itself on the call screens.
+
+**Test checklist (two phones, new APK on both)**
+
+| # | Do this | Expect |
+|---|---------|--------|
+| 1 | Voice call, then press Home on one phone | You keep talking both ways. A notification "Voice call in progress · Tap to return" shows with a running clock and an End call button |
+| 2 | Lock the screen for two minutes | Still talking, no stutter |
+| 3 | Tap the notification | Back on the call screen with the clock still running |
+| 4 | Press the back button on the call screen | The chat opens, the call continues, the bubble shows the clock. Tap the bubble: back on the call. Drag it: it moves and settles at an edge |
+| 5 | Press Home, then End call in the notification | The call ends on both phones and the notification goes away |
+| 6 | Hang up from the call screen | The notification goes away |
+| 7 | Video call, press Home | The other phone shows "Camera off", the sound continues. Come back: your video returns |
+| 8 | Video call, turn the camera off yourself, press Home, come back | The camera stays off |
+| 9 | Group call with three phones, one presses Home for a minute | The others still hear that person; End call makes them leave only |
+| 10 | During a call, open a chat and tap its call button | The running call is shown, no second call starts |
+| 11 | Refuse the notification permission (Android 13+), then call and press Home | The call keeps going; no notification |
+| 12 | On an Android 14 or 15 phone, start any call | No crash. If the app closes the moment a call starts, tell me the phone model and Android version |
 
 ## 2. Data model (Firestore)
 

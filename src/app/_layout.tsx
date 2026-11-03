@@ -6,6 +6,7 @@ import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { ThemeProvider, useTheme } from '../hooks/themeContext';
+import { ActiveCallProvider } from '../components/call/ActiveCallHost';
 import { StartupStack } from '../components/StartupStack';
 import { ToastProvider } from '../hooks/toastNotifications';
 import { AuthProvider, useAuth } from '../hooks/useAuth';
@@ -40,7 +41,8 @@ function RootNav() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="chat/[id]" />
-        {/* No swipe-back: leaving the call screen hangs up, so it should only happen on purpose. */}
+        {/* No swipe-back: it is easy to do by accident mid-call. The minimise button and the Android back button leave the
+            call running (see ActiveCallHost); only hanging up ends it. */}
         <Stack.Screen name="call/[id]" options={{ gestureEnabled: false, animation: 'slide_from_bottom' }} />
         <Stack.Screen name="group-call/[id]" options={{ gestureEnabled: false, animation: 'slide_from_bottom' }} />
       </StartupStack>
@@ -48,7 +50,8 @@ function RootNav() {
   );
 }
 
-// Provider order matters: settings, conversations and incoming calls read the signed-in user; toasts read the theme.
+// Provider order matters: settings, conversations and incoming calls read the signed-in user; toasts read the theme; the
+// active call runs inside incoming calls (it marks the device busy) and above every screen (it outlives them).
 export default function RootLayout() {
   return (
     <AuthProvider>
@@ -57,7 +60,9 @@ export default function RootLayout() {
           <UserSettingsProvider>
             <ConversationsProvider>
               <IncomingCallsProvider>
-                <RootNav />
+                <ActiveCallProvider>
+                  <RootNav />
+                </ActiveCallProvider>
               </IncomingCallsProvider>
             </ConversationsProvider>
           </UserSettingsProvider>
