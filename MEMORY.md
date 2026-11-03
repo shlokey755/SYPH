@@ -20,7 +20,7 @@ Do not paste Firebase credentials into docs or commit `.env`. The `EXPO_PUBLIC_*
 ## How it is put together
 
 - Routing: `src/app/index.tsx` sends signed-out users to onboarding / `(auth)` and signed-in users to `(tabs)` (Chat, Me, Add). Chat screen `chat/[id]`, call screen `call/[id]`.
-- Providers (order matters, in `src/app/_layout.tsx`): Auth > Theme > Toast > UserSettings > Conversations > IncomingCalls.
+- Providers (order matters, in `src/app/_layout.tsx`): Auth > Theme > Toast > UserSettings > Conversations > IncomingCalls > ActiveCall (runs the current call above every screen, so it outlives them).
 - `src/services/*` talk to Firebase; `src/hooks/*` hold state; `src/utils/*` hold pure logic that is unit tested (`tests/unit`).
 - 1-on-1 conversation id is `<uidA>_<uidB>` (sorted). Data model is in `API.md` section 2.
 - Security is the rules: `firestore.rules` (`storage.rules` is a leftover, the app no longer uses Storage). List queries must filter on the fields the rules use (for example `participantIds array-contains <uid>`).
@@ -61,6 +61,7 @@ Extras done on the way: speaker toggle, camera-off panel with username, muted ic
 | Offline banner, queued sends (NFR-07) | Built |
 | Audio and video calls (FR-06) | Built, 1-to-1, audio button that steps through Bluetooth earphones, wired headset, speaker and earpiece (needs the new APK for Bluetooth, API.md 1.7), camera-off panel, muted icon. Needs a dev build or APK. No TURN, so some networks cannot connect (API.md 1.7) |
 | Group voice and video calls | Built (PR #7), mesh of up to 4 video / 6 voice, Join bar, ring and push. Untested on phones (API.md 1.10) |
+| Calls in the background | Built, needs a new APK: calls survive Home, lock and going back; ongoing notification with End call (Android foreground service, `modules/syph-call-service`, Kotlin not yet compiled), floating return bubble, camera off while backgrounded. Voice, video and group. Untested on phones (API.md 1.13) |
 | Live location | Built: hold the send button for a Google Maps style popup, send a one-time pin or share live for 15 min / 1 h / 8 h. Background sharing with a foreground-service notification and "allow all the time". Map is Leaflet on OpenStreetMap, no key. Untested on phones (API.md 1.11) |
 | Update button | Built: Me tab card, OTA through EAS Update, or a link to a new APK read from `appConfig/latest`. Needs the new APK once (API.md 1.12) |
 | Google and phone sign-in (FR-01) | **Not built** (API.md section 3) |
@@ -105,6 +106,7 @@ Checked in the build environment (Oct 27, PRs #9, #6, #7, #8, #10 and #12 merged
 
 - Calls have no native call screen (CallKit / ConnectionService): a call while the app is closed arrives as a notification. The speaker/earpiece toggle uses `react-native-incall-manager` (native, dev build only) and has not been tried on a device.
 - No TURN server (the owner declined: it costs money). Calls use free STUN only, so some network pairs cannot connect. If TURN is ever added, its credentials in `EXPO_PUBLIC_*` are visible inside the app.
+- Calls run in `components/call/ActiveCallHost.tsx` (state in `services/activeCallStore.ts`), not in the call screens, which only draw them. One call at a time; screens ask with `startCall` and get start / attach / busy. The Android foreground service (`modules/syph-call-service`, JS wrapper `services/callForeground.ts`) is native Kotlin that has never been compiled or run: the first EAS build is its first compile (API.md 1.13).
 - Group calls are a mesh: 4 people for video, 6 for voice. Any member can clear the "call in progress" marker. No screen sharing, no host who ends the call for all.
 - Push is client-sent: the sender's phone must be online, any signed-in user can read another user's device tokens one at a time, and group changes (rename, remove, leave) do not push without the optional relay.
 - Android only in practice: iOS builds and push need a paid Apple developer account.

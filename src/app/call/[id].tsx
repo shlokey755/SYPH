@@ -4,25 +4,29 @@
  *
  *   /call/new?conversationId=…&type=audio|video&calleeId=…&calleeName=…   place a call
  *   /call/<callId>                                                       answer a call that is ringing for you
+ *   /call/active                                                         show the call that is already running
  *
- * Media and signalling live in useCallSession; this file only draws the state. Leaving the screen hangs up.
+ * Media and signalling live in useCallSession, which runs in the app-level host (components/call/ActiveCallHost.tsx), not
+ * here: this file asks for the call when it opens and then only draws the state. Going back leaves the call running (the
+ * bubble and the notification bring you back); only the hang-up button, the other side, or a lost connection ends it.
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ControlButton } from '../../components/call/ControlButton';
 import { useTheme } from '../../hooks/themeContext';
 import { useAuth } from '../../hooks/useAuth';
-import { useCallSession } from '../../hooks/useCallSession';
-import { useIncomingCalls } from '../../hooks/useIncomingCalls';
+import { getActiveCall, releaseCall, startCall, useActiveCall, useDirectSession, DirectSession } from '../../services/activeCallStore';
 import { getWebRTC } from '../../services/webrtc';
 import { CallType } from '../../types';
 import { routeIcon, routeLabel } from '../../utils/audioRoute';
 import { callTiles, endReasonText, formatCallClock, muteIndicator } from '../../utils/call';
+import { ACTIVE_CALL_ID, CALL_ROUTE } from '../../utils/callBackground';
+import type { OutgoingCall } from '../../hooks/useCallSession';
 
 /** How long the "Call ended" line stays up before the screen closes by itself. */
 const CLOSE_DELAY_MS = 1800;
@@ -36,20 +40,14 @@ export default function CallScreen() {
     calleeName?: string;
   }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { themeColors } = useTheme();
-  const { currentUser } = useAuth();
-  const { setOnCall } = useIncomingCalls();
-
-  useKeepAwake();
+  const active = useActiveCall();
+  const session = useDirectSession();
 
   const isNew = params.id === 'new';
-  const me = useMemo(
-    () => (currentUser ? { uid: currentUser.uid, username: currentUser.username } : null),
-    [currentUser]
-  );
+  const isAttach = params.id === ACTIVE_CALL_ID;
 
-  const outgoing = useMemo(() => {
+  const requested = useMemo<OutgoingCall | undefined>(() => {
     if (!isNew || !params.conversationId || !params.calleeId) return undefined;
     return {
       conversationId: params.conversationId,
@@ -58,25 +56,63 @@ export default function CallScreen() {
     };
   }, [isNew, params.conversationId, params.type, params.calleeId, params.calleeName]);
 
-  const session = useCallSession({ callId: isNew ? null : params.id, outgoing, me });
-  const { phase, call } = session;
-
-  // Tell the incoming-call provider this device is busy for as long as the screen is open.
-  useEffect(() => {
-    setOnCall(true);
-    return () => setOnCall(false);
-  }, [setOnCall]);
-
-  const close = useCallback(() => {
+  const goBack = useCallback(() => {
     if (router.canGoBack()) router.back();
     else router.replace('/(tabs)');
   }, [router]);
 
+  // Opening this screen asks the app-level host for the call, once. If a different call is already running, that one is
+  // shown instead (one call at a time).
+  const asked = useRef(false);
+  useEffect(() => {
+    if (asked.current) return;
+    asked.current = true;
+    const running = getActiveCall();
+    if (isAttach) {
+      if (!running) goBack();
+      else if (running.kind !== 'direct') router.replace(CALL_ROUTE[running.kind]);
+      return;
+    }
+    const outcome = startCall({ kind: 'direct', callId: isNew ? null : params.id, outgoing: requested });
+    if (outcome === 'busy') router.replace(CALL_ROUTE[getActiveCall()?.kind ?? 'direct']);
+  }, [isAttach, isNew, params.id, requested, goBack, router]);
+
+  // Closing after the call has ended lets go of it. (Going back mid-call does not.)
+  const close = useCallback(() => {
+    releaseCall();
+    goBack();
+  }, [goBack]);
+
+  // Until the host has published the call (a moment after opening) there is nothing to draw.
+  if (!session || active?.kind !== 'direct') {
+    return <View style={[styles.container, { backgroundColor: themeColors.background }]} />;
+  }
+  return <DirectCallView session={session} outgoing={active.outgoing} onClose={close} onMinimize={goBack} />;
+}
+
+function DirectCallView({
+  session,
+  outgoing,
+  onClose,
+  onMinimize,
+}: {
+  session: DirectSession;
+  outgoing: OutgoingCall | undefined;
+  onClose: () => void;
+  onMinimize: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const { themeColors } = useTheme();
+  const { currentUser } = useAuth();
+  const { phase, call } = session;
+
+  useKeepAwake();
+
   useEffect(() => {
     if (phase !== 'ended') return;
-    const timer = setTimeout(close, CLOSE_DELAY_MS);
+    const timer = setTimeout(onClose, CLOSE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [phase, close]);
+  }, [phase, onClose]);
 
   const type: CallType = outgoing?.type ?? call?.type ?? 'audio';
   const isVideo = type === 'video';
@@ -121,6 +157,18 @@ export default function CallScreen() {
           objectFit="cover"
           zOrder={0}
         />
+      )}
+
+      {!ended && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Minimise call"
+          onPress={onMinimize}
+          hitSlop={8}
+          style={[styles.minimize, { top: insets.top + 8 }]}
+        >
+          <Ionicons name="chevron-down" size={30} color={remoteHasVideo ? '#FFFFFF' : themeColors.text} />
+        </Pressable>
       )}
 
       <View style={[styles.top, { paddingTop: insets.top + 32 }]}>
@@ -201,7 +249,7 @@ export default function CallScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close"
-            onPress={close}
+            onPress={onClose}
             style={[styles.pill, { backgroundColor: themeColors.accent }]}
           >
             <Text style={[styles.pillText, { color: themeColors.buttonText }]}>Close</Text>
@@ -248,6 +296,7 @@ export default function CallScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  minimize: { position: 'absolute', left: 8, width: 48, height: 48, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
   top: { alignItems: 'center', gap: 10, paddingHorizontal: 24 },
   avatarWrap: { marginBottom: 8 },
   avatar: {
