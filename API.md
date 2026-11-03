@@ -159,7 +159,7 @@ In-app toasts and unread badges work everywhere, including Expo Go. Alerts while
 - The *sender's* phone must be online at the moment of sending. A message written offline is pushed when it finally uploads.
 - Any signed-in user can read another user's device tokens (one document at a time, never a list). That is what lets a phone notify another phone without a server. A malicious signed-in user could spam someone's notifications. Fine for friends and family, not for a public app.
 - Calls ring as a notification with the ringtone and vibration of the "Calls" channel, not as a full-screen ringing screen. Tapping it opens the chat, and the Accept / Decline screen appears if the call is still ringing (30 seconds).
-- A caller who hangs up leaves the notification in the tray until it is dismissed. No "missed call" push is sent.
+- A caller who hangs up leaves the ring notification in the tray until it is dismissed. A second notification, "Missed voice call" or "Missed video call", follows from the caller's phone (1.7).
 - Group changes (added, renamed, removed, left) do not push in this mode. New group *messages* do.
 - Notification text includes the message preview. There is no hide-preview switch in this mode.
 - Not yet tested on a real phone: Expo's push endpoint could not be reached from the build environment, so the first real test is yours (send a message to a second phone with the app swiped away).
@@ -194,7 +194,7 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 
 **Known limits**
 - There is no native call UI (CallKit / Android ConnectionService). A call that arrives while the app is closed shows as a notification; tapping it opens the chat and, if the call is still ringing, the Accept / Decline screen appears. It will not ring like the phone app while the device is locked.
-- No "missed call" line in the chat history yet.
+- Missed calls (1-to-1): when a ring ends unanswered (the caller hung up, or 45 s passed), the caller's phone sends a "Missed voice call" / "Missed video call" notification. It uses the messages channel (the normal message sound, not the ringtone), obeys "Mute all messages" like the ring does, and tapping it opens the chat. If SYPH is open you get a "Missed call" alert at the top of the screen instead; tapping it opens the chat. JavaScript only: no new APK. Not covered: group calls and a "missed call" line inside the chat history. If the caller's phone is offline or SYPH is closed during the ring, no notice is sent (the same trade-off as every push here).
 - Muted: when the other person mutes their microphone, a small muted-microphone icon appears. In a video call it sits at the bottom-left over their video; if their camera is off, or it is a voice call, it sits on their profile circle instead. It travels in the same per-person document as the camera state (`calls/{id}/media/{uid}`), so it needs the same rules from 1.1. Your own mute is shown by the highlighted Mute button.
 - Camera off: when someone turns their camera off in a video call, both screens stop showing the video. The other person sees an opaque screen with that person's username and "Camera off", and the person sees their own small preview replaced by an opaque tile with their username. The camera state travels as one tiny document per person (`calls/{id}/media/{uid}`), so it needs the rules from 1.1.
 - Audio route (speaker, earpiece, earphones): voice calls start on the earpiece and video calls on the loudspeaker. The audio button on the call screen steps through what the phone can use right now: Bluetooth earphones, a wired headset, speaker, earpiece (the icon shows which). Earphones that are already connected are used automatically, and the button follows them being plugged in or paired during the call. It works the same in 1-to-1 and group calls, voice and video. It uses `react-native-incall-manager`, which is a native module, so it needs a **new development build or APK**, and it is **unverified on a device**. **Bluetooth earphones need the Android 12+ "Nearby devices" permission** (`BLUETOOTH_CONNECT`): `app.json` now declares it and the app asks once when a call starts. That permission is part of the app manifest, so it needs a new APK (the version stays 7.5.5; see 1.12 for how a new APK is offered); the button itself can go out with `eas update`, but Bluetooth stays missing on an older APK. If you tap "Not now", wired headsets, speaker and earpiece still work; allow it later in Android Settings > Apps > SYPH > Permissions > Nearby devices.
@@ -212,6 +212,17 @@ Nothing to set up. Firestore keeps a local cache, so chats you have already open
 | 4 | Plug in a wired headset during a call, then unplug it | Sound moves to the headset, then back to the earpiece or speaker |
 | 5 | Repeat 1 and 2 in a group call | Same results |
 | 6 | Tap "Not now" on the permission (clear the app's data to see it again) | The call works; Bluetooth earphones are not offered, wired ones still are |
+
+**Missed call test (two phones, A calls B)**
+
+| # | Do this | Expect |
+|---|---------|--------|
+| 1 | B closes SYPH completely. A calls B and lets it ring out (45 s) | B gets "Missed voice call" from A (after the ring notification). Tapping it opens the chat |
+| 2 | Same, but A hangs up after 5 s | B gets "Missed voice call" |
+| 3 | A video-calls B and hangs up | The notification says "Missed video call" |
+| 4 | B has SYPH open. A calls and hangs up | The ring screen disappears and a "Missed call" alert shows at the top. Tapping it opens the chat |
+| 5 | B turns on "Mute all messages", A calls and hangs up | No notification |
+| 6 | B declines or answers a call | No missed-call notice |
 
 ### 1.8 Accounts: email sign-in, password reset, names (FR-01, FR-02)
 

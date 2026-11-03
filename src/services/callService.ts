@@ -15,6 +15,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   onSnapshot,
   query,
   serverTimestamp,
@@ -24,7 +25,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { Call, CallCandidate, CallType, SessionDescriptionData } from '../types';
+import { Call, CallCandidate, CallStatus, CallType, SessionDescriptionData } from '../types';
 import { MediaState } from '../utils/call';
 
 export interface CallParty {
@@ -80,6 +81,16 @@ export function subscribeCall(
     (snap) => onChange(snap.exists() ? toCall(snap.id, snap.data({ serverTimestamps: 'estimate' })) : null),
     (error) => onError?.(error)
   );
+}
+
+/** The call's current status, or null when it cannot be read (offline, no access, deleted). */
+export async function getCallStatus(callId: string): Promise<CallStatus | null> {
+  try {
+    const snap = await getDoc(callRef(callId));
+    return snap.exists() ? ((snap.data().status as CallStatus | undefined) ?? null) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Calls that are ringing for this user right now. */

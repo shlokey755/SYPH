@@ -22,6 +22,9 @@ export const CALL_PUSH_TTL_SECONDS = 30;
 /** A group call rings for 45 seconds (RING_WINDOW_MS in utils/groupCall.ts), so its push is worth that long. */
 export const GROUP_CALL_PUSH_TTL_SECONDS = 45;
 
+/** A missed-call notice stays useful for a day: the person may be asleep or out of coverage when it is sent. */
+export const MISSED_CALL_PUSH_TTL_SECONDS = 24 * 60 * 60;
+
 /** Most devices kept per account in the mirror. Newest win, which also ages out tokens of uninstalled apps. */
 export const MAX_MIRROR_TOKENS = 5;
 /** Most muted chats mirrored. The rules enforce the same limit. */
@@ -165,6 +168,28 @@ export function buildCallPushes(input: CallPushInput): ExpoPushMessage[] {
     ttl: CALL_PUSH_TTL_SECONDS,
     channelId: CALLS_CHANNEL_ID,
     data: { type: 'call', conversationId: input.conversationId, callId: input.callId },
+  }));
+}
+
+/** What a missed call says, in the notification and in the in-app alert. */
+export const missedCallText = (type: 'audio' | 'video'): string => `Missed ${type === 'video' ? 'video' : 'voice'} call`;
+
+/**
+ * "Missed voice call" / "Missed video call", sent by the caller's phone when a ring ends unanswered (timed out, or the
+ * caller hung up first). It uses the messages channel, so it makes the normal message sound, not the ringtone, and
+ * tapping it opens the chat.
+ */
+export function buildMissedCallPushes(input: CallPushInput): ExpoPushMessage[] {
+  const caller = input.callerName.trim() || 'Someone';
+  return input.tokens.map((to) => ({
+    to,
+    title: caller,
+    body: missedCallText(input.type),
+    sound: 'default',
+    priority: 'high',
+    ttl: MISSED_CALL_PUSH_TTL_SECONDS,
+    channelId: MESSAGES_CHANNEL_ID,
+    data: { type: 'missed-call', conversationId: input.conversationId, callId: input.callId },
   }));
 }
 
