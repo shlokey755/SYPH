@@ -8,7 +8,7 @@ import {
   signOut,
   User
 } from 'firebase/auth';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { auth, db } from '../firebaseConfig';
 import { claimUsername, isUsernameAvailable, releaseUsername, requestPasswordReset } from '../services/accountService';
@@ -17,6 +17,7 @@ import { stopAllLiveShares } from '../services/liveLocationManager';
 import { clearPushTargetCache } from '../services/pushTargets';
 import { setAppBadge, unregisterPush } from '../services/pushService';
 import { UserProfile } from '../types';
+import { profileRepairPatch } from '../utils/profileRepair';
 import {
   friendlyAuthError,
   loginEmailFor,
@@ -59,6 +60,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let profile: UserProfile;
     if (userDocSnap.exists()) {
       const userData = userDocSnap.data();
+      // A profile that other people's search cannot match (missing uid, or a name saved with capitals) is fixed here.
+      const repair = profileRepairPatch(userData, user.uid);
+      if (repair) {
+        updateDoc(doc(db, 'users', user.uid), { ...repair }).catch((err) =>
+          console.warn('Could not repair the profile:', err?.message ?? err)
+        );
+      }
       profile = {
         uid: user.uid,
         username: userData.username || 'Anonymous',
