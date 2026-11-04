@@ -124,3 +124,4 @@ Checked in the build environment (Oct 27, PRs #9, #6, #7, #8, #10 and #12 merged
 | `PlatformConstants could not be found` | A native-module import crashing in Expo Go; see `JOURNEY.md` item 7 |
 | Odd errors after version changes | `npx expo start -c` to clear Metro's cache |
 | Call or push does nothing | Expo Go cannot do either. Use a development build |
+| Someone cannot be found when adding by username | Their `users/{uid}` document needs `usernameLowercase` (all lowercase) and `uid`. The app now repairs both the next time that person opens it (`utils/profileRepair.ts`), and search uses the document id instead of the `uid` field. Search matches the start of the username only, not display names or emails |

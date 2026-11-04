@@ -38,9 +38,11 @@ export const useUserSearch = () => {
 
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        if (data.uid !== currentUserId) {
+        // The document id is the account id (the rules tie users/{uid} to its owner). A `uid` field inside the document can
+        // be missing in older profiles, which used to make the person impossible to add.
+        if (docSnap.id !== currentUserId) {
           searchResults.push({
-            uid: data.uid,
+            uid: docSnap.id,
             username: data.username, // Display intact username
             displayName: (data.displayName as string | undefined)?.trim() || undefined,
           });
