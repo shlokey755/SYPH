@@ -29,6 +29,7 @@ import { GifPicker } from '../../components/chat/GifPicker';
 import { GroupCallBar } from '../../components/chat/GroupCallBar';
 import { GroupInfoModal } from '../../components/chat/GroupInfoModal';
 import { MessageAction, MessageActionSheet } from '../../components/chat/MessageActionSheet';
+import { DateSeparator } from '../../components/chat/DateSeparator';
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { MessageInput } from '../../components/chat/MessageInput';
 import { LocationShareSheet } from '../../components/chat/LocationShareSheet';
@@ -63,6 +64,7 @@ import {
   getOtherParticipant,
   toMillis,
 } from '../../utils/conversation';
+import { dayHeaders } from '../../utils/dateLabels';
 import { getMessageStatus } from '../../utils/messageStatus';
 import { typingLabel } from '../../utils/typing';
 
@@ -182,6 +184,13 @@ export default function ChatScreen() {
     if (!searchOpen || !q) return messages;
     return messages.filter((m) => !m.deletedForEveryone && m.text.toLowerCase().includes(q));
   }, [messages, searchOpen, searchText]);
+
+  // "Today" / "Yesterday" / "Saturday, 31 Oct" above the first message of each day. Drawn by the message itself, not as
+  // extra list rows, so the list indexes that scroll-to-reply relies on stay as they are.
+  const dayLabels = useMemo(
+    () => dayHeaders(visibleMessages.map((m) => toMillis(m.createdAt))),
+    [visibleMessages]
+  );
 
   const forwardTargets = useMemo(
     () => conversations.filter((c) => c.id !== conversationId),
@@ -441,22 +450,26 @@ export default function ChatScreen() {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: Message }) => {
+    ({ item, index }: { item: Message; index: number }) => {
       const mine = item.senderId === myUid;
+      const day = dayLabels[index];
       return (
-        <MessageBubble
-          message={item}
-          isMine={mine}
-          status={mine ? getMessageStatus(item, conversation) : undefined}
-          showSender={!!conversation?.isGroup}
-          colors={themeColors}
-          onLongPress={setActionMessage}
-          onReplyPress={scrollToMessage}
-          onOpenLocation={setViewerMessage}
-        />
+        <View>
+          {day ? <DateSeparator label={day} colors={themeColors} /> : null}
+          <MessageBubble
+            message={item}
+            isMine={mine}
+            status={mine ? getMessageStatus(item, conversation) : undefined}
+            showSender={!!conversation?.isGroup}
+            colors={themeColors}
+            onLongPress={setActionMessage}
+            onReplyPress={scrollToMessage}
+            onOpenLocation={setViewerMessage}
+          />
+        </View>
       );
     },
-    [myUid, conversation, themeColors, scrollToMessage]
+    [myUid, conversation, themeColors, scrollToMessage, dayLabels]
   );
 
   return (
