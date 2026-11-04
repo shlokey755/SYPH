@@ -20,6 +20,7 @@ import {
   declineCall,
   endCall,
   markCallMissed,
+  moveCallToGroup,
   publishMediaState,
   subscribeCall,
   subscribeMediaState,
@@ -46,6 +47,7 @@ import {
   RECONNECT_GRACE_MS,
   RING_TIMEOUT_MS,
 } from '../utils/call';
+import { movedConversationId } from '../utils/callUpgrade';
 
 export type CallPhase = 'preparing' | 'ringing' | 'connecting' | 'connected' | 'ended';
 
@@ -72,6 +74,7 @@ interface Controls {
   toggleCamera: () => void;
   switchCamera: () => void;
   toggleSpeaker: () => void;
+  moveToGroup: (conversationId: string) => Promise<void>;
 }
 
 const warn = (what: string) => (error: unknown) =>
@@ -80,6 +83,8 @@ const warn = (what: string) => (error: unknown) =>
 export function useCallSession({ callId, outgoing, me }: Params) {
   const [phase, setPhase] = useState<CallPhase>('preparing');
   const [endReason, setEndReason] = useState<CallEndReason | null>(null);
+  /** The group chat this call carried on in, when it ended because people were added. */
+  const [movedTo, setMovedTo] = useState<string | null>(null);
   const [call, setCall] = useState<Call | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -153,7 +158,7 @@ export function useCallSession({ callId, outgoing, me }: Params) {
     };
 
     /** Stops the call on this device and shows why. The remote side is told separately. */
-    const finish = (reason: CallEndReason) => {
+    const finish = (reason: CallEndReason, movedToConversation: string | null = null) => {
       if (finished) return;
       finished = true;
       clearTimers();
@@ -162,6 +167,7 @@ export function useCallSession({ callId, outgoing, me }: Params) {
       setRemoteStream(null);
       setReconnecting(false);
       setEndReason(reason);
+      setMovedTo(movedToConversation);
       setPhase('ended');
     };
 
@@ -352,7 +358,9 @@ export function useCallSession({ callId, outgoing, me }: Params) {
       lastStatus = next.status;
 
       if (isTerminalStatus(next.status)) {
-        finish(endReasonFromStatus(next.status));
+        // Ended because people were added: carry on in the group chat instead of closing.
+        const moved = movedConversationId(next);
+        finish(moved ? 'moved' : endReasonFromStatus(next.status), moved);
         return;
       }
 
@@ -486,6 +494,25 @@ export function useCallSession({ callId, outgoing, me }: Params) {
         routes = { ...routes, selected: next };
         setAudioRoute(next);
       },
+      // "Add people": the group chat is ready, so end this call and tell the other person where it carries on. If the
+      // other person did the same at the same moment, theirs wins. Without the new rules the plain hang-up is written
+      // instead, and the other person is rung into the group call rather than moved there.
+      moveToGroup: async (conversationId: string) => {
+        if (finished) return;
+        const id = activeCallId;
+        let target = conversationId;
+        if (id && lastStatus === 'accepted') {
+          try {
+            target = await moveCallToGroup(id, self.uid, conversationId);
+          } catch (error) {
+            warn('move to group')(error);
+            endCall(id, self.uid).catch(warn('end call'));
+          }
+        }
+        if (finished) return;
+        lastStatus = 'ended';
+        finish('moved', target);
+      },
       switchCamera: () => {
         const track = stream?.getVideoTracks()[0];
         if (!track) return;
@@ -532,10 +559,15 @@ export function useCallSession({ callId, outgoing, me }: Params) {
   const toggleCamera = useCallback(() => controlsRef.current?.toggleCamera(), []);
   const switchCamera = useCallback(() => controlsRef.current?.switchCamera(), []);
   const toggleSpeaker = useCallback(() => controlsRef.current?.toggleSpeaker(), []);
+  const moveToGroup = useCallback(
+    (conversationId: string) => controlsRef.current?.moveToGroup(conversationId) ?? Promise.resolve(),
+    []
+  );
 
   return {
     phase,
     endReason,
+    movedTo,
     call,
     isCaller,
     localStream,
@@ -553,5 +585,6 @@ export function useCallSession({ callId, outgoing, me }: Params) {
     toggleCamera,
     switchCamera,
     toggleSpeaker,
+    moveToGroup,
   };
 }

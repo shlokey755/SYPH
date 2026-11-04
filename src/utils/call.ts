@@ -59,7 +59,8 @@ export type CallEndReason =
   | 'failed'
   | 'unsupported'
   | 'permission'
-  | 'busy';
+  | 'busy'
+  | 'moved';
 
 /** Short line for the call screen once it is over. `outgoing` = you placed the call. */
 export function endReasonText(reason: CallEndReason, outgoing: boolean): string {
@@ -78,6 +79,8 @@ export function endReasonText(reason: CallEndReason, outgoing: boolean): string 
       return 'Camera or microphone access was denied';
     case 'busy':
       return 'Already on another call';
+    case 'moved':
+      return 'Moving to a group call…';
     default:
       return 'Call ended';
   }

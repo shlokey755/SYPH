@@ -350,8 +350,23 @@ service cloud.firestore {
       allow update: if signedIn()
         && request.auth.uid in resource.data.participantIds
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status', 'answer', 'answeredAt', 'endedAt', 'endedBy'])
+             .hasOnly(['status', 'answer', 'answeredAt', 'endedAt', 'endedBy', 'movedTo'])
         && validCallMove(resource.data, request.resource.data)
+        // "Add people": ending an answered call may name the group chat it carries on in. The person ending it must be
+        // a member of that group chat, so a call cannot point people at a chat they have no part in.
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['movedTo'])
+          || (
+            request.resource.data.status == 'ended'
+            && request.resource.data.movedTo is string
+            && request.resource.data.movedTo.size() > 0
+            && request.resource.data.movedTo.size() <= 128
+            && exists(/databases/$(database)/documents/conversations/$(request.resource.data.movedTo))
+            && get(/databases/$(database)/documents/conversations/$(request.resource.data.movedTo)).data.isGroup == true
+            && request.auth.uid in get(/databases/$(database)/documents/conversations/$(request.resource.data.movedTo)).data.participantIds
+            && get(/databases/$(database)/documents/conversations/$(request.resource.data.movedTo)).data.participantIds.hasAll(resource.data.participantIds)
+          )
+        )
         // Only the callee writes the answer, and only when picking up.
         && (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['answer', 'answeredAt'])

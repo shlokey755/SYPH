@@ -14,6 +14,9 @@
  *
  * The call ends only when the person hangs up, the other side ends it, or the connection is lost: never because a screen
  * closed.
+ *
+ * "Add people" ends a 1-to-1 call with `movedTo` set; the direct host then hands over to a group call in that chat. The
+ * foreground service is kept running through that hand-over (Android 12+ refuses to start it from the background).
  */
 
 import React, { useEffect, useMemo, useRef } from 'react';
@@ -30,6 +33,7 @@ import {
   GroupSession,
   publishSession,
   releaseCall,
+  startCall,
   unpublishSession,
   useActiveCall,
 } from '../../services/activeCallStore';
@@ -51,6 +55,8 @@ interface HostInput {
   /** The microphone is open: only then may the foreground service start (Android 14 refuses it before). */
   hasMedia: boolean;
   ended: boolean;
+  /** The group chat a 1-to-1 call is carrying on in; the service stays up while it is set. */
+  movedTo?: string | null;
   cameraOff: boolean;
   hangUp: () => void;
   toggleCamera: () => void;
@@ -59,7 +65,7 @@ interface HostInput {
 /** Everything a host does besides running the call itself. */
 function useBackgroundCall(input: HostInput) {
   const { setOnCall } = useIncomingCalls();
-  const { callKey, session, kind, type, name, stage, hasMedia, ended } = input;
+  const { callKey, session, kind, type, name, stage, hasMedia, ended, movedTo } = input;
 
   // The latest values, for callbacks that outlive a render (app-state and notification events).
   const latest = useRef(input);
@@ -92,7 +98,8 @@ function useBackgroundCall(input: HostInput) {
     liveSince.current = clockStart(stage, latest.current.seconds);
   }, [stage]);
 
-  const live = hasMedia && !ended;
+  // A call that moves on to a group call keeps the service: it is still the same person on the same microphone.
+  const live = movedTo ? true : hasMedia && !ended;
   const info = callNotificationInfo({ kind, type, name, stage });
   useEffect(() => {
     if (!live) return;
@@ -104,6 +111,13 @@ function useBackgroundCall(input: HostInput) {
       stopCallService();
     };
   }, [live]);
+  // Whichever way this host goes away, the service goes with it, except when the next host is taking over.
+  useEffect(
+    () => () => {
+      if (!latest.current.movedTo) stopCallService();
+    },
+    []
+  );
 
   // ----- "End call" on the notification -----
   useEffect(() => {
@@ -147,28 +161,44 @@ function useMe() {
 
 function DirectCallHost({ call }: { call: ActiveDirectCall }) {
   const { me, uid } = useMe();
+  const { expectGroupCall } = useIncomingCalls();
   const session = useCallSession({ callId: call.callId, outgoing: call.outgoing, me });
-  const { phase } = session;
+  const { phase, movedTo } = session;
   const other = session.call
     ? session.call.callerId === uid
       ? session.call.calleeName
       : session.call.callerName
     : '';
 
+  const type = call.outgoing?.type ?? session.call?.type ?? 'audio';
+
   useBackgroundCall({
     callKey: call.key,
     kind: 'direct',
     session,
-    type: call.outgoing?.type ?? session.call?.type ?? 'audio',
+    type,
     name: call.outgoing ? call.outgoing.callee.username : other,
     stage: phase === 'connected' ? 'live' : phase === 'ringing' ? 'ringing' : 'starting',
     seconds: session.seconds,
     hasMedia: !!session.localStream,
     ended: phase === 'ended',
+    movedTo,
     cameraOff: session.cameraOff,
     hangUp: session.hangUp,
     toggleCamera: session.toggleCamera,
   });
+
+  // "Add people": the call moved into a group chat, so carry on there (after useBackgroundCall, so its latest-values
+  // effect has already run when this host unmounts and the service is deliberately left alone). Both phones do this: the first to start the
+  // group call marks the chat "in a call" and the other joins it. This phone is not rung for it.
+  useEffect(() => {
+    if (!movedTo) return;
+    expectGroupCall(movedTo);
+    releaseCall(call.key);
+    startCall({ kind: 'group', callId: null, conversationId: movedTo, type });
+    // Runs once, when `movedTo` appears.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movedTo]);
   return null;
 }
 

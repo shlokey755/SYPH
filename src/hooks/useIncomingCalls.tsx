@@ -35,6 +35,11 @@ import { useToast } from './toastNotifications';
 interface IncomingCallsContextType {
   /** The call screen reports here so a second caller is turned away while one call is in progress. */
   setOnCall: (onCall: boolean) => void;
+  /**
+   * A 1-to-1 call is moving into this group chat ("Add people"), so its group call is not a new call to ring or report
+   * as missed on this phone.
+   */
+  expectGroupCall: (conversationId: string) => void;
 }
 
 const IncomingCallsContext = createContext<IncomingCallsContextType | undefined>(undefined);
@@ -46,6 +51,9 @@ const createdAtMs = (call: Call): number => {
 };
 
 const RING_BUZZ_MS = 1500;
+
+/** How long a group call that this phone is moving into stays quiet. */
+const EXPECTED_GROUP_MS = 2 * 60 * 1000;
 
 /** What the full-screen ring shows; built from either a 1-to-1 call or a group call. */
 interface RingInfo {
@@ -88,6 +96,13 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
 
   const setOnCall = useCallback((onCall: boolean) => {
     onCallRef.current = onCall;
+  }, []);
+
+  /** Group chats this phone is moving into from a 1-to-1 call, with the time the exception ends. */
+  const expectedGroupRef = useRef<Map<string, number>>(new Map());
+  const expectGroupCall = useCallback((conversationId: string) => {
+    expectedGroupRef.current.set(conversationId, Date.now() + EXPECTED_GROUP_MS);
+    setGroupVersion((v) => v + 1);
   }, []);
 
   useEffect(() => {
@@ -167,6 +182,7 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
     for (const c of conversations) {
       const call = c.activeCall;
       if (!c.isGroup || !call) continue;
+      if ((expectedGroupRef.current.get(c.id) ?? 0) > now) continue;
       if (!shouldRing(call, uid, now, groupHandledRef.current.has(call.id))) continue;
       if (!best || call.startedAt > best.call.startedAt) {
         best = { conversationId: c.id, groupName: c.groupName || 'Group', call };
@@ -260,7 +276,7 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
     }
   }, [incoming, groupCandidate]);
 
-  const value = useMemo(() => ({ setOnCall }), [setOnCall]);
+  const value = useMemo(() => ({ setOnCall, expectGroupCall }), [setOnCall, expectGroupCall]);
 
   return (
     <IncomingCallsContext.Provider value={value}>

@@ -175,6 +175,8 @@ export interface Call {
   answeredAt?: FirestoreTime;
   endedAt?: FirestoreTime;
   endedBy?: string;
+  /** Set when the call ended because people were added: the group chat the call carried on in. */
+  movedTo?: string;
 }
 
 /** One trickled ICE candidate (calls/{callId}/candidates/{id}). */
