@@ -37,8 +37,8 @@
 |  **Link previews** | YouTube and Shorts links turn into cards (thumbnail, title, channel) that play in an in-app pop-up. A removed video shows "Video unavailable". Free, no key. |
 |  **Calls** | One-to-one audio and video with a speaker toggle. Group calls with up to 4 on video or 6 on voice. |
 |  **Notifications** | Push alerts while the app is closed, per-chat mute and a global switch. |
-| 📍 **Location** | Hold the send button for a map popup: send a one-time pin, or share live location for 15 min, 1 h or 8 h, even while the app is closed. Free OpenStreetMap map. |
-| 🔄 **Updates** | An Update button in the Me tab: it turns active when a new update arrives, downloads it inside the app, or opens the new APK. |
+|  **Location** | Hold the send button for a map popup: send a one-time pin, or share live location for 15 min, 1 h or 8 h, even while the app is closed. Free OpenStreetMap map. |
+|  **Updates** | An Update button in the Me tab: it turns active when a new update arrives, downloads it inside the app, or opens the new APK. |
 |  **Themes** | Six themes saved to your profile. The app icon follows your theme on Android. |
 |  **Offline** | An offline banner, and messages you send are queued until you are back online. |
 |  **Sign-in** | Username or email, password reset, optional display name. |
