@@ -363,6 +363,36 @@ const no = (n, p) => check(n, p, false);
   await ok('callee can also end an answered call', bob.doc('calls/c5').update({ status: 'ended', endedAt: FV.serverTimestamp(), endedBy: 'bob' }));
   await no('calls cannot be deleted', alice.doc('calls/c5').delete());
 
+  // "Add people": ending an answered call may name the group chat it carries on in.
+  const seedGroup = (id, members, isGroup = true) =>
+    env.withSecurityRulesDisabled((ctx) =>
+      ctx.firestore().doc(`conversations/${id}`).set({
+        isGroup, createdBy: 'alice', participantIds: members, groupName: id, lastMessage: '', hiddenBy: [], readState: {}, unread: {},
+        createdAt: firebase.firestore.Timestamp.now(),
+      })
+    );
+  await seedGroup('mv_ok', ['alice', 'bob', 'carol']);
+  await seedGroup('mv_missing_bob', ['alice', 'carol']);
+  await seedGroup('mv_not_alice', ['bob', 'carol', 'dave']);
+  const endMoved = (to) => ({ status: 'ended', endedAt: FV.serverTimestamp(), endedBy: 'alice', movedTo: to });
+
+  await seedCall('m1', 'accepted');
+  await no('cannot move to a chat that does not exist', alice.doc('calls/m1').update(endMoved('nope')));
+  await no('cannot move to a 1-on-1 chat', alice.doc('calls/m1').update(endMoved('alice_bob')));
+  await no('cannot move to a group that leaves the other person out', alice.doc('calls/m1').update(endMoved('mv_missing_bob')));
+  await no('cannot move to a group you are not in', alice.doc('calls/m1').update(endMoved('mv_not_alice')));
+  await no('movedTo must be text', alice.doc('calls/m1').update(endMoved(7)));
+  await no('movedTo cannot ride along with a status that is not ended', alice.doc('calls/m1').update({ movedTo: 'mv_ok' }));
+  await ok('an answered call ends and moves to a group with both people', alice.doc('calls/m1').update(endMoved('mv_ok')));
+  await ok('the other person reads where it moved', bob.doc('calls/m1').get());
+
+  await seedCall('m2');
+  await no('a ringing call cannot be moved', alice.doc('calls/m2').update(endMoved('mv_ok')));
+  await seedCall('m3', 'accepted');
+  await ok('the callee may move it too', bob.doc('calls/m3').update({ ...endMoved('mv_ok'), endedBy: 'bob' }));
+  await seedCall('m4', 'accepted');
+  await no('an outsider cannot move it', carol.doc('calls/m4').update({ ...endMoved('mv_ok'), endedBy: 'carol' }));
+
   await seedCall('c6');
   const cand = (from) => ({ from, candidate: 'candidate:1', sdpMid: '0', sdpMLineIndex: 0, createdAt: FV.serverTimestamp(), expireAt: expire() });
   await ok('participant adds an ICE candidate', alice.collection('calls/c6/candidates').add(cand('alice')));

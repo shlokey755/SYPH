@@ -18,6 +18,7 @@ import {
   getDoc,
   onSnapshot,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   Timestamp,
@@ -184,4 +185,22 @@ export const markCallMissed = (callId: string) => updateDoc(callRef(callId), { s
 
 export function endCall(callId: string, uid: string) {
   return updateDoc(callRef(callId), { status: 'ended', endedAt: serverTimestamp(), endedBy: uid });
+}
+
+/**
+ * Ends the call because people were added, and records the group chat it carries on in (`movedTo`) so the other person
+ * follows without being rung. If the other person pressed "Add" at the same moment and got there first, theirs wins and
+ * its chat is returned instead, so both phones land in the same group call.
+ */
+export function moveCallToGroup(callId: string, uid: string, conversationId: string): Promise<string> {
+  return runTransaction(db, async (tx) => {
+    const ref = callRef(callId);
+    const snap = await tx.get(ref);
+    const data = snap.data();
+    if (!snap.exists() || !data) throw new Error('call is gone');
+    if (data.status === 'ended' && typeof data.movedTo === 'string' && data.movedTo) return data.movedTo as string;
+    if (data.status !== 'accepted') throw new Error(`call is ${String(data.status)}`);
+    tx.update(ref, { status: 'ended', endedAt: serverTimestamp(), endedBy: uid, movedTo: conversationId });
+    return conversationId;
+  });
 }

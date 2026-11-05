@@ -14,22 +14,29 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AddPeopleSheet } from '../../components/call/AddPeopleSheet';
 import { ControlButton } from '../../components/call/ControlButton';
 import { useTheme } from '../../hooks/themeContext';
 import { useAuth } from '../../hooks/useAuth';
 import { getActiveCall, releaseCall, startCall, useActiveCall, useDirectSession, DirectSession } from '../../services/activeCallStore';
+import { createGroupConversation } from '../../services/chatService';
 import { getWebRTC } from '../../services/webrtc';
 import { CallType } from '../../types';
 import { routeIcon, routeLabel } from '../../utils/audioRoute';
 import { callTiles, endReasonText, formatCallClock, muteIndicator } from '../../utils/call';
 import { ACTIVE_CALL_ID, CALL_ROUTE } from '../../utils/callBackground';
+import { Candidate, maxAddable, upgradeGroupName } from '../../utils/callUpgrade';
+import { MAX_PARTICIPANTS } from '../../utils/groupCall';
 import type { OutgoingCall } from '../../hooks/useCallSession';
 
 /** How long the "Call ended" line stays up before the screen closes by itself. */
 const CLOSE_DELAY_MS = 1800;
+
+/** How long to wait for the new group chat to be saved before telling the person it did not work. */
+const CREATE_GROUP_TIMEOUT_MS = 10_000;
 
 export default function CallScreen() {
   const params = useLocalSearchParams<{
@@ -77,6 +84,17 @@ export default function CallScreen() {
     if (outcome === 'busy') router.replace(CALL_ROUTE[getActiveCall()?.kind ?? 'direct']);
   }, [isAttach, isNew, params.id, requested, goBack, router]);
 
+  // "Add people" moves this call into a group call: follow it to the group call screen.
+  const kind = active?.kind;
+  const wasDirect = useRef(false);
+  useEffect(() => {
+    if (kind === 'direct') wasDirect.current = true;
+    else if (kind === 'group' && wasDirect.current) {
+      wasDirect.current = false;
+      router.replace(CALL_ROUTE.group);
+    }
+  }, [kind, router]);
+
   // Closing after the call has ended lets go of it. (Going back mid-call does not.)
   const close = useCallback(() => {
     releaseCall();
@@ -105,6 +123,7 @@ function DirectCallView({
   const { themeColors } = useTheme();
   const { currentUser } = useAuth();
   const { phase, call } = session;
+  const [adding, setAdding] = useState(false);
 
   useKeepAwake();
 
@@ -123,6 +142,36 @@ function DirectCallView({
         ? call.calleeName
         : call.callerName
       : '';
+
+  // "Add people": make a group chat with everyone, then move the call into it (both phones follow).
+  const otherUid = outgoing
+    ? outgoing.callee.uid
+    : call
+      ? call.callerId === currentUser?.uid
+        ? call.calleeId
+        : call.callerId
+      : '';
+  const canAdd = phase === 'connected' && !session.reconnecting && !!currentUser && !!otherUid;
+  const addLimit = maxAddable(MAX_PARTICIPANTS[type]);
+  const { moveToGroup } = session;
+  const addPeople = useCallback(
+    async (people: Candidate[]) => {
+      if (!currentUser) throw new Error('not signed in');
+      const me = { uid: currentUser.uid, username: currentUser.username };
+      const other = { uid: otherUid, username: otherName };
+      const name = upgradeGroupName([me.username, other.username, ...people.map((p) => p.username)]);
+      const created = createGroupConversation(me, [other, ...people], name);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const conversationId = await Promise.race([
+        created,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error('timeout')), CREATE_GROUP_TIMEOUT_MS);
+        }),
+      ]).finally(() => timer && clearTimeout(timer));
+      await moveToGroup(conversationId);
+    },
+    [currentUser, otherUid, otherName, moveToGroup]
+  );
 
   let status: string;
   if (phase === 'ended') status = endReasonText(session.endReason ?? 'ended', session.isCaller);
@@ -204,7 +253,29 @@ function DirectCallView({
             <Text style={[styles.cameraOffText, { color: themeColors.subText }]}>Camera off</Text>
           </View>
         )}
+        {canAdd && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add people to this call"
+            onPress={() => setAdding(true)}
+            style={[
+              styles.addPill,
+              { borderColor: remoteHasVideo ? '#FFFFFF' : themeColors.border, backgroundColor: remoteHasVideo ? 'rgba(0,0,0,0.35)' : themeColors.cardBackground },
+            ]}
+          >
+            <Ionicons name="person-add" size={16} color={remoteHasVideo ? '#FFFFFF' : themeColors.text} />
+            <Text style={[styles.addText, { color: remoteHasVideo ? '#FFFFFF' : themeColors.text }]}>Add people</Text>
+          </Pressable>
+        )}
       </View>
+
+      <AddPeopleSheet
+        visible={adding && canAdd}
+        onClose={() => setAdding(false)}
+        limit={addLimit}
+        excludeUids={[otherUid]}
+        onConfirm={addPeople}
+      />
 
       {RTCView && tiles.local === 'video' && (
         <View style={[styles.pip, { top: insets.top + 16, borderColor: themeColors.border }]}>
@@ -362,6 +433,17 @@ const styles = StyleSheet.create({
   hangUpIcon: { transform: [{ rotate: '135deg' }] },
   pill: { paddingHorizontal: 36, paddingVertical: 14, borderRadius: 28 },
   pillText: { fontSize: 16, fontWeight: '600' },
+  addPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 40,
+    paddingHorizontal: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 20,
+  },
+  addText: { fontSize: 14, fontWeight: '600' },
   cameraOffRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   cameraOffText: { fontSize: 14 },
   pipOff: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 8 },

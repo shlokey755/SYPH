@@ -401,7 +401,7 @@ A call now keeps going when you press Home, lock the phone, or go back to the ch
 - Signing out ends the call.
 
 **Known limits**
-- **Not compiled or tested.** The Kotlin could not be built where this was written (no Android toolchain), so the first compile is your EAS build. If that build fails, copy me the Gradle error; the module is isolated in `modules/syph-call-service/` and can be removed on its own. Everything else (screens, rules for which call is shown, camera rule, notification text) is unit tested (`tests/unit/callBackground.test.ts`) and type-checks.
+- **Compile-checked, not run.** The service (`CallForegroundService.kt`, `CallServiceEvents.kt`) was compiled with kotlinc 2.1.0 against the Android 34 API and has no errors; the Expo wrapper `SyphCallServiceModule.kt` could not be checked, and none of it has run on a phone. Your EAS build is the real build. If it fails, copy me the Gradle error; the module is isolated in `modules/syph-call-service/` and can be removed on its own. Everything else (screens, rules for which call is shown, camera rule, notification text) is unit tested (`tests/unit/callBackground.test.ts`) and type-checks.
 - Android only. iPhones would need background modes and a paid Apple developer account (not planned).
 - A call cannot be started while SYPH is in the background (Android forbids starting the microphone service from there). Accepting from the notification opens SYPH first, so that works.
 - Some phones (Xiaomi, Oppo, Vivo, Samsung with aggressive battery saving) stop apps anyway. If a call drops a minute after pressing Home, set SYPH's battery use to "Unrestricted" in Android settings.
@@ -425,6 +425,38 @@ A call now keeps going when you press Home, lock the phone, or go back to the ch
 | 11 | Refuse the notification permission (Android 13+), then call and press Home | The call keeps going; no notification |
 | 12 | On an Android 14 or 15 phone, start any call | No crash. If the app closes the moment a call starts, tell me the phone model and Android version |
 
+### 1.14 Add people to a 1-to-1 call (rules change, JavaScript only)
+
+On a connected 1-to-1 call, an **Add people** button appears under the name. Tap it, search by username, pick one or more people and tap **Start group call**. SYPH makes a small group chat with everyone (named after the usernames), ends the 1-to-1 call, and both of you move into a group call in that chat. The people you added get the normal group-call ring and push. Both people on the call can do this.
+
+| Step | How | Cost |
+|------|-----|------|
+| Publish the new rules | Firebase Console > Firestore Database > Rules > paste `firestore.rules` > Publish. One clause was added: ending an answered call may carry `movedTo` (the group chat), and only a member of that chat can write it. | Free |
+| Ship the app change | JavaScript only: `eas update --channel preview`. No new APK. | Free |
+
+**Without the new rules** the feature still works, but the other person is not moved over by themselves: their 1-to-1 call ends and the group call rings them instead (accept to join).
+
+**Behaviour**
+- Limits are the group-call limits: 4 people for video, 6 for voice, so a video call can add 2 people and a voice call 4. The sheet says how many more can be added.
+- There is a short gap in sound (about a second or two) while each phone opens the group call; nothing is recorded or lost.
+- If the group chat cannot be saved (offline, 10 seconds), the sheet shows an error and the 1-to-1 call carries on untouched.
+- If both people press Add at the same moment, the first one saved wins and both land in its group. The other group chat stays as an empty chat you can delete.
+- The ongoing call notification stays up through the move, so Android does not mute the microphone for a phone in the background.
+- The new group chat is a normal group: the person who pressed Add is its creator, so only they can add or remove members later.
+
+**Test checklist (three phones, A and B on a call, C added; rules published)**
+
+| # | Do this | Expect |
+|---|---------|--------|
+| 1 | A and B on a voice call. A taps Add people, searches C's username | C is listed, A and B are not |
+| 2 | Pick C, tap Start group call | A and B both land on the group call screen with the call clock going; C's phone rings |
+| 3 | C accepts | All three hear each other. A group chat named "a, b, c" exists on all three |
+| 4 | Repeat on a video call, add two people | The limit line says 2 more, and a third pick is refused |
+| 5 | Press Home on B just before A taps Start | B is still moved into the group call and keeps its notification |
+| 6 | Turn mobile data off on A, then Start group call | An error shows after about 10 seconds, the 1-to-1 call is still going |
+| 7 | B presses Add people too, at the same time as A | Both end up in one group call, not two |
+| 8 | Do step 2 with the old rules still published | The call still becomes a group call, but B is rung instead of moved |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
@@ -436,7 +468,7 @@ A call now keeps going when you press Home, lock the phone, or go back to the ch
 | `appConfig/latest` | Newest APK for the Update button: `latestBuild` (number), `apkUrl` (https), `notes`. Signed-in users read it, nobody writes it from the app; you edit it in the Console (1.12) |
 | `pushTokens/{token}` | Which account is signed in on a device (`uid`, `platform`, `updatedAt`). A sender checks it before using a token; readable one at a time, never listed |
 | `userPush/{uid}` | Copy of the push-relevant settings: `tokens[]` (newest 5), `notificationsEnabled`, `mutedChats[]`. Written only by the owner, readable one at a time by signed-in users so a sender's phone can notify them |
-| `calls/{id}` | One call: `callerId`, `calleeId`, `participantIds`, `type` (audio/video), `status` (ringing, accepted, declined, cancelled, missed, ended), `offer`, `answer`, `createdAt`, `expireAt` |
+| `calls/{id}` | One call: `callerId`, `calleeId`, `participantIds`, `type` (audio/video), `status` (ringing, accepted, declined, cancelled, missed, ended), `offer`, `answer`, `createdAt`, `expireAt`, and `movedTo` (the group chat, when people were added and the call carried on there, 1.14) |
 | `calls/{id}/media/{uid}` | That person's own media state: `cameraOff` and `muted` (booleans), `expireAt`. Members read, each writes only their own |
 | `calls/{id}/candidates/{id}` | ICE candidates trickled by either side (`from`, `candidate`, `sdpMid`, `sdpMLineIndex`) |
 | `conversations/{id}/messages/{id}` | `type` (`text`, `gif` or `location`; a location is a live share or a one-time pin, `location: { expiresAt: 0, pin: true, lat, lng }`; the rules refuse anything else, and old photo, voice and sticker messages stay readable), `text`, `media` (GIF link only), `location` (`{ expiresAt }`, live location only), `senderId`, `replyTo`, `forwarded`, `deletedFor[]`, `deletedForEveryone`, `createdAt` |
