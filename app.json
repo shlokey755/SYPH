@@ -59,7 +59,8 @@
         {
           "icon": "./assets/images/notification-icon.png",
           "color": "#000000",
-          "defaultChannel": "messages"
+          "defaultChannel": "messages",
+          "sounds": ["./assets/sounds/incallmanager_ringtone.wav"]
         }
       ],
       [

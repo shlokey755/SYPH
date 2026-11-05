@@ -37,6 +37,8 @@ import {
   unpublishSession,
   useActiveCall,
 } from '../../services/activeCallStore';
+import { feelCall } from '../../services/alertSounds';
+import { startRingback, stopRingback } from '../../services/callAudio';
 import { consumeEndRequest, onEndCallRequested, showCallService, stopCallService } from '../../services/callForeground';
 import { CallType } from '../../types';
 import { CallKind, CallStage, callNotificationInfo, cameraAction, clockStart, ENDED_LINGER_MS } from '../../utils/callBackground';
@@ -119,6 +121,16 @@ function useBackgroundCall(input: HostInput) {
     []
   );
 
+  // ----- how the call feels: one pulse when it connects, two short ones when it ends -----
+  const isLive = stage === 'live';
+  useEffect(() => {
+    if (isLive) feelCall('connected');
+  }, [isLive]);
+  useEffect(() => {
+    // Not when the call is only moving into a group call: the person is still on it.
+    if (ended && !latest.current.movedTo) feelCall('ended');
+  }, [ended]);
+
   // ----- "End call" on the notification -----
   useEffect(() => {
     consumeEndRequest(); // drop a request left over from an earlier call
@@ -171,6 +183,16 @@ function DirectCallHost({ call }: { call: ActiveDirectCall }) {
     : '';
 
   const type = call.outgoing?.type ?? session.call?.type ?? 'audio';
+
+  // The caller hears the "tu-tu" while the other phone rings, and not once it is answered or given up.
+  const waitingForAnswer = !!call.outgoing && phase === 'ringing';
+  useEffect(() => {
+    if (!waitingForAnswer) return;
+    startRingback();
+    return () => {
+      stopRingback();
+    };
+  }, [waitingForAnswer]);
 
   useBackgroundCall({
     callKey: call.key,

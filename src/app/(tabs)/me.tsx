@@ -24,6 +24,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import { AccountEmailSection } from '../../components/profile/AccountEmailSection';
+import { SoundsSection } from '../../components/profile/SoundsSection';
 import { UpdateSection } from '../../components/profile/UpdateSection';
 import { NameSection } from '../../components/profile/NameSection';
 import { isPushSupported, registerForPush } from '../../services/pushService';
@@ -209,6 +210,9 @@ export default function MeTab() {
           />
         </View>
       </View>
+
+      {/* Ringtone, message tone and vibration */}
+      <SoundsSection />
 
       {/* Theme Options Section */}
       <View style={styles.section}>

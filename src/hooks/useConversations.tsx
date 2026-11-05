@@ -5,7 +5,8 @@
  * - Queries only conversations the user belongs to (participantIds array-contains uid).
  *   The previous version downloaded every conversation in the database and filtered on the device.
  * - Records delivery receipts for messages that arrive while the app is open (FR-07).
- * - Shows an in-app toast for messages in chats that are not open and not muted (FR-09).
+ * - Shows an in-app toast for messages in chats that are not open and not muted (FR-09), and plays the message tone and
+ *   buzz (services/alertSounds.ts) for any unmuted message, a gentler one when it is in the chat being read.
  */
 
 import { useRouter } from 'expo-router';
@@ -20,6 +21,7 @@ import React, {
   useState,
 } from 'react';
 import { db } from '../firebaseConfig';
+import { alertNewMessage } from '../services/alertSounds';
 import * as chat from '../services/chatService';
 import { Conversation } from '../types';
 import { useToast } from './toastNotifications';
@@ -119,22 +121,20 @@ export const ConversationsProvider = ({ children }: { children: React.ReactNode 
             chat.markDelivered(conv.id, uid).catch(() => deliveredRef.current.delete(deliveredKey));
           }
 
-          // In-app toast for new messages in other chats.
-          if (
-            !firstSnapshot &&
-            millis > previous &&
-            activeChatRef.current !== conv.id &&
-            notificationsOnRef.current &&
-            !isMutedRef.current(conv.id)
-          ) {
-            const sender = conv.lastMessageSenderName || 'New message';
-            toastRef.current.show({
-              type: 'message',
-              title: conv.isGroup ? `${conv.groupName ?? 'Group'}` : sender,
-              message: conv.isGroup ? `${sender}: ${conv.lastMessage ?? ''}` : conv.lastMessage,
-              onPress: () =>
-                routerRef.current.push({ pathname: '/chat/[id]', params: { id: conv.id } }),
-            });
+          // A new message while the app is open: a tone and a buzz, and a toast when it is in a chat that is not open.
+          if (!firstSnapshot && millis > previous && notificationsOnRef.current && !isMutedRef.current(conv.id)) {
+            const chatIsOpen = activeChatRef.current === conv.id;
+            alertNewMessage(chatIsOpen);
+            if (!chatIsOpen) {
+              const sender = conv.lastMessageSenderName || 'New message';
+              toastRef.current.show({
+                type: 'message',
+                title: conv.isGroup ? `${conv.groupName ?? 'Group'}` : sender,
+                message: conv.isGroup ? `${sender}: ${conv.lastMessage ?? ''}` : conv.lastMessage,
+                onPress: () =>
+                  routerRef.current.push({ pathname: '/chat/[id]', params: { id: conv.id } }),
+              });
+            }
           }
         });
 

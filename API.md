@@ -457,6 +457,41 @@ On a connected 1-to-1 call, an **Add people** button appears under the name. Tap
 | 7 | B presses Add people too, at the same time as A | Both end up in one group call, not two |
 | 8 | Do step 2 with the old rules still published | The call still becomes a group call, but B is rung instead of moved |
 
+### 1.15 Sounds and vibration (partly JavaScript, partly a new APK)
+
+The Me tab has a new **Sounds & vibration** card: vibration on or off, touch feedback on or off, the **call ringtone** (SYPH, or your phone's own) and the **message tone** (SYPH, Pop, Drop or Silent). Picking a ringtone or tone plays it once. The choices are kept on that phone only (nothing in Firestore, no rules change).
+
+| What you get | Ships as |
+|---|---|
+| An incoming call rings on the ring volume and buzzes in a pattern (two pulses, a rest, repeated) until it is answered or stops | `eas update --channel preview` (phone ringtone) |
+| The caller hears the usual "tu-tu" while the other phone rings | `eas update --channel preview` |
+| A new message plays a tone and buzzes while SYPH is open. In the chat you are reading it is quieter and only ticks | Buzz: update. Tone: **new APK** |
+| A light tick when you send a message, one pulse when a call connects, two short ones when it ends | `eas update --channel preview` |
+| The SYPH ringtone (`incallmanager_ringtone.wav`), copied into the Android app by the build (`sounds` in the `expo-notifications` entry of `app.json`) | **New APK** |
+| Message tones (Pop, Drop, SYPH), played by `expo-audio` (new dependency, `~57.0.5`, no plugin entry needed) | **New APK** |
+
+**An older APK that receives the update** keeps working: calls ring with the phone's own ringtone and new messages only buzz, and the card says so. Nothing crashes, because `expo-audio` is loaded only when its native part is in the build (`services/alertSounds.ts`).
+
+**While SYPH is closed** nothing changed: Android plays the notification sound itself, from the **Messages** and **Calls** notification categories (Android Settings > Apps > SYPH > Notifications). A phone that rings with the full-screen call screen while SYPH is closed is the separate "calls over other apps" work.
+
+**Sounds and licensing:** every sound is synthesised from sine waves by `scripts/generate-sounds.py` (plain Python, nothing to download, nothing to license). Change a tone, run `python3 scripts/generate-sounds.py`, and rebuild. To use your own, replace a file in `assets/sounds/` with another `.wav` of the same name.
+
+**Needs from you:** nothing (no key, no rules). Build a new APK to get the SYPH ringtone and message tones.
+
+**Test checklist (two phones, new APK on both; step 8 on an old APK)**
+
+| # | Do this | Expect |
+|---|---------|--------|
+| 1 | Me tab > Sounds & vibration > tap each message tone | Each plays once; Silent plays nothing |
+| 2 | Tap "SYPH" then "Phone ringtone" under Call ringtone | Each plays for about 3 seconds |
+| 3 | B calls A while A has SYPH open | A rings and buzzes until answered; B hears the "tu-tu" |
+| 4 | A switches Vibration off, B calls again | A rings, no buzz |
+| 5 | B sends A a message while A is on the chat list | Tone, double buzz and the usual pop-up |
+| 6 | B sends A a message while A is in that chat | A softer tone and a tick, no pop-up |
+| 7 | A switches Touch feedback off, then sends a message and makes a call | No tick on send, no pulse on connect or end |
+| 8 | Old APK with this update: B calls and messages | Phone ringtone for the call; messages only buzz; the card explains why |
+| 9 | Put the phone on silent, B calls | No ring tone, the buzz still happens |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
