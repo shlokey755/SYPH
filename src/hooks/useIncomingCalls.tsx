@@ -11,24 +11,28 @@
  * - A group call rings the same way for a short while after someone starts it (the group's `activeCall` pointer, which
  *   the conversations listener already delivers). Declining a group call only dismisses it on this phone.
  *
+ * A call that arrives while the app is in the background but still running is also put on the lock screen and over other
+ * apps (a native full-screen call screen with Accept and Decline, see services/callOverlay.ts and API.md 1.16).
  * A call that arrives while the app is closed reaches the user as a push notification (sent from the caller's phone,
- * see pushSender.ts and API.md; or from the optional relay in server/); there
- * is no native call screen, so tapping it opens the chat and, if the call is still ringing, this overlay appears.
+ * see pushSender.ts and API.md; or from the optional relay in server/); tapping it opens the chat and, if the call is
+ * still ringing, this overlay appears.
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { buzz, hasBundledSounds, stopBuzz } from '../services/alertSounds';
 import { getAlertPrefs } from '../services/alertPrefsStore';
 import { startRinging, stopRinging } from '../services/callAudio';
+import { consumeIncomingPress, hideIncomingScreen, onIncomingPress, showIncomingScreen } from '../services/callOverlay';
 import { declineCall, getCallStatus, subscribeIncomingCalls } from '../services/callService';
 import { isCallingSupported } from '../services/webrtc';
 import { ActiveGroupCall, Call, CallType } from '../types';
 import { ringPlan } from '../utils/alertPrefs';
 import { STALE_RING_MS, isRingingFresh, isUnansweredEnd } from '../utils/call';
+import { IncomingPress, incomingScreenWanted } from '../utils/callOverlay';
 import { RING_WINDOW_MS, callHeadline, shouldRing } from '../utils/groupCall';
 import { missedCallText } from '../utils/push';
 import { useAuth } from './useAuth';
@@ -278,6 +282,51 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
       setGroupVersion((v) => v + 1);
     }
   }, [incoming, groupCandidate]);
+
+  // While SYPH is in the background (but running) a ringing call is also put on the lock screen and over other apps: a
+  // full-screen call screen and a notification with Accept and Decline (native, services/callOverlay.ts). The ring itself
+  // keeps playing from here. With SYPH on screen the ring screen above does the job and the native one is taken away.
+  const [appState, setAppState] = useState(AppState.currentState);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', setAppState);
+    return () => subscription.remove();
+  }, []);
+
+  const screenWanted = incomingScreenWanted(ringKey, appState);
+  useEffect(() => {
+    if (!screenWanted || !ring) return;
+    showIncomingScreen({ key: ring.key, name: ring.name, text: ring.kind, video: ring.type === 'video' });
+    return () => {
+      hideIncomingScreen();
+    };
+    // `ring` is read when the screen is shown; a different call (a different key) shows it again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screenWanted, ringKey]);
+
+  // Accept or Decline pressed on that screen. Read through a ref: the listener is attached once. A press made while nothing
+  // was listening is picked up when SYPH comes back to the screen (Accept brings it forward).
+  const pressRef = useRef({ ringKey, accept, decline });
+  useEffect(() => {
+    pressRef.current = { ringKey, accept, decline };
+  });
+  useEffect(() => {
+    const handle = (press: IncomingPress) => {
+      const current = pressRef.current;
+      if (press.key !== current.ringKey) return; // about a call that is no longer ringing here
+      if (press.action === 'accept') current.accept();
+      else current.decline();
+    };
+    const stop = onIncomingPress(handle);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      const missed = consumeIncomingPress();
+      if (missed) handle(missed);
+    });
+    return () => {
+      stop();
+      subscription.remove();
+    };
+  }, []);
 
   const value = useMemo(() => ({ setOnCall, expectGroupCall }), [setOnCall, expectGroupCall]);
 
