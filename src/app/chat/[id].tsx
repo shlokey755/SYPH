@@ -68,10 +68,19 @@ import {
   toMillis,
 } from '../../utils/conversation';
 import { dayHeaders, dayLabelsEach, floatingDayLabel } from '../../utils/dateLabels';
+import { searchMessages } from '../../utils/messages';
 import { getMessageStatus } from '../../utils/messageStatus';
 import { typingLabel } from '../../utils/typing';
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong');
+
+const toReplyPreview = (m: Message): ReplyPreview => ({
+  messageId: m.id,
+  senderId: m.senderId,
+  senderUsername: m.senderUsername,
+  type: m.type,
+  text: chat.messagePreview(m.type, m.text) || m.text,
+});
 
 function useAppIsActive() {
   const [active, setActive] = useState(AppState.currentState === 'active');
@@ -182,11 +191,12 @@ export default function ChatScreen() {
   // Group calls: is one going that this person can join?
   const groupCall = useActiveGroupCall(conversation);
 
-  const visibleMessages = useMemo(() => {
-    const q = searchText.trim().toLowerCase();
-    if (!searchOpen || !q) return messages;
-    return messages.filter((m) => !m.deletedForEveryone && m.text.toLowerCase().includes(q));
-  }, [messages, searchOpen, searchText]);
+  // While searching, only the matching messages are listed. They are grouped by day exactly like the full chat (a day chip
+  // above the first match of each day, and the floating day chip while scrolling), because both read this same list.
+  const visibleMessages = useMemo(
+    () => (searchOpen ? searchMessages(messages, searchText) : messages),
+    [messages, searchOpen, searchText]
+  );
 
   // "Today" / "Yesterday" / "Saturday, 31 Oct" above the first message of each day. Drawn by the message itself, not as
   // extra list rows, so the list indexes that scroll-to-reply relies on stay as they are.
@@ -242,13 +252,8 @@ export default function ChatScreen() {
   );
 
   // ----- actions -----
-  const toReplyPreview = (m: Message): ReplyPreview => ({
-    messageId: m.id,
-    senderId: m.senderId,
-    senderUsername: m.senderUsername,
-    type: m.type,
-    text: chat.messagePreview(m.type, m.text) || m.text,
-  });
+  // Swiping a message to the right replies to it, the same as "Reply" in the long-press menu.
+  const handleSwipeReply = useCallback((message: Message) => setReplyTo(toReplyPreview(message)), []);
 
   const handleSend = (text: string) => {
     if (!conversation || !me) return;
@@ -509,12 +514,13 @@ export default function ChatScreen() {
             colors={themeColors}
             onLongPress={setActionMessage}
             onReplyPress={scrollToMessage}
+            onSwipeReply={handleSwipeReply}
             onOpenLocation={setViewerMessage}
           />
         </View>
       );
     },
-    [myUid, conversation, themeColors, scrollToMessage, dayLabels]
+    [myUid, conversation, themeColors, scrollToMessage, handleSwipeReply, dayLabels]
   );
 
   return (

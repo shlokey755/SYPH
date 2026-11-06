@@ -1,16 +1,18 @@
 /**
  * MessageContent.tsx
- * Renders the body of a message by type: text, GIF or live location. Old photo / video / voice / document messages
+ * Renders the body of a message by type: text (emoji-only text is animated), GIF or live location. Old photo / video / voice / document messages
  * (from before file sharing was removed) show a one-line label instead of the file. Old sticker messages are just an
  * emoji, so they show as ordinary text.
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Message, MessageMedia } from '../../types';
+import { emojiOnly } from '../../utils/emoji';
 import { isLegacyMediaType, legacyMediaLabel } from '../../utils/messageType';
+import { AnimatedEmoji } from './AnimatedEmoji';
 import { LocationBubble } from './LocationBubble';
 
 interface Props {
@@ -29,6 +31,8 @@ function gifHeight(media: MessageMedia | undefined) {
 
 export function MessageContent({ message, textColor, onOpenLocation, onLongPress }: Props) {
   const { media, type } = message;
+  // A message of nothing but emoji (up to eight) is shown big and animated.
+  const emojis = useMemo(() => emojiOnly(message.text), [message.text]);
 
   if (isLegacyMediaType(type)) {
     return (
@@ -55,6 +59,7 @@ export function MessageContent({ message, textColor, onOpenLocation, onLongPress
       );
 
     default:
+      if (emojis) return <AnimatedEmoji emojis={emojis} onLongPress={() => onLongPress?.(message)} />;
       return <Text style={[styles.text, { color: textColor }]}>{message.text}</Text>;
   }
 }
