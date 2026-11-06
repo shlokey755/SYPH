@@ -48,6 +48,7 @@ import { useMessages } from '../../hooks/useMessages';
 import { useProfiles } from '../../hooks/useProfiles';
 import { useIsOffline } from '../../hooks/useOnlineStatus';
 import { useUserSettings } from '../../hooks/useUserSettings';
+import { tickOnSend } from '../../services/alertSounds';
 import * as chat from '../../services/chatService';
 import {
   isBackgroundAllowed,
@@ -211,6 +212,7 @@ export default function ChatScreen() {
     typingReporter.stop();
     const reply = replyTo;
     setReplyTo(null);
+    tickOnSend();
     // Not awaited: while offline the write stays queued and the bubble shows as pending (NFR-07).
     chat
       .sendMessage(conversation, me, { type: 'text', text, replyTo: reply ?? undefined })

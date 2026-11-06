@@ -19,11 +19,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, Vibration, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { buzz, hasBundledSounds, stopBuzz } from '../services/alertSounds';
+import { getAlertPrefs } from '../services/alertPrefsStore';
+import { startRinging, stopRinging } from '../services/callAudio';
 import { declineCall, getCallStatus, subscribeIncomingCalls } from '../services/callService';
 import { isCallingSupported } from '../services/webrtc';
 import { ActiveGroupCall, Call, CallType } from '../types';
+import { ringPlan } from '../utils/alertPrefs';
 import { STALE_RING_MS, isRingingFresh, isUnansweredEnd } from '../utils/call';
 import { RING_WINDOW_MS, callHeadline, shouldRing } from '../utils/groupCall';
 import { missedCallText } from '../utils/push';
@@ -49,8 +53,6 @@ const createdAtMs = (call: Call): number => {
   const value = call.createdAt as unknown as { toMillis?: () => number } | undefined;
   return typeof value?.toMillis === 'function' ? value.toMillis() : 0;
 };
-
-const RING_BUZZ_MS = 1500;
 
 /** How long a group call that this phone is moving into stays quiet. */
 const EXPECTED_GROUP_MS = 2 * 60 * 1000;
@@ -239,15 +241,16 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
     return null;
   }, [incoming, groupCandidate]);
 
-  // Vibrate while the overlay is up.
+  // Ring and buzz while the overlay is up: the chosen ringtone on the ring volume, with the buzz pattern. Without the audio
+  // module (Expo Go) it buzzes alone.
   const ringKey = ring?.key ?? null;
   useEffect(() => {
     if (!ringKey) return;
-    Vibration.vibrate();
-    const timer = setInterval(() => Vibration.vibrate(), RING_BUZZ_MS);
+    const plan = ringPlan(getAlertPrefs(), hasBundledSounds());
+    if (!startRinging(plan.source, plan.pattern) && plan.pattern) buzz(plan.pattern);
     return () => {
-      clearInterval(timer);
-      Vibration.cancel();
+      stopRinging();
+      stopBuzz();
     };
   }, [ringKey]);
 

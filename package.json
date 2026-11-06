@@ -18,6 +18,7 @@
     "@variant-systems/expo-dynamic-app-icon": "^1.0.2",
     "expo": "~57.0.0",
     "expo-application": "~57.0.3",
+    "expo-audio": "~57.0.5",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.20",
     "expo-dev-client": "~57.0.20",
