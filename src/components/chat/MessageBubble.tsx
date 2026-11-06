@@ -3,7 +3,7 @@ import React, { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ThemeColors } from '../../hooks/themeContext';
 import { Message, MessageStatus } from '../../types';
-import { IDLE_TICK_OPACITY, ownBubbleColors } from '../../utils/bubbleColors';
+import { readBubbleColors } from '../../utils/bubbleColors';
 import { formatClock } from '../../utils/conversation';
 import { LinkPreviewCard } from './LinkPreviewCard';
 import { MessageContent } from './MessageContent';
@@ -22,44 +22,18 @@ interface Props {
   onOpenLocation?: (message: Message) => void;
 }
 
-/**
- * One tick: sent. Two ticks: delivered to the other phone. Two blue ticks: read. A clock while it is still being sent.
- * Sent and delivered are drawn a little faint; read takes the bright "read" colour.
- */
-function StatusIcon({ status, color, readColor }: { status: MessageStatus; color: string; readColor: string }) {
+function StatusIcon({ status, color }: { status: MessageStatus; color: string }) {
   switch (status) {
     case 'pending':
-      return (
-        <Ionicons
-          name="time-outline"
-          size={13}
-          color={color}
-          style={{ opacity: IDLE_TICK_OPACITY }}
-          accessibilityLabel="Sending"
-        />
-      );
+      return <Ionicons name="time-outline" size={13} color={color} accessibilityLabel="Sending" />;
     case 'sent':
-      return (
-        <Ionicons
-          name="checkmark"
-          size={15}
-          color={color}
-          style={{ opacity: IDLE_TICK_OPACITY }}
-          accessibilityLabel="Sent"
-        />
-      );
+      return <Ionicons name="checkmark" size={14} color={color} accessibilityLabel="Sent" />;
     case 'delivered':
       return (
-        <Ionicons
-          name="checkmark-done"
-          size={15}
-          color={color}
-          style={{ opacity: IDLE_TICK_OPACITY }}
-          accessibilityLabel="Delivered"
-        />
+        <Ionicons name="checkmark-done" size={14} color={color} style={{ opacity: 0.65 }} accessibilityLabel="Delivered" />
       );
     case 'read':
-      return <Ionicons name="checkmark-done" size={15} color={readColor} accessibilityLabel="Read" />;
+      return <Ionicons name="checkmark-done" size={14} color={color} accessibilityLabel="Read" />;
   }
 }
 
@@ -73,14 +47,16 @@ function MessageBubbleBase({
   onReplyPress,
   onOpenLocation,
 }: Props) {
-  // Your own messages: the theme accent a little darker, with text that still reads on it.
-  const own = useMemo(() => ownBubbleColors(colors.accent, colors.buttonText), [colors.accent, colors.buttonText]);
+  // Your message keeps the theme accent until the other person has read it, then the bubble turns a little darker.
+  const read = isMine && status === 'read';
+  const readLook = useMemo(() => readBubbleColors(colors.accent, colors.buttonText), [colors.accent, colors.buttonText]);
+  const ownText = read ? readLook.text : colors.buttonText;
   const previewColors = useMemo(
-    () => (isMine ? { ...colors, buttonText: own.text } : colors),
-    [isMine, colors, own.text]
+    () => (read ? { ...colors, buttonText: readLook.text } : colors),
+    [read, colors, readLook.text]
   );
-  const textColor = isMine ? own.text : colors.text;
-  const subColor = isMine ? own.text : colors.subText;
+  const textColor = isMine ? ownText : colors.text;
+  const subColor = isMine ? ownText : colors.subText;
   const deleted = message.deletedForEveryone;
   const mediaOnly = !deleted && message.type === 'gif';
 
@@ -94,7 +70,7 @@ function MessageBubbleBase({
           mediaOnly && styles.bubbleMedia,
           !mediaOnly &&
             (isMine
-              ? { backgroundColor: own.background, borderBottomRightRadius: 4 }
+              ? { backgroundColor: read ? readLook.background : colors.accent, borderBottomRightRadius: 4 }
               : {
                   backgroundColor: colors.cardBackground,
                   borderColor: colors.border,
@@ -122,7 +98,7 @@ function MessageBubbleBase({
             style={[
               styles.reply,
               {
-                borderLeftColor: isMine ? own.text : colors.accent,
+                borderLeftColor: isMine ? ownText : colors.accent,
                 backgroundColor: isMine ? 'rgba(0,0,0,0.12)' : colors.inputBg,
               },
             ]}
@@ -161,7 +137,7 @@ function MessageBubbleBase({
 
         <View style={styles.footer}>
           <Text style={[styles.time, { color: subColor }]}>{formatClock(message.createdAt)}</Text>
-          {isMine && status && <StatusIcon status={status} color={own.text} readColor={own.readTick} />}
+          {isMine && status && <StatusIcon status={status} color={ownText} />}
         </View>
       </Pressable>
     </View>

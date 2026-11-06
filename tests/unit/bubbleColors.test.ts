@@ -3,10 +3,9 @@ import { describe, it } from 'node:test';
 import {
   contrastRatio,
   darkenColor,
-  IDLE_TICK_OPACITY,
-  ownBubbleColors,
   parseHex,
   readableTextOn,
+  readBubbleColors,
 } from '../../src/utils/bubbleColors.ts';
 
 // The six themes: accent and the colour the theme puts on top of it (src/hooks/themeContext.tsx).
@@ -85,36 +84,36 @@ describe('readableTextOn', () => {
   });
 });
 
-describe('ownBubbleColors', () => {
+describe('readBubbleColors', () => {
   it('fills with the accent a little darker', () => {
-    assert.equal(ownBubbleColors('#00E5FF', '#000000').background, '#00BCD1');
-    assert.equal(ownBubbleColors('#800080', '#FFFFFF').background, darkenColor('#800080'));
+    assert.equal(readBubbleColors('#00E5FF', '#000000').background, '#00BCD1');
+    assert.equal(readBubbleColors('#800080', '#FFFFFF').background, darkenColor('#800080'));
   });
 
-  for (const [name, { accent, buttonText }] of Object.entries(THEMES)) {
-    it(`reads well in the ${name} theme`, () => {
-      const own = ownBubbleColors(accent, buttonText);
-      assert.ok(contrastRatio(own.text, own.background) >= 4.5, 'message text');
-      assert.ok(contrastRatio(own.readTick, own.background) >= 3, 'read tick');
-      assert.notEqual(own.readTick.toUpperCase(), own.text.toUpperCase(), 'a read tick differs from the text colour');
-    });
-  }
-
-  it('shows the read tick in a blue, not the text colour', () => {
-    // Blue-ish: the blue channel is the largest.
+  it('is darker than the accent in every theme (black stays black)', () => {
     for (const { accent, buttonText } of Object.values(THEMES)) {
-      const [r, g, b] = parseHex(ownBubbleColors(accent, buttonText).readTick)!;
-      assert.ok(b > r && b > g);
+      const own = readBubbleColors(accent, buttonText);
+      const darker = parseHex(own.background)!;
+      const original = parseHex(accent)!;
+      for (let i = 0; i < 3; i++) assert.ok(darker[i] <= original[i]);
     }
   });
 
-  it('copes with an accent it cannot read', () => {
-    const own = ownBubbleColors('broken');
-    assert.equal(own.background, 'broken');
-    assert.ok(own.text === '#FFFFFF' || own.text === '#000000');
+  for (const [name, { accent, buttonText }] of Object.entries(THEMES)) {
+    it(`keeps the text readable in the ${name} theme`, () => {
+      const own = readBubbleColors(accent, buttonText);
+      assert.ok(contrastRatio(own.text, own.background) >= 4.5);
+    });
+  }
+
+  it('keeps the theme text colour where it still reads well', () => {
+    assert.equal(readBubbleColors('#4DA3FF', '#06121F').text, '#06121F');
+    assert.equal(readBubbleColors('#00E5FF', '#000000').text, '#000000');
   });
 
-  it('draws sent and delivered ticks fainter than the text', () => {
-    assert.ok(IDLE_TICK_OPACITY > 0 && IDLE_TICK_OPACITY < 1);
+  it('copes with an accent it cannot read', () => {
+    const own = readBubbleColors('broken');
+    assert.equal(own.background, 'broken');
+    assert.ok(own.text === '#FFFFFF' || own.text === '#000000');
   });
 });

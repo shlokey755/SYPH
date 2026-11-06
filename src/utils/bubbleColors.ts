@@ -1,26 +1,19 @@
 /**
  * bubbleColors.ts
- * Colours for the messages you send: the theme's accent, a little darker, with text and ticks that stay readable on it.
- * No React, no native code, so plain Node can test it.
+ * The colour of a message you sent once the other person has read it: the theme's accent, a little darker, with text that
+ * stays readable on it. No React, no native code, so plain Node can test it.
  *
- *   - `darkenColor`      a colour a little darker (each channel scaled towards black)
- *   - `contrastRatio`    WCAG contrast between two colours (1 = none, 21 = black on white)
- *   - `ownBubbleColors`  background, text and tick colours for a sent message
+ *   - `darkenColor`       a colour a little darker (each channel scaled towards black)
+ *   - `contrastRatio`     WCAG contrast between two colours (1 = none, 21 = black on white)
+ *   - `readBubbleColors`  background and text for a sent message that has been read
  */
 
 export type Rgb = readonly [number, number, number];
 
-/** How much darker than the theme accent a sent message is. Slight: it should still read as the theme colour. */
-export const OWN_BUBBLE_DARKEN = 0.18;
+/** How much darker than the theme accent a read message is. Slight: it should still read as the theme colour. */
+export const READ_BUBBLE_DARKEN = 0.18;
 
-/** Ticks that are not "read yet" (sent, delivered) are drawn at this opacity of the text colour. */
-export const IDLE_TICK_OPACITY = 0.7;
-
-/** "Read" tick colours, tried in this order: a light blue, a deeper blue, a navy. The first that shows up well is used. */
-export const READ_TICK_CANDIDATES = ['#7FC8FF', '#0B4FD8', '#00296B'] as const;
-
-/** Enough contrast for an icon (WCAG asks 3:1 for graphics) and for body text. */
-const ICON_CONTRAST = 3;
+/** Enough contrast for body text (WCAG). */
 const TEXT_CONTRAST = 4.5;
 
 /** Reads `#RGB` or `#RRGGBB` (the alpha of `#RRGGBBAA` is ignored). Anything else is null. */
@@ -42,7 +35,7 @@ const channel = (n: number): string => Math.max(0, Math.min(255, Math.round(n)))
 const toHex = ([r, g, b]: Rgb): string => `#${channel(r)}${channel(g)}${channel(b)}`.toUpperCase();
 
 /** `amount` is 0 (unchanged) to 1 (black). A colour that cannot be read comes back as it was. */
-export function darkenColor(value: string, amount: number = OWN_BUBBLE_DARKEN): string {
+export function darkenColor(value: string, amount: number = READ_BUBBLE_DARKEN): string {
   const rgb = parseHex(value);
   if (!rgb) return value;
   const keep = 1 - Math.max(0, Math.min(1, amount));
@@ -70,22 +63,18 @@ export function readableTextOn(background: string, preferred?: string): string {
   return contrastRatio('#FFFFFF', background) >= contrastRatio('#000000', background) ? '#FFFFFF' : '#000000';
 }
 
-export interface OwnBubbleColors {
+export interface ReadBubbleColors {
   /** Bubble fill: the accent, a little darker. */
   background: string;
-  /** Message text and the clock. */
+  /** Message text, clock and ticks. */
   text: string;
-  /** The tick colour once the message is read. */
-  readTick: string;
 }
 
 /**
- * The look of a message you sent. `accent` is the theme's accent and `preferredText` its colour for text on the accent
- * (kept when it still reads well on the darker fill).
+ * The look of a message you sent after it has been read. `accent` is the theme's accent and `preferredText` its colour for
+ * text on the accent (kept when it still reads well on the darker fill).
  */
-export function ownBubbleColors(accent: string, preferredText?: string): OwnBubbleColors {
+export function readBubbleColors(accent: string, preferredText?: string): ReadBubbleColors {
   const background = darkenColor(accent);
-  const text = readableTextOn(background, preferredText);
-  const readTick = READ_TICK_CANDIDATES.find((candidate) => contrastRatio(candidate, background) >= ICON_CONTRAST) ?? text;
-  return { background, text, readTick };
+  return { background, text: readableTextOn(background, preferredText) };
 }
