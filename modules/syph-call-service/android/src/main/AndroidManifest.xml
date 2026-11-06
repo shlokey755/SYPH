@@ -3,11 +3,26 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
   <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <!-- The incoming-call screen over the lock screen (Android 14+ lets the person switch this off) ... -->
+  <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+  <!-- ... and the floating "return to call" bubble over other apps, which the person allows in Android Settings. -->
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
   <application>
     <service
       android:name="expo.modules.syphcallservice.CallForegroundService"
       android:exported="false"
       android:foregroundServiceType="microphone" />
+
+    <!-- Transparent theme: opened by the notification's Accept / Decline buttons it acts and closes without being drawn. -->
+    <activity
+      android:name="expo.modules.syphcallservice.IncomingCallActivity"
+      android:exported="false"
+      android:launchMode="singleTask"
+      android:taskAffinity=""
+      android:excludeFromRecents="true"
+      android:showWhenLocked="true"
+      android:turnScreenOn="true"
+      android:theme="@android:style/Theme.Translucent.NoTitleBar" />
   </application>
 </manifest>

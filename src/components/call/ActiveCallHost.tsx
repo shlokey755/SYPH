@@ -9,6 +9,7 @@
  *   - an Android foreground service with an ongoing notification ("End call", tap to return) that keeps the microphone
  *     and the process alive (services/callForeground.ts, modules/syph-call-service)
  *   - the camera is switched off when SYPH goes to the background and back on when it returns
+ *   - a floating bubble with the clock over other apps while SYPH is in the background (needs "Display over other apps")
  *   - "End call" on the notification hangs up
  *   - this device counts as busy for new incoming calls
  *
@@ -19,8 +20,9 @@
  * foreground service is kept running through that hand-over (Android 12+ refuses to start it from the background).
  */
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import { useTheme } from '../../hooks/themeContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useCallSession } from '../../hooks/useCallSession';
 import { useConversations } from '../../hooks/useConversations';
@@ -39,9 +41,11 @@ import {
 } from '../../services/activeCallStore';
 import { feelCall } from '../../services/alertSounds';
 import { startRingback, stopRingback } from '../../services/callAudio';
+import { hideCallBubble, showCallBubble } from '../../services/callOverlay';
 import { consumeEndRequest, onEndCallRequested, showCallService, stopCallService } from '../../services/callForeground';
 import { CallType } from '../../types';
 import { CallKind, CallStage, callNotificationInfo, cameraAction, clockStart, ENDED_LINGER_MS } from '../../utils/callBackground';
+import { bubbleWanted } from '../../utils/callOverlay';
 import { ReturnToCallBubble } from './ReturnToCallBubble';
 
 interface HostInput {
@@ -130,6 +134,24 @@ function useBackgroundCall(input: HostInput) {
     // Not when the call is only moving into a group call: the person is still on it.
     if (ended && !latest.current.movedTo) feelCall('ended');
   }, [ended]);
+
+  // ----- the floating bubble over other apps -----
+  // While SYPH is in the background a live call shows a small bubble over whatever app is in use (native; it needs "Display
+  // over other apps", and does nothing without it). Tapping it returns to the call. In SYPH the in-app bubble does this job.
+  const { themeColors } = useTheme();
+  const [appState, setAppState] = useState(AppState.currentState);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', setAppState);
+    return () => subscription.remove();
+  }, []);
+  const bubbleOn = bubbleWanted({ live: isLive, ended, movedTo: !!input.movedTo, appState });
+  useEffect(() => {
+    if (!bubbleOn) return;
+    showCallBubble({ startedAt: liveSince.current, route: info.route, accent: themeColors.accent });
+    return () => {
+      hideCallBubble();
+    };
+  }, [bubbleOn, info.route, themeColors.accent]);
 
   // ----- "End call" on the notification -----
   useEffect(() => {

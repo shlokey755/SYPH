@@ -79,6 +79,7 @@ class CallForegroundService : Service() {
   override fun onDestroy() {
     handler.removeCallbacksAndMessages(null)
     releaseWakeLock()
+    CallBubble.hide() // never leave the floating bubble behind a call that has ended
     super.onDestroy()
   }
 
