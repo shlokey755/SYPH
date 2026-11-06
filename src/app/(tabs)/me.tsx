@@ -258,6 +258,11 @@ export default function MeTab() {
         </TouchableOpacity>
       </View>
 
+      {/* Credit required by the licence of the animated emoji (CC BY 4.0) */}
+      <Text style={[styles.credit, { color: themeColors.subText }]}>
+        Animated emoji: Noto Emoji Animation by Google, licensed CC BY 4.0
+      </Text>
+
       <View style={styles.spacer} />
     </ScrollView>
   );
@@ -372,6 +377,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 15,
     borderWidth: 1,
+  },
+  credit: {
+    fontSize: 11,
+    textAlign: 'center',
+    paddingHorizontal: 15,
+    marginTop: -10,
   },
   logoutText: {
     fontWeight: '600',
