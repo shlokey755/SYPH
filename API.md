@@ -492,6 +492,46 @@ The Me tab has a new **Sounds & vibration** card: vibration on or off, touch fee
 | 8 | Old APK with this update: B calls and messages | Phone ringtone for the call; messages only buzz; the card explains why |
 | 9 | Put the phone on silent, B calls | No ring tone, the buzz still happens |
 
+### 1.16 Calls over other apps (needs a new APK)
+
+Two things, both while SYPH is **in the background but still running** (Home pressed, another app open, or the phone locked):
+
+| What | How it looks |
+|---|---|
+| A ringing call opens a **full-screen call screen** over the other app or the lock screen: name, Decline and Accept. The ringtone keeps playing | A notification with Accept and Decline is posted too. With SYPH open nothing changes: the usual ring screen inside the app is used |
+| A live call shows a small **floating bubble** with the call clock over whatever app you are using. Drag it, tap it to return to the call | Needs "Display over other apps". Inside SYPH the in-app bubble from 1.13 does this job |
+
+**Needs from you**
+
+| Step | How | Cost |
+|------|-----|------|
+| Build a new APK | `eas build --profile preview --platform android`. The native module gained an activity and two permissions (`USE_FULL_SCREEN_INTENT`, `SYSTEM_ALERT_WINDOW`), so this cannot ship as an update | Free tier |
+| Allow "Display over other apps" | Me tab > **Calls over other apps** > Open settings > switch SYPH on. Android never lets an app switch this on by itself | Free |
+| Android 14 and newer: allow full-screen call alerts | Same card, second row. Android turns this off for apps it does not count as calling apps, so check it | Free |
+| Some phones (Xiaomi, Oppo, Vivo, Huawei) | Also switch on "Display pop-up windows while running in the background" in the phone's permission page for SYPH. SYPH cannot open that page for you | Free |
+
+**What it cannot do (on purpose or by Android's rules)**
+- SYPH keeps nothing running while it is idle (that needs a permanent notification and costs battery). If Android has already closed SYPH, a call arrives as the ordinary push notification, as before. Giving a closed app a full-screen call screen needs a native push handler, which is a bigger separate job.
+- Without "Display over other apps": a locked phone still gets the full-screen screen (if the full-screen switch allows it), a phone in use gets a banner with Accept and Decline instead, and there is no bubble.
+- Accepting from the lock screen: Android asks to unlock before showing the call.
+- An older APK that receives this update behaves as before; the Me tab card says "Comes with the newest version of the app".
+- The Kotlin compiles (checked against Android 34 stubs and a stand-in for the Expo module API) but has never run on a device.
+
+**Test checklist (two phones, new APK on both)**
+
+| # | Do this | Expect |
+|---|---------|--------|
+| 1 | B: Me tab > Calls over other apps | Both rows say Off. Open settings > allow > come back: the row says On |
+| 2 | B presses Home. A calls B | A call screen with B's caller name opens over the home screen, ringtone plays |
+| 3 | B taps Accept | SYPH opens on the call screen and the call connects |
+| 4 | Repeat 2, B taps Decline | The screen goes away, A sees the call declined |
+| 5 | B locks the phone. A calls B | The screen lights up over the lock screen. Accept asks to unlock, then the call connects |
+| 6 | Repeat 2 while A cancels before B answers | The screen and notification disappear by themselves |
+| 7 | Switch "Display over other apps" off, repeat 2 | A banner with Accept and Decline, no full-screen screen, no bubble later |
+| 8 | On a live call, B opens another app | A round bubble with a running clock appears; drag it, then tap it: back in the call |
+| 9 | End the call from either side | The bubble disappears |
+| 10 | Force-stop SYPH on B (Android Settings > Apps > SYPH > Force stop), A calls | Only the usual push notification (the known limit above) |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
