@@ -24,6 +24,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import { AccountEmailSection } from '../../components/profile/AccountEmailSection';
+import { CallOverlaySection } from '../../components/profile/CallOverlaySection';
 import { SoundsSection } from '../../components/profile/SoundsSection';
 import { UpdateSection } from '../../components/profile/UpdateSection';
 import { NameSection } from '../../components/profile/NameSection';
@@ -213,6 +214,9 @@ export default function MeTab() {
 
       {/* Ringtone, message tone and vibration */}
       <SoundsSection />
+
+      {/* Permissions behind the call bubble and the lock-screen call */}
+      <CallOverlaySection />
 
       {/* Theme Options Section */}
       <View style={styles.section}>
