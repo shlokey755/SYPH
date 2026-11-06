@@ -55,3 +55,17 @@ export function reuseUnchanged(previous: Message[], next: Message[]): Message[] 
 
   return identical ? previous : merged;
 }
+
+/**
+ * The messages that match a search in a chat (case-insensitive, anywhere in the text), keeping their order. Messages deleted
+ * for everyone never match. An empty search matches everything. Works on whatever order it is given (the chat lists newest
+ * first), so the day chips drawn from the result follow the same order.
+ */
+export function searchMessages<T extends Pick<Message, 'text' | 'deletedForEveryone'>>(
+  messages: readonly T[],
+  query: string
+): readonly T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return messages;
+  return messages.filter((m) => !m.deletedForEveryone && m.text.toLowerCase().includes(q));
+}
