@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ThemeColors } from '../../hooks/themeContext';
 import { Message, MessageStatus } from '../../types';
+import { IDLE_TICK_OPACITY, ownBubbleColors } from '../../utils/bubbleColors';
 import { formatClock } from '../../utils/conversation';
 import { LinkPreviewCard } from './LinkPreviewCard';
 import { MessageContent } from './MessageContent';
@@ -21,18 +22,44 @@ interface Props {
   onOpenLocation?: (message: Message) => void;
 }
 
-function StatusIcon({ status, color }: { status: MessageStatus; color: string }) {
+/**
+ * One tick: sent. Two ticks: delivered to the other phone. Two blue ticks: read. A clock while it is still being sent.
+ * Sent and delivered are drawn a little faint; read takes the bright "read" colour.
+ */
+function StatusIcon({ status, color, readColor }: { status: MessageStatus; color: string; readColor: string }) {
   switch (status) {
     case 'pending':
-      return <Ionicons name="time-outline" size={13} color={color} accessibilityLabel="Sending" />;
+      return (
+        <Ionicons
+          name="time-outline"
+          size={13}
+          color={color}
+          style={{ opacity: IDLE_TICK_OPACITY }}
+          accessibilityLabel="Sending"
+        />
+      );
     case 'sent':
-      return <Ionicons name="checkmark" size={14} color={color} accessibilityLabel="Sent" />;
+      return (
+        <Ionicons
+          name="checkmark"
+          size={15}
+          color={color}
+          style={{ opacity: IDLE_TICK_OPACITY }}
+          accessibilityLabel="Sent"
+        />
+      );
     case 'delivered':
       return (
-        <Ionicons name="checkmark-done" size={14} color={color} style={{ opacity: 0.65 }} accessibilityLabel="Delivered" />
+        <Ionicons
+          name="checkmark-done"
+          size={15}
+          color={color}
+          style={{ opacity: IDLE_TICK_OPACITY }}
+          accessibilityLabel="Delivered"
+        />
       );
     case 'read':
-      return <Ionicons name="checkmark-done" size={14} color={color} accessibilityLabel="Read" />;
+      return <Ionicons name="checkmark-done" size={15} color={readColor} accessibilityLabel="Read" />;
   }
 }
 
@@ -46,8 +73,14 @@ function MessageBubbleBase({
   onReplyPress,
   onOpenLocation,
 }: Props) {
-  const textColor = isMine ? colors.buttonText : colors.text;
-  const subColor = isMine ? colors.buttonText : colors.subText;
+  // Your own messages: the theme accent a little darker, with text that still reads on it.
+  const own = useMemo(() => ownBubbleColors(colors.accent, colors.buttonText), [colors.accent, colors.buttonText]);
+  const previewColors = useMemo(
+    () => (isMine ? { ...colors, buttonText: own.text } : colors),
+    [isMine, colors, own.text]
+  );
+  const textColor = isMine ? own.text : colors.text;
+  const subColor = isMine ? own.text : colors.subText;
   const deleted = message.deletedForEveryone;
   const mediaOnly = !deleted && message.type === 'gif';
 
@@ -61,7 +94,7 @@ function MessageBubbleBase({
           mediaOnly && styles.bubbleMedia,
           !mediaOnly &&
             (isMine
-              ? { backgroundColor: colors.accent, borderBottomRightRadius: 4 }
+              ? { backgroundColor: own.background, borderBottomRightRadius: 4 }
               : {
                   backgroundColor: colors.cardBackground,
                   borderColor: colors.border,
@@ -89,7 +122,7 @@ function MessageBubbleBase({
             style={[
               styles.reply,
               {
-                borderLeftColor: isMine ? colors.buttonText : colors.accent,
+                borderLeftColor: isMine ? own.text : colors.accent,
                 backgroundColor: isMine ? 'rgba(0,0,0,0.12)' : colors.inputBg,
               },
             ]}
@@ -121,14 +154,14 @@ function MessageBubbleBase({
           <LinkPreviewCard
             text={message.text}
             isMine={isMine}
-            colors={colors}
+            colors={previewColors}
             onLongPress={() => onLongPress(message)}
           />
         )}
 
         <View style={styles.footer}>
           <Text style={[styles.time, { color: subColor }]}>{formatClock(message.createdAt)}</Text>
-          {isMine && status && <StatusIcon status={status} color={colors.buttonText} />}
+          {isMine && status && <StatusIcon status={status} color={own.text} readColor={own.readTick} />}
         </View>
       </Pressable>
     </View>

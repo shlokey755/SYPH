@@ -12,6 +12,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   AppState,
   FlatList,
   KeyboardAvoidingView,
@@ -21,6 +22,7 @@ import {
   Text,
   TextInput,
   View,
+  ViewToken,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -29,7 +31,7 @@ import { GifPicker } from '../../components/chat/GifPicker';
 import { GroupCallBar } from '../../components/chat/GroupCallBar';
 import { GroupInfoModal } from '../../components/chat/GroupInfoModal';
 import { MessageAction, MessageActionSheet } from '../../components/chat/MessageActionSheet';
-import { DateSeparator } from '../../components/chat/DateSeparator';
+import { DateSeparator, DayChip } from '../../components/chat/DateSeparator';
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { MessageInput } from '../../components/chat/MessageInput';
 import { LocationShareSheet } from '../../components/chat/LocationShareSheet';
@@ -64,7 +66,7 @@ import {
   getOtherParticipant,
   toMillis,
 } from '../../utils/conversation';
-import { dayHeaders } from '../../utils/dateLabels';
+import { dayHeaders, dayLabelsEach, floatingDayLabel } from '../../utils/dateLabels';
 import { getMessageStatus } from '../../utils/messageStatus';
 import { typingLabel } from '../../utils/typing';
 
@@ -190,6 +192,47 @@ export default function ChatScreen() {
   const dayLabels = useMemo(
     () => dayHeaders(visibleMessages.map((m) => toMillis(m.createdAt))),
     [visibleMessages]
+  );
+
+  // The day being scrolled through, in a small chip at the top of the list that shows while you scroll and fades after.
+  // The label of every message is kept in a ref because FlatList needs the viewability callback to stay the same function.
+  const everyDayLabel = useMemo(
+    () => dayLabelsEach(visibleMessages.map((m) => toMillis(m.createdAt))),
+    [visibleMessages]
+  );
+  const everyDayLabelRef = useRef(everyDayLabel);
+  everyDayLabelRef.current = everyDayLabel;
+  const [floatingDay, setFloatingDay] = useState<string | null>(null);
+  const chipOpacity = useRef(new Animated.Value(0)).current;
+  const chipShown = useRef(false);
+  const chipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 1 }).current;
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const indexes = viewableItems.map((token) => token.index).filter((i): i is number => typeof i === 'number');
+    const label = floatingDayLabel(indexes, everyDayLabelRef.current);
+    setFloatingDay((previous) => (previous === label || label === null ? previous : label));
+  }).current;
+  const onListScroll = useCallback(
+    (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+      // At the newest message (the bottom) there is nothing to point out.
+      if (event.nativeEvent.contentOffset.y < 24) return;
+      if (!chipShown.current) {
+        chipShown.current = true;
+        Animated.timing(chipOpacity, { toValue: 1, duration: 120, useNativeDriver: true }).start();
+      }
+      if (chipTimer.current) clearTimeout(chipTimer.current);
+      chipTimer.current = setTimeout(() => {
+        chipShown.current = false;
+        Animated.timing(chipOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+      }, 1400);
+    },
+    [chipOpacity]
+  );
+  useEffect(
+    () => () => {
+      if (chipTimer.current) clearTimeout(chipTimer.current);
+    },
+    []
   );
 
   const forwardTargets = useMemo(
@@ -593,26 +636,37 @@ export default function ChatScreen() {
           <ActivityIndicator size="large" color={themeColors.accent} />
         </View>
       ) : (
-        <FlatList
-          ref={listRef}
-          data={visibleMessages}
-          keyExtractor={(m) => m.id}
-          renderItem={renderItem}
-          inverted
-          keyboardShouldPersistTaps="handled"
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.4}
-          initialNumToRender={20}
-          contentContainerStyle={styles.list}
-          onScrollToIndexFailed={() => toast.info('Original message is not loaded')}
-          ListEmptyComponent={
-            <View style={[styles.center, styles.flipped]}>
-              <Text style={{ color: themeColors.subText }}>
-                {searchOpen && searchText ? 'No matching messages' : 'No messages yet. Say hello!'}
-              </Text>
-            </View>
-          }
-        />
+        <View style={styles.listArea}>
+          <FlatList
+            ref={listRef}
+            data={visibleMessages}
+            keyExtractor={(m) => m.id}
+            renderItem={renderItem}
+            inverted
+            keyboardShouldPersistTaps="handled"
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.4}
+            initialNumToRender={20}
+            contentContainerStyle={styles.list}
+            onScroll={onListScroll}
+            scrollEventThrottle={100}
+            viewabilityConfig={viewabilityConfig}
+            onViewableItemsChanged={onViewableItemsChanged}
+            onScrollToIndexFailed={() => toast.info('Original message is not loaded')}
+            ListEmptyComponent={
+              <View style={[styles.center, styles.flipped]}>
+                <Text style={{ color: themeColors.subText }}>
+                  {searchOpen && searchText ? 'No matching messages' : 'No messages yet. Say hello!'}
+                </Text>
+              </View>
+            }
+          />
+          {floatingDay ? (
+            <Animated.View pointerEvents="none" style={[styles.floatingDay, { opacity: chipOpacity }]}>
+              <DayChip label={floatingDay} colors={themeColors} />
+            </Animated.View>
+          ) : null}
+        </View>
       )}
 
       {/* Composer */}
@@ -714,5 +768,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   flipped: { transform: [{ scaleY: -1 }] },
   list: { paddingVertical: 8 },
+  listArea: { flex: 1 },
+  floatingDay: { position: 'absolute', top: 8, left: 0, right: 0, alignItems: 'center' },
   connecting: { alignItems: 'center', paddingTop: 12 },
 });

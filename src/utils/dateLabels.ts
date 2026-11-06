@@ -37,3 +37,20 @@ export function dayHeaders(timesNewestFirst: readonly number[], now: number = Da
     return startOfDay(ms) === startOfDay(older || now) ? null : dayLabel(ms, now);
   });
 }
+
+/** The day label of every message (newest first), not only the first of each day. Used to name the day being scrolled. */
+export function dayLabelsEach(timesNewestFirst: readonly number[], now: number = Date.now()): string[] {
+  return timesNewestFirst.map((time) => dayLabel(time || now, now));
+}
+
+/**
+ * The day to show in the floating chip while scrolling: the day of the oldest message on screen, which is the one at the
+ * top. The list is newest first and upside down, so that is the highest index. Null when nothing is on screen.
+ */
+export function floatingDayLabel(visibleIndexes: readonly number[], labels: readonly string[]): string | null {
+  let top = -1;
+  for (const index of visibleIndexes) {
+    if (Number.isInteger(index) && index > top && index < labels.length) top = index;
+  }
+  return top < 0 ? null : labels[top];
+}
