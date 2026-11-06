@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo, useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ThemeColors } from '../../hooks/themeContext';
+import { useSwipeToReply } from '../../hooks/useSwipeToReply';
 import { Message, MessageStatus } from '../../types';
 import { readBubbleColors } from '../../utils/bubbleColors';
 import { formatClock } from '../../utils/conversation';
@@ -18,6 +19,8 @@ interface Props {
   colors: ThemeColors;
   onLongPress: (message: Message) => void;
   onReplyPress?: (messageId: string) => void;
+  /** Swiping the message to the right replies to it. */
+  onSwipeReply?: (message: Message) => void;
   /** Tapping a live-location message opens the map. */
   onOpenLocation?: (message: Message) => void;
 }
@@ -45,6 +48,7 @@ function MessageBubbleBase({
   colors,
   onLongPress,
   onReplyPress,
+  onSwipeReply,
   onOpenLocation,
 }: Props) {
   // Your message keeps the theme accent until the other person has read it, then the bubble turns a little darker.
@@ -60,86 +64,111 @@ function MessageBubbleBase({
   const deleted = message.deletedForEveryone;
   const mediaOnly = !deleted && message.type === 'gif';
 
+  // Swipe right to reply (a deleted message cannot be replied to).
+  const canSwipe = !!onSwipeReply && !deleted;
+  const swipe = useSwipeToReply(() => onSwipeReply?.(message), canSwipe);
+
   return (
-    <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
-      <Pressable
-        onLongPress={() => !deleted && onLongPress(message)}
-        delayLongPress={250}
-        style={[
-          styles.bubble,
-          mediaOnly && styles.bubbleMedia,
-          !mediaOnly &&
-            (isMine
-              ? { backgroundColor: read ? readLook.background : colors.accent, borderBottomRightRadius: 4 }
-              : {
-                  backgroundColor: colors.cardBackground,
-                  borderColor: colors.border,
-                  borderWidth: 1,
-                  borderBottomLeftRadius: 4,
-                }),
-        ]}
+    <View>
+      {canSwipe && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.swipeIcon,
+            {
+              backgroundColor: colors.cardBackground,
+              borderColor: colors.border,
+              opacity: swipe.progress,
+              transform: [{ scale: swipe.progress.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
+            },
+          ]}
+        >
+          <Ionicons name="arrow-undo" size={18} color={colors.accent} />
+        </Animated.View>
+      )}
+      <Animated.View
+        {...swipe.panHandlers}
+        style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs, { transform: [{ translateX: swipe.offset }] }]}
       >
-        {showSender && !isMine && (
-          <Text style={[styles.sender, { color: colors.accent }]} numberOfLines={1}>
-            {message.senderUsername}
-          </Text>
-        )}
-
-        {message.forwarded && !deleted && (
-          <View style={styles.inline}>
-            <Ionicons name="arrow-redo" size={12} color={subColor} />
-            <Text style={[styles.meta, { color: subColor }]}>Forwarded</Text>
-          </View>
-        )}
-
-        {message.replyTo && !deleted && (
-          <Pressable
-            onPress={() => onReplyPress?.(message.replyTo!.messageId)}
-            style={[
-              styles.reply,
-              {
-                borderLeftColor: isMine ? ownText : colors.accent,
-                backgroundColor: isMine ? 'rgba(0,0,0,0.12)' : colors.inputBg,
-              },
-            ]}
-          >
-            <Text style={[styles.replyName, { color: textColor }]} numberOfLines={1}>
-              {message.replyTo.senderUsername}
+        <Pressable
+          onLongPress={() => !deleted && onLongPress(message)}
+          delayLongPress={250}
+          style={[
+            styles.bubble,
+            mediaOnly && styles.bubbleMedia,
+            !mediaOnly &&
+              (isMine
+                ? { backgroundColor: read ? readLook.background : colors.accent, borderBottomRightRadius: 4 }
+                : {
+                    backgroundColor: colors.cardBackground,
+                    borderColor: colors.border,
+                    borderWidth: 1,
+                    borderBottomLeftRadius: 4,
+                  }),
+          ]}
+        >
+          {showSender && !isMine && (
+            <Text style={[styles.sender, { color: colors.accent }]} numberOfLines={1}>
+              {message.senderUsername}
             </Text>
-            <Text style={[styles.replyText, { color: subColor }]} numberOfLines={2}>
-              {message.replyTo.text}
-            </Text>
-          </Pressable>
-        )}
+          )}
 
-        {deleted ? (
-          <View style={styles.inline}>
-            <Ionicons name="ban-outline" size={14} color={subColor} />
-            <Text style={[styles.deleted, { color: subColor }]}>This message was deleted</Text>
+          {message.forwarded && !deleted && (
+            <View style={styles.inline}>
+              <Ionicons name="arrow-redo" size={12} color={subColor} />
+              <Text style={[styles.meta, { color: subColor }]}>Forwarded</Text>
+            </View>
+          )}
+
+          {message.replyTo && !deleted && (
+            <Pressable
+              onPress={() => onReplyPress?.(message.replyTo!.messageId)}
+              style={[
+                styles.reply,
+                {
+                  borderLeftColor: isMine ? ownText : colors.accent,
+                  backgroundColor: isMine ? 'rgba(0,0,0,0.12)' : colors.inputBg,
+                },
+              ]}
+            >
+              <Text style={[styles.replyName, { color: textColor }]} numberOfLines={1}>
+                {message.replyTo.senderUsername}
+              </Text>
+              <Text style={[styles.replyText, { color: subColor }]} numberOfLines={2}>
+                {message.replyTo.text}
+              </Text>
+            </Pressable>
+          )}
+
+          {deleted ? (
+            <View style={styles.inline}>
+              <Ionicons name="ban-outline" size={14} color={subColor} />
+              <Text style={[styles.deleted, { color: subColor }]}>This message was deleted</Text>
+            </View>
+          ) : (
+            <MessageContent
+              message={message}
+              textColor={textColor}
+              onOpenLocation={onOpenLocation}
+              onLongPress={onLongPress}
+            />
+          )}
+
+          {!deleted && message.type === 'text' && (
+            <LinkPreviewCard
+              text={message.text}
+              isMine={isMine}
+              colors={previewColors}
+              onLongPress={() => onLongPress(message)}
+            />
+          )}
+
+          <View style={styles.footer}>
+            <Text style={[styles.time, { color: subColor }]}>{formatClock(message.createdAt)}</Text>
+            {isMine && status && <StatusIcon status={status} color={ownText} />}
           </View>
-        ) : (
-          <MessageContent
-            message={message}
-            textColor={textColor}
-            onOpenLocation={onOpenLocation}
-            onLongPress={onLongPress}
-          />
-        )}
-
-        {!deleted && message.type === 'text' && (
-          <LinkPreviewCard
-            text={message.text}
-            isMine={isMine}
-            colors={previewColors}
-            onLongPress={() => onLongPress(message)}
-          />
-        )}
-
-        <View style={styles.footer}>
-          <Text style={[styles.time, { color: subColor }]}>{formatClock(message.createdAt)}</Text>
-          {isMine && status && <StatusIcon status={status} color={ownText} />}
-        </View>
-      </Pressable>
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
@@ -150,6 +179,19 @@ const styles = StyleSheet.create({
   row: { paddingHorizontal: 12, marginVertical: 3, flexDirection: 'row' },
   rowMine: { justifyContent: 'flex-end' },
   rowTheirs: { justifyContent: 'flex-start' },
+  // The reply arrow that appears at the left edge as the message is swiped right.
+  swipeIcon: {
+    position: 'absolute',
+    left: 12,
+    top: '50%',
+    marginTop: -16,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   bubble: { maxWidth: '82%', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16 },
   bubbleMedia: { backgroundColor: 'transparent', paddingHorizontal: 0 },
   sender: { fontSize: 12, fontWeight: '700', marginBottom: 2 },

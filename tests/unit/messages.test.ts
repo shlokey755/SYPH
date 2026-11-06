@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { reuseUnchanged, sameMessage } from '../../src/utils/messages.ts';
+import { reuseUnchanged, sameMessage, searchMessages } from '../../src/utils/messages.ts';
+import { dayHeaders } from '../../src/utils/dateLabels.ts';
 
 const ts = (ms) => ({ toMillis: () => ms });
 const msg = (id, overrides = {}) => ({
@@ -87,5 +88,42 @@ describe('reuseUnchanged', () => {
     const result = reuseUnchanged(previous, [msg('a'), msg('b')]);
     assert.deepEqual(result.map((m) => m.id), ['a', 'b']);
     assert.notEqual(result, previous);
+  });
+});
+
+describe('searchMessages', () => {
+  const day = (d, h = 12) => new Date(2026, 10, d, h, 0).getTime();
+  // Newest first, as the chat lists them: two on 5 Nov, one on 4 Nov, two on 2 Nov.
+  const chat = [
+    msg('a', { text: 'Dinner at 8?', createdAt: ts(day(5, 18)) }),
+    msg('b', { text: 'ok', createdAt: ts(day(5, 9)) }),
+    msg('c', { text: 'dinner was great', createdAt: ts(day(4)) }),
+    msg('d', { text: 'Where is DINNER', createdAt: ts(day(2, 20)) }),
+    msg('e', { text: 'dinner?', createdAt: ts(day(2, 8)) }),
+  ];
+
+  it('finds matches anywhere in the text, ignoring case, in the same order', () => {
+    assert.deepEqual(searchMessages(chat, 'dinner').map((m) => m.id), ['a', 'c', 'd', 'e']);
+    assert.deepEqual(searchMessages(chat, '  GREAT ').map((m) => m.id), ['c']);
+  });
+
+  it('matches everything for an empty search and nothing for a word that is not there', () => {
+    assert.equal(searchMessages(chat, '').length, 5);
+    assert.equal(searchMessages(chat, '   ').length, 5);
+    assert.equal(searchMessages(chat, 'pizza').length, 0);
+  });
+
+  it('skips messages deleted for everyone', () => {
+    const withDeleted = [...chat, msg('f', { text: 'dinner', deletedForEveryone: true })];
+    assert.equal(searchMessages(withDeleted, 'dinner').some((m) => m.id === 'f'), false);
+  });
+
+  it('gives results that group by day: one chip per day that has a match, none for days without', () => {
+    const results = searchMessages(chat, 'dinner');
+    const now = day(6);
+    const headers = dayHeaders(results.map((m) => m.createdAt.toMillis()), now);
+    // The chip sits on the earliest match of each day (it is drawn above it): a (5 Nov), c (4 Nov), and e (2 Nov, the
+    // earlier of the two matches that day). d is in the same group as e, so it has no chip.
+    assert.deepEqual(headers, ['Yesterday', 'Wednesday, 4 Nov', null, 'Monday, 2 Nov']);
   });
 });
