@@ -1,6 +1,7 @@
 /**
  * DateSeparator.tsx
- * The day label of a chat: "Today", "Yesterday", "Saturday, 31 Oct". `DayChip` is the small rounded label itself; it is used
+ * The day label of a chat: "Today", "Yesterday", "Saturday, 31 Oct". `DayChip` is the small label itself, a squared-off box
+ * (not a pill) in the same small capitals as the section titles on the Me tab; it is used
  * above the first message of each day (`DateSeparator`) and as the floating label that follows you while you scroll.
  */
 
@@ -11,7 +12,7 @@ import { ThemeColors } from '../../hooks/themeContext';
 export function DayChip({ label, colors }: { label: string; colors: ThemeColors }) {
   return (
     <View style={[styles.chip, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-      <Text style={[styles.label, { color: colors.subText }]}>{label}</Text>
+      <Text style={[styles.label, { color: colors.subText }]}>{label.toUpperCase()}</Text>
     </View>
   );
 }
@@ -26,6 +27,7 @@ export function DateSeparator({ label, colors }: { label: string; colors: ThemeC
 
 const styles = StyleSheet.create({
   row: { alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
-  chip: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 12, paddingVertical: 4 },
-  label: { fontSize: 12, fontWeight: '600', letterSpacing: 0.3 },
+  // Corner radius 4, the same as the tail corner of a message bubble: squared off, never a pill.
+  chip: { borderRadius: 4, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 5 },
+  label: { fontSize: 11, fontWeight: '700', letterSpacing: 0.8 },
 });
