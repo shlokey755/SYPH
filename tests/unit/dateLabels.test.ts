@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { dayHeaders, dayLabel } from '../../src/utils/dateLabels.ts';
+import { dayHeaders, dayLabel, dayLabelsEach, floatingDayLabel } from '../../src/utils/dateLabels.ts';
 
 // Wednesday 4 November 2026, 3 pm, in whatever time zone the test runs in (dates are built from local parts).
 const NOW = new Date(2026, 10, 4, 15, 0).getTime();
@@ -63,5 +63,40 @@ describe('day headers for a chat (newest first)', () => {
   it('splits a conversation across midnight', () => {
     const times = [at(2026, 11, 4, 0, 10), at(2026, 11, 3, 23, 50)];
     assert.deepEqual(dayHeaders(times, NOW), ['Today', 'Yesterday']);
+  });
+});
+
+describe('every message\'s day', () => {
+  it('names the day of each message, newest first', () => {
+    const times = [at(2026, 11, 4, 14), at(2026, 11, 4, 9), at(2026, 11, 3, 22), at(2026, 10, 31, 8)];
+    assert.deepEqual(dayLabelsEach(times, NOW), ['Today', 'Today', 'Yesterday', 'Saturday, 31 Oct']);
+  });
+
+  it('counts a message still being sent (time 0) as today', () => {
+    assert.deepEqual(dayLabelsEach([0, at(2026, 11, 3)], NOW), ['Today', 'Yesterday']);
+  });
+
+  it('is empty for no messages', () => {
+    assert.deepEqual(dayLabelsEach([], NOW), []);
+  });
+});
+
+describe('floating day chip', () => {
+  const labels = ['Today', 'Today', 'Yesterday', 'Yesterday', 'Saturday, 31 Oct'];
+
+  it('shows the day of the oldest message on screen (the highest index)', () => {
+    assert.equal(floatingDayLabel([0, 1, 2], labels), 'Yesterday');
+    assert.equal(floatingDayLabel([2, 1, 0], labels), 'Yesterday');
+    assert.equal(floatingDayLabel([0, 1], labels), 'Today');
+    assert.equal(floatingDayLabel([4], labels), 'Saturday, 31 Oct');
+  });
+
+  it('is null when nothing is on screen', () => {
+    assert.equal(floatingDayLabel([], labels), null);
+    assert.equal(floatingDayLabel([0], []), null);
+  });
+
+  it('ignores indexes that are not in the list', () => {
+    assert.equal(floatingDayLabel([1, 99, -1, NaN], labels), 'Today');
   });
 });

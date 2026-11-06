@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ThemeColors } from '../../hooks/themeContext';
 import { Message, MessageStatus } from '../../types';
+import { readBubbleColors } from '../../utils/bubbleColors';
 import { formatClock } from '../../utils/conversation';
 import { LinkPreviewCard } from './LinkPreviewCard';
 import { MessageContent } from './MessageContent';
@@ -46,8 +47,16 @@ function MessageBubbleBase({
   onReplyPress,
   onOpenLocation,
 }: Props) {
-  const textColor = isMine ? colors.buttonText : colors.text;
-  const subColor = isMine ? colors.buttonText : colors.subText;
+  // Your message keeps the theme accent until the other person has read it, then the bubble turns a little darker.
+  const read = isMine && status === 'read';
+  const readLook = useMemo(() => readBubbleColors(colors.accent, colors.buttonText), [colors.accent, colors.buttonText]);
+  const ownText = read ? readLook.text : colors.buttonText;
+  const previewColors = useMemo(
+    () => (read ? { ...colors, buttonText: readLook.text } : colors),
+    [read, colors, readLook.text]
+  );
+  const textColor = isMine ? ownText : colors.text;
+  const subColor = isMine ? ownText : colors.subText;
   const deleted = message.deletedForEveryone;
   const mediaOnly = !deleted && message.type === 'gif';
 
@@ -61,7 +70,7 @@ function MessageBubbleBase({
           mediaOnly && styles.bubbleMedia,
           !mediaOnly &&
             (isMine
-              ? { backgroundColor: colors.accent, borderBottomRightRadius: 4 }
+              ? { backgroundColor: read ? readLook.background : colors.accent, borderBottomRightRadius: 4 }
               : {
                   backgroundColor: colors.cardBackground,
                   borderColor: colors.border,
@@ -89,7 +98,7 @@ function MessageBubbleBase({
             style={[
               styles.reply,
               {
-                borderLeftColor: isMine ? colors.buttonText : colors.accent,
+                borderLeftColor: isMine ? ownText : colors.accent,
                 backgroundColor: isMine ? 'rgba(0,0,0,0.12)' : colors.inputBg,
               },
             ]}
@@ -121,14 +130,14 @@ function MessageBubbleBase({
           <LinkPreviewCard
             text={message.text}
             isMine={isMine}
-            colors={colors}
+            colors={previewColors}
             onLongPress={() => onLongPress(message)}
           />
         )}
 
         <View style={styles.footer}>
           <Text style={[styles.time, { color: subColor }]}>{formatClock(message.createdAt)}</Text>
-          {isMine && status && <StatusIcon status={status} color={colors.buttonText} />}
+          {isMine && status && <StatusIcon status={status} color={ownText} />}
         </View>
       </Pressable>
     </View>
