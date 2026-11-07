@@ -7,6 +7,7 @@
 import { useCallback } from 'react';
 import * as chat from '../services/chatService';
 import { Conversation, ReplyPreview } from '../types';
+import { gifMime } from '../utils/gifs';
 import { useToast } from './toastNotifications';
 
 interface Options {
@@ -30,7 +31,7 @@ export function useGifSender({ conversation, me, replyTo, onReplyConsumed }: Opt
       chat
         .sendMessage(conversation, me, {
           type: 'gif',
-          media: { url, mimeType: 'image/gif', width, height },
+          media: { url, mimeType: gifMime(url), width, height },
           replyTo: reply ?? undefined,
         })
         .catch((e) => toast.error('Message not sent', errorText(e)));
