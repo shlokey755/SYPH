@@ -532,6 +532,30 @@ Two things, both while SYPH is **in the background but still running** (Home pre
 | 9 | End the call from either side | The bubble disappears |
 | 10 | Force-stop SYPH on B (Android Settings > Apps > SYPH > Force stop), A calls | Only the usual push notification (the known limit above) |
 
+### 1.17 Animated emoji (JavaScript only, nothing to set up)
+
+An emoji-only message plays Google's animated Noto emoji, as Google Messages does. Free, no key, nothing to install. It needs the phone to be online the first time each emoji is shown (after that it is cached).
+
+| Where it comes from | Detail |
+|---------------------|--------|
+| Animation files | `https://fonts.gstatic.com/s/e/notoemoji/latest/<code points>/512.webp` (GIF as the fallback), Google's font CDN |
+| Which emoji have one | `https://googlefonts.github.io/noto-emoji-animation/data/api.json`, fetched once and kept for a week |
+| Licence | CC BY 4.0, credited at the bottom of the Me tab. Keep that line |
+
+**Not verified from the build environment** (it cannot reach either address), so the layout above comes from Google's published documentation and scripts. If an emoji does not animate, the app shows it big and still, so nothing breaks. To check one by hand, open this in a phone browser: `https://fonts.gstatic.com/s/e/notoemoji/latest/1f98d/512.webp` (the gorilla). It should move. If it shows an error, the address has changed and `NOTO_ANIMATION_BASE` in `src/utils/animatedEmoji.ts` is the one line to fix.
+
+| Test | Expect |
+|------|--------|
+| Send only 🦍 | A big gorilla that stands up and beats its chest, looping |
+| Send 😀 or ❤️ or 🔥 | The animated version of each |
+| Send 😀🎉🔥 | Three smaller animated emoji in one bubble |
+| Send 😀😀😀😀 (four) | Big still emoji with one bounce, no animation |
+| Send 👍🏽 (skin tone) | Big still emoji with one bounce |
+| Send "hi 😀" | Normal small text, no animation |
+| Send 🦍 in airplane mode the first time | Big still gorilla with one bounce, then animates once back online |
+| Turn on the phone's "remove animations" setting, send 🦍 | Still, no animation |
+| Long-press an animated emoji | The usual message menu opens |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
