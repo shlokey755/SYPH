@@ -556,13 +556,46 @@ An emoji-only message plays Google's animated Noto emoji, as Google Messages doe
 | Turn on the phone's "remove animations" setting, send 🦍 | Still, no animation |
 | Long-press an animated emoji | The usual message menu opens |
 
+### 1.18 Read receipts: hollow bubble, avatar queue, "Read by" (JavaScript only, nothing to set up)
+
+Implements the design in `DOC-20261107-WA0000`. No new rules to publish: the existing rule already lets a member change their own `readState` entry, and the read log lives inside it. No new package, so `eas update --channel preview` is enough.
+
+| State of a message you sent | Bubble | Shown with it |
+|-----------------------------|--------|---------------|
+| Sending (offline or not yet confirmed) | Filled | Clock |
+| Sent | Filled | One tick |
+| Delivered (every member's phone has it) | Filled | Two faint ticks |
+| Some of a group have seen it | Filled | Avatar queue only (up to 3, then "+N"), no ticks |
+| 1-to-1: read. Group: everyone has seen it | **Hollow** (2 px accent outline, same readable text, no dashes) | Nothing |
+| Server refused it (text messages) | Filled | Red alert beside it; tap for Try again or Delete |
+
+Notes:
+- The hollow bubble keeps the theme's text colour so it reads on the chat background; the fill fades out over 0.25 s when the last person sees it.
+- "Read by" lists only people who have seen it, newest first, each with their username (and display name under it when set) and the time they read it. Today shows the time; earlier days add the day.
+- Read times come from each person's last 20 reads (`conversations/{id}.readState.<uid>.log`: `{ at, upTo }` in milliseconds). A message older than that log, or read before this update, shows that person's latest read time instead.
+- A member who joined after a message was sent counts as not having seen it until they open the chat.
+- There is no setting to turn read receipts off for a person, so nobody is left out of the list.
+
+| Test (needs a group of at least three, and a second phone for each) | Expect |
+|------|--------|
+| Send in a 1-to-1 chat with the other phone off | Clock, then one tick when it reaches the server |
+| Other phone comes online (app open, chat closed) | Two faint ticks |
+| Other person opens the chat | The bubble fades to hollow, ticks gone |
+| Send in a group; phone A opens the chat | Ticks replaced by A's avatar under the bubble |
+| Phone B opens the chat | A and B overlap; tap them: "Read by" lists both with times, newest first |
+| Phone C opens the chat (last one) | Avatars shrink away and the bubble goes hollow |
+| In "Read by": tap X, tap outside, drag down | Each closes it |
+| Add a fourth reader, then a fifth | Three avatars and then "+1", "+2" |
+| Have another phone remove you from a group while this phone still has the chat open, then send a text | Red alert beside the bubble (the server refuses non-members); tap it for Try again / Delete |
+| Light theme (Monochrome), dark theme (Cyber) | Outline and text readable on the background in both |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
 |------|---------|
 | `users/{uid}` | Public profile: `username`, `usernameLowercase`, `displayName` (optional), `theme`. Old `profileImageUrl` / `status` fields may still exist on accounts and are ignored |
 | `users/{uid}/private/settings` | Owner-only: `mutedChats[]`, `notificationsEnabled`, `expoPushTokens[]` |
-| `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `groupActivity` (latest rename / removal / leave, read by the push relay), `hiddenBy[]`, `readState{uid:{deliveredAt,readAt}}`, `unread{uid:n}` |
+| `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `groupActivity` (latest rename / removal / leave, read by the push relay), `hiddenBy[]`, `readState{uid:{deliveredAt,readAt,log[{at,upTo}]}}`, `unread{uid:n}` |
 | `usernames/{lowercase name}` | Claim registry: `uid`, `createdAt`. One document per name, create-once, so two accounts cannot take the same name. Readable one at a time, never listed |
 | `appConfig/latest` | Newest APK for the Update button: `latestBuild` (number), `apkUrl` (https), `notes`. Signed-in users read it, nobody writes it from the app; you edit it in the Console (1.12) |
 | `pushTokens/{token}` | Which account is signed in on a device (`uid`, `platform`, `updatedAt`). A sender checks it before using a token; readable one at a time, never listed |
