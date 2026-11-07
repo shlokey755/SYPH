@@ -13,6 +13,9 @@ import { db } from '../firebaseConfig';
 interface CachedProfile {
   /** Display name when set, otherwise the username. */
   name: string;
+  username: string;
+  /** The display name, only when one is set. */
+  displayName: string;
   at: number;
 }
 
@@ -37,10 +40,9 @@ export function useProfiles(uids: string[]) {
       missing.map(async (uid) => {
         try {
           const data = (await getDoc(doc(db, 'users', uid))).data();
-          cache.set(uid, {
-            name: ((data?.displayName as string | undefined)?.trim() || (data?.username as string | undefined)) ?? '',
-            at: Date.now(),
-          });
+          const username = (data?.username as string | undefined) ?? '';
+          const displayName = ((data?.displayName as string | undefined) ?? '').trim();
+          cache.set(uid, { name: displayName || username, username, displayName, at: Date.now() });
         } catch {
           // Leave it as it was; it is retried next time.
         }
@@ -56,10 +58,13 @@ export function useProfiles(uids: string[]) {
   }, [key]);
 
   const nameOf = useCallback((uid: string | undefined) => (uid ? cache.get(uid)?.name || undefined : undefined), []);
-  return { nameOf };
+  const usernameOf = useCallback((uid: string | undefined) => (uid ? cache.get(uid)?.username || undefined : undefined), []);
+  const displayNameOf = useCallback((uid: string | undefined) => (uid ? cache.get(uid)?.displayName || undefined : undefined), []);
+  return { nameOf, usernameOf, displayNameOf };
 }
 
 /** Lets the profile screen publish a freshly saved name to the cache. */
 export function setCachedProfile(uid: string, patch: { name: string }) {
-  cache.set(uid, { name: patch.name, at: Date.now() });
+  const previous = cache.get(uid);
+  cache.set(uid, { name: patch.name, username: previous?.username ?? '', displayName: previous?.displayName ?? '', at: Date.now() });
 }

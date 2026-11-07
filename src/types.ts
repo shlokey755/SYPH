@@ -70,9 +70,9 @@ export interface Message {
   createdAt: FirestoreTime;
   /** True while the write has not been acknowledged by the server yet. */
   pending: boolean;
+  /** Only on this phone: the server refused the message. It is shown with a red alert and can be retried or deleted. */
+  failed?: boolean;
 }
-
-export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read';
 
 // ---------- Conversations ----------
 export interface ConversationParticipant {
@@ -83,6 +83,8 @@ export interface ConversationParticipant {
 export interface ReadReceipt {
   deliveredAt?: FirestoreTime;
   readAt?: FirestoreTime;
+  /** The person's last few reads: when, and the send time of the newest message they had then (ms). utils/receipts.ts */
+  log?: { at: number; upTo: number }[];
 }
 
 /** The latest change to a group, recorded so the push relay can announce it (FR-10). */
