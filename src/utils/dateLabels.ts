@@ -54,3 +54,12 @@ export function floatingDayLabel(visibleIndexes: readonly number[], labels: read
   }
   return top < 0 ? null : labels[top];
 }
+
+/** The phone's own way of writing a clock time, "9:41 AM" or "09:41". */
+const clockOf = (ms: number): string => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+/** "9:41 AM" for today, "Yesterday, 9:41 AM" or "Saturday, 31 Oct, 9:41 AM" for earlier days: when somebody read a message. */
+export function timeWithDay(ms: number, now: number = Date.now()): string {
+  const day = dayLabel(ms, now);
+  return day === 'Today' ? clockOf(ms) : `${day}, ${clockOf(ms)}`;
+}

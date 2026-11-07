@@ -1,19 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { memo, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ThemeColors } from '../../hooks/themeContext';
 import { useSwipeToReply } from '../../hooks/useSwipeToReply';
-import { Message, MessageStatus } from '../../types';
-import { readBubbleColors } from '../../utils/bubbleColors';
+import { Message } from '../../types';
+import { withAlpha } from '../../utils/color';
 import { formatClock } from '../../utils/conversation';
+import { isHollow, MessageReceipts, Reader, showsQueue, statusIcon, StatusIconKind } from '../../utils/receipts';
 import { LinkPreviewCard } from './LinkPreviewCard';
 import { MessageContent } from './MessageContent';
+import { ReadersQueue } from './ReadersQueue';
 
 interface Props {
   message: Message;
   isMine: boolean;
-  /** Only meaningful for your own messages. */
-  status?: MessageStatus;
+  /** What happened to a message you sent (utils/receipts.ts). Only meaningful for your own messages. */
+  receipts?: MessageReceipts;
+  /** Each member's username by uid, for the letters in the avatar queue. */
+  names: Record<string, string>;
   /** Show the sender's name above incoming messages (group chats). */
   showSender: boolean;
   colors: ThemeColors;
@@ -23,49 +27,80 @@ interface Props {
   onSwipeReply?: (message: Message) => void;
   /** Tapping a live-location message opens the map. */
   onOpenLocation?: (message: Message) => void;
+  /** Tapping the avatar queue opens the "Read by" list. */
+  onOpenReaders?: (message: Message, readers: Reader[]) => void;
+  /** Tapping the red alert of a message that was not sent. */
+  onRetry?: (message: Message) => void;
 }
 
-function StatusIcon({ status, color }: { status: MessageStatus; color: string }) {
-  switch (status) {
-    case 'pending':
+/** A clock while sending, one tick when sent, two faint ticks when delivered. (A failed message has its alert beside the bubble.) */
+function StatusIcon({ kind, color }: { kind: StatusIconKind; color: string }) {
+  switch (kind) {
+    case 'clock':
       return <Ionicons name="time-outline" size={13} color={color} accessibilityLabel="Sending" />;
-    case 'sent':
+    case 'tick':
       return <Ionicons name="checkmark" size={14} color={color} accessibilityLabel="Sent" />;
-    case 'delivered':
+    case 'ticks':
       return (
         <Ionicons name="checkmark-done" size={14} color={color} style={{ opacity: 0.65 }} accessibilityLabel="Delivered" />
       );
-    case 'read':
-      return <Ionicons name="checkmark-done" size={14} color={color} accessibilityLabel="Read" />;
+    case 'alert':
+      return null;
   }
 }
 
 function MessageBubbleBase({
   message,
   isMine,
-  status,
+  receipts,
+  names,
   showSender,
   colors,
   onLongPress,
   onReplyPress,
   onSwipeReply,
   onOpenLocation,
+  onOpenReaders,
+  onRetry,
 }: Props) {
-  // Your message keeps the theme accent until the other person has read it, then the bubble turns a little darker.
-  const read = isMine && status === 'read';
-  const readLook = useMemo(() => readBubbleColors(colors.accent, colors.buttonText), [colors.accent, colors.buttonText]);
-  const ownText = read ? readLook.text : colors.buttonText;
-  const previewColors = useMemo(
-    () => (read ? { ...colors, buttonText: readLook.text } : colors),
-    [read, colors, readLook.text]
-  );
-  const textColor = isMine ? ownText : colors.text;
-  const subColor = isMine ? ownText : colors.subText;
   const deleted = message.deletedForEveryone;
   const mediaOnly = !deleted && message.type === 'gif';
 
+  // Your message is a filled bubble in the theme accent until the other person has seen it (everyone, in a group); then
+  // it turns hollow: the fill fades out over a quarter of a second and the 2 px accent outline stays. The text colours
+  // switch halfway through the fade, so the text is never unreadable. A message that is already hollow when it appears
+  // is simply drawn hollow.
+  const state = isMine ? receipts?.state : undefined;
+  const hollowTarget = !mediaOnly && !!state && isHollow(state);
+  const fill = useRef(new Animated.Value(hollowTarget ? 1 : 0)).current;
+  const [hollowLook, setHollowLook] = useState(hollowTarget);
+  const lastTarget = useRef(hollowTarget);
+  useEffect(() => {
+    if (hollowTarget === lastTarget.current) return;
+    lastTarget.current = hollowTarget;
+    Animated.timing(fill, { toValue: hollowTarget ? 1 : 0, duration: 250, useNativeDriver: false }).start();
+    const timer = setTimeout(() => setHollowLook(hollowTarget), 125);
+    return () => clearTimeout(timer);
+  }, [hollowTarget, fill]);
+  const fillColor = useMemo(
+    () => fill.interpolate({ inputRange: [0, 1], outputRange: [colors.accent, withAlpha(colors.accent, 0)] }),
+    [fill, colors.accent]
+  );
+
+  const ownText = hollowLook ? colors.text : colors.buttonText;
+  const ownSub = hollowLook ? colors.subText : colors.buttonText;
+  const previewColors = useMemo(
+    () => (isMine && hollowLook ? { ...colors, buttonText: colors.text } : colors),
+    [isMine, hollowLook, colors]
+  );
+  const textColor = isMine ? ownText : colors.text;
+  const subColor = isMine ? ownSub : colors.subText;
+  const failed = state === 'failed';
+  const icon = state ? statusIcon(state) : null;
+  const readers = receipts?.readers ?? [];
+
   // Swipe right to reply (a deleted message cannot be replied to).
-  const canSwipe = !!onSwipeReply && !deleted;
+  const canSwipe = !!onSwipeReply && !deleted && !failed;
   const swipe = useSwipeToReply(() => onSwipeReply?.(message), canSwipe);
 
   return (
@@ -90,15 +125,27 @@ function MessageBubbleBase({
         {...swipe.panHandlers}
         style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs, { transform: [{ translateX: swipe.offset }] }]}
       >
+        {failed && (
+          <Pressable
+            onPress={() => onRetry?.(message)}
+            hitSlop={10}
+            style={styles.failedAlert}
+            accessibilityRole="button"
+            accessibilityLabel="Message not sent. Try again"
+          >
+            <Ionicons name="alert-circle" size={22} color={colors.danger} />
+          </Pressable>
+        )}
         <Pressable
-          onLongPress={() => !deleted && onLongPress(message)}
+          onPress={failed ? () => onRetry?.(message) : undefined}
+          onLongPress={() => !deleted && (failed ? onRetry?.(message) : onLongPress(message))}
           delayLongPress={250}
           style={[
             styles.bubble,
             mediaOnly && styles.bubbleMedia,
             !mediaOnly &&
               (isMine
-                ? { backgroundColor: read ? readLook.background : colors.accent, borderBottomRightRadius: 4 }
+                ? [styles.bubbleMine, { borderColor: colors.accent }]
                 : {
                     backgroundColor: colors.cardBackground,
                     borderColor: colors.border,
@@ -107,6 +154,9 @@ function MessageBubbleBase({
                   }),
           ]}
         >
+          {isMine && !mediaOnly && (
+            <Animated.View pointerEvents="none" style={[styles.fill, { backgroundColor: fillColor }]} />
+          )}
           {showSender && !isMine && (
             <Text style={[styles.sender, { color: colors.accent }]} numberOfLines={1}>
               {message.senderUsername}
@@ -126,8 +176,8 @@ function MessageBubbleBase({
               style={[
                 styles.reply,
                 {
-                  borderLeftColor: isMine ? ownText : colors.accent,
-                  backgroundColor: isMine ? 'rgba(0,0,0,0.12)' : colors.inputBg,
+                  borderLeftColor: isMine && !hollowLook ? colors.buttonText : colors.accent,
+                  backgroundColor: isMine && !hollowLook ? 'rgba(0,0,0,0.12)' : colors.inputBg,
                 },
               ]}
             >
@@ -165,10 +215,19 @@ function MessageBubbleBase({
 
           <View style={styles.footer}>
             <Text style={[styles.time, { color: subColor }]}>{formatClock(message.createdAt)}</Text>
-            {isMine && status && <StatusIcon status={status} color={ownText} />}
+            {isMine && icon && <StatusIcon kind={icon} color={ownSub} />}
           </View>
         </Pressable>
       </Animated.View>
+      {isMine && readers.length > 0 && (
+        <ReadersQueue
+          readers={readers}
+          show={!!state && showsQueue(state)}
+          names={names}
+          colors={colors}
+          onPress={() => onOpenReaders?.(message, readers)}
+        />
+      )}
     </View>
   );
 }
@@ -193,6 +252,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   bubble: { maxWidth: '82%', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16 },
+  // Your own bubble: a 2 px outline in the accent (so the fill can fade out and leave it) with 2 px less padding to match.
+  bubbleMine: { borderWidth: 2, paddingHorizontal: 10, paddingVertical: 6, borderBottomRightRadius: 4, backgroundColor: 'transparent' },
+  fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 14, borderBottomRightRadius: 2 },
+  failedAlert: { alignSelf: 'center', marginRight: 6 },
   bubbleMedia: { backgroundColor: 'transparent', paddingHorizontal: 0 },
   sender: { fontSize: 12, fontWeight: '700', marginBottom: 2 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },

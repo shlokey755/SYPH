@@ -32,6 +32,7 @@ import {
   MessageType,
   ReplyPreview,
 } from '../types';
+import { appendReadLog } from '../utils/receipts';
 import { notifyMessage } from './pushSender';
 
 export interface Member {
@@ -295,11 +296,16 @@ export function markDelivered(conversationId: string, uid: string) {
   });
 }
 
-/** The recipient is looking at the chat. Also clears their unread counter. */
-export function markRead(conversationId: string, uid: string) {
-  return updateDoc(doc(db, 'conversations', conversationId), {
+/**
+ * The recipient is looking at the chat. Also clears their unread counter. `read` adds this read to their log (when it
+ * happened and which message it reached) so "Read by" can show the time each message was seen.
+ */
+export function markRead(conversationId: string, uid: string, read?: { previousLog: unknown; upTo: number }) {
+  const update: Record<string, unknown> = {
     [`readState.${uid}.deliveredAt`]: serverTimestamp(),
     [`readState.${uid}.readAt`]: serverTimestamp(),
     [`unread.${uid}`]: 0,
-  });
+  };
+  if (read) update[`readState.${uid}.log`] = appendReadLog(read.previousLog, read.upTo, Date.now());
+  return updateDoc(doc(db, 'conversations', conversationId), update);
 }
