@@ -71,7 +71,7 @@ import {
 } from '../../utils/conversation';
 import { dayHeaders, dayLabelsEach, floatingDayLabel } from '../../utils/dateLabels';
 import { searchMessages } from '../../utils/messages';
-import { MessageReceipts, Reader, receiptsFor } from '../../utils/receipts';
+import { latestSentId, MessageReceipts, Reader, receiptsFor } from '../../utils/receipts';
 import { typingLabel } from '../../utils/typing';
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong');
@@ -597,6 +597,9 @@ export default function ChatScreen() {
   );
   const openReaders = useCallback((_message: Message, readers: Reader[]) => setReadersSheet(readers), []);
 
+  // Only the newest message you sent shows the avatar queue. It is taken from the whole chat, not the search results.
+  const latestSentMessageId = useMemo(() => latestSentId(allMessages, myUid), [allMessages, myUid]);
+
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
       const mine = item.senderId === myUid;
@@ -615,13 +618,14 @@ export default function ChatScreen() {
             onReplyPress={scrollToMessage}
             onSwipeReply={handleSwipeReply}
             onOpenLocation={setViewerMessage}
+            latestSent={item.id === latestSentMessageId}
             onOpenReaders={openReaders}
             onRetry={handleFailedPress}
           />
         </View>
       );
     },
-    [myUid, conversation, themeColors, scrollToMessage, handleSwipeReply, dayLabels, receiptsOf, memberNames, openReaders, handleFailedPress]
+    [myUid, conversation, themeColors, scrollToMessage, handleSwipeReply, dayLabels, receiptsOf, memberNames, latestSentMessageId, openReaders, handleFailedPress]
   );
 
   return (

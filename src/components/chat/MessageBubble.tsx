@@ -27,6 +27,8 @@ interface Props {
   onSwipeReply?: (message: Message) => void;
   /** Tapping a live-location message opens the map. */
   onOpenLocation?: (message: Message) => void;
+  /** This is the newest message you sent: the only one that shows the avatar queue (utils/receipts.ts latestSentId). */
+  latestSent?: boolean;
   /** Tapping the avatar queue opens the "Read by" list. */
   onOpenReaders?: (message: Message, readers: Reader[]) => void;
   /** Tapping the red alert of a message that was not sent. */
@@ -60,6 +62,7 @@ function MessageBubbleBase({
   onReplyPress,
   onSwipeReply,
   onOpenLocation,
+  latestSent = false,
   onOpenReaders,
   onRetry,
 }: Props) {
@@ -222,7 +225,7 @@ function MessageBubbleBase({
       {isMine && readers.length > 0 && (
         <ReadersQueue
           readers={readers}
-          show={!!state && showsQueue(state)}
+          show={latestSent && !!state && showsQueue(state)}
           names={names}
           colors={colors}
           onPress={() => onOpenReaders?.(message, readers)}

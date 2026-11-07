@@ -565,11 +565,12 @@ Implements the design in `DOC-20261107-WA0000`. No new rules to publish: the exi
 | Sending (offline or not yet confirmed) | Filled | Clock |
 | Sent | Filled | One tick |
 | Delivered (every member's phone has it) | Filled | Two faint ticks |
-| Some of a group have seen it | Filled | Avatar queue only (up to 3, then "+N"), no ticks |
+| Some of a group have seen it | Filled | Avatar queue only (up to 3, then "+N"), no ticks. Shown **only under the newest message you sent**; when you send another, it fades off the older one |
 | 1-to-1: read. Group: everyone has seen it | **Hollow** (2 px accent outline, same readable text, no dashes) | Nothing |
 | Server refused it (text messages) | Filled | Red alert beside it; tap for Try again or Delete |
 
 Notes:
+- The avatar queue is only on your newest sent message (one still sending, one that failed and one deleted for everyone do not count). Older messages that only some have seen show no queue, so their "Read by" list is not reachable.
 - The hollow bubble keeps the theme's text colour so it reads on the chat background; the fill fades out over 0.25 s when the last person sees it.
 - "Read by" lists only people who have seen it, newest first, each with their username (and display name under it when set) and the time they read it. Today shows the time; earlier days add the day.
 - Read times come from each person's last 20 reads (`conversations/{id}.readState.<uid>.log`: `{ at, upTo }` in milliseconds). A message older than that log, or read before this update, shows that person's latest read time instead.

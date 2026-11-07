@@ -4,6 +4,7 @@ import {
   appendReadLog,
   cleanReadLog,
   isHollow,
+  latestSentId,
   MAX_QUEUE_AVATARS,
   MAX_READ_LOG,
   queueSplit,
@@ -134,6 +135,43 @@ describe('avatar queue and Read by list', () => {
 
   it('lists newest first in the popup', () => {
     assert.deepEqual(readByList(readers).map((r) => r.uid), ['u5', 'u4', 'u3', 'u2', 'u1']);
+  });
+});
+
+describe('which message shows the avatar queue', () => {
+  // newest first, as the chat lists them
+  const chat = [
+    { id: 'm5', senderId: 'a' },
+    { id: 'm4', senderId: 'me' },
+    { id: 'm3', senderId: 'me' },
+    { id: 'm2', senderId: 'b' },
+    { id: 'm1', senderId: 'me' },
+  ];
+
+  it('is the newest message you sent, not the newest in the chat', () => {
+    assert.equal(latestSentId(chat, 'me'), 'm4');
+    assert.equal(latestSentId(chat, 'a'), 'm5');
+  });
+
+  it('moves to the next message when a newer one is sent', () => {
+    assert.equal(latestSentId([{ id: 'm6', senderId: 'me' }, ...chat], 'me'), 'm6');
+  });
+
+  it('skips a message still sending, one that failed, and one deleted for everyone', () => {
+    const list = [
+      { id: 'p', senderId: 'me', pending: true },
+      { id: 'f', senderId: 'me', failed: true },
+      { id: 'd', senderId: 'me', deletedForEveryone: true },
+      ...chat,
+    ];
+    assert.equal(latestSentId(list, 'me'), 'm4');
+  });
+
+  it('is null when you have sent nothing, or there is no signed-in user', () => {
+    assert.equal(latestSentId(chat, 'someone-else'), null);
+    assert.equal(latestSentId([], 'me'), null);
+    assert.equal(latestSentId(chat, undefined), null);
+    assert.equal(latestSentId(chat, null), null);
   });
 });
 
