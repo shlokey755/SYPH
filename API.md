@@ -589,6 +589,35 @@ Notes:
 | Have another phone remove you from a group while this phone still has the chat open, then send a text | Red alert beside the bubble (the server refuses non-members); tap it for Try again / Delete |
 | Light theme (Monochrome), dark theme (Cyber) | Outline and text readable on the background in both |
 
+### 1.19 Faster GIF picker (JavaScript only, nothing to set up)
+
+The picker used to ask Giphy for trending only after you opened it, then download 30 full-size GIFs at once. Now:
+
+| What | How it helps |
+|------|--------------|
+| Trending is loaded when a chat opens, and the first 8 pictures are downloaded to the phone | The picker opens with GIFs already on screen. Done at most once every 10 minutes, however many chats you open |
+| Searches are remembered for 10 minutes (last 30 searches) | A search you did before shows instantly; an older one shows at once and refreshes quietly |
+| Smaller files: the 200 px wide WebP from Giphy (GIF only when Giphy has no WebP) | Smaller than the GIF (Giphy lists the size of each file), and still animated on both phones |
+| A tiny still of the first frame shows while the animation downloads | The grid fills in at once instead of showing blank boxes |
+| The GIF you send is the same file the picker showed | It is already on the phone, so your bubble appears without waiting |
+| Lighter grid (renders a few rows at a time) and one request when the same search is asked twice | Smoother scrolling, fewer Giphy calls |
+
+Notes:
+- No new package and no rules change: `eas update --channel preview` is enough. `expo-image` was already in the app.
+- A Giphy beta key allows **100 requests an hour**. The remembered results keep normal use far under that. If Giphy ever answers "busy" the picker says so and works again a few minutes later.
+- Costs a little mobile data when a chat opens (about 8 small GIFs, once every 10 minutes at most). To change it, edit `PRELOAD_COUNT` or `GIF_CACHE_TTL_MS` in `src/utils/gifs.ts`.
+- New GIF messages are stored as WebP links (`mimeType` `image/webp`). Old GIF messages, and phones that have not updated yet, show them fine.
+- Without a Giphy key nothing changes: the picker still says "GIF search is not set up", and no requests are made.
+
+| Test | Expect |
+|------|--------|
+| Open a chat, wait 2 seconds, tap GIF | The grid is already full and animating |
+| Close the picker, open it again | Same GIFs at once, no spinner |
+| Search "cat", clear it, search "cat" again | The second time is instant |
+| Open the picker with mobile data off, then turn it on, close and reopen the picker | The picker shows an error first, then GIFs once online |
+| Pick a GIF | The bubble appears already animating |
+| Another phone on the old build receives it | The GIF shows and animates |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |

@@ -55,6 +55,7 @@ Extras done on the way: speaker toggle, camera-off panel with username, muted ic
 | Themes | Built |
 | In-chat search, per-chat mute, global notification switch | Built (search covers loaded messages only) |
 | Media: GIFs only (photos, video, voice, documents, stickers, profile photos and status were removed on purpose) | Built, needs a free Giphy key for the picker (API.md 1.2, 1.4) |
+| Faster GIF picker | Built: trending and its first 8 pictures are loaded when a chat opens (at most every 10 minutes), searches are remembered for 10 minutes, the grid and the sent message use Giphy's 200 px wide WebP (GIF if there is no WebP), and a still of the first frame shows while the animation downloads. The sent GIF is the exact file the picker showed, so the bubble is already cached. JavaScript only (`services/gifService.ts`, `utils/gifs.ts`, `components/chat/GifPicker.tsx`) |
 | Link previews: YouTube and Shorts cards that play in an in-app pop-up (web view), free oEmbed, "Video unavailable" state for dead links | Built (JavaScript only, no key needed, API.md section 4) |
 | Push notifications while closed | Built: the sender's phone sends it, no server. Needs an Android build, an FCM V1 key and the rules (API.md 1.5). The `server/` relay is optional and unused |
 | Typing indicator | Built (API.md 1.9) |
