@@ -13,11 +13,10 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  Text,
-  TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
+import { Text, TextInput } from '../../components/parchment';
 import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';

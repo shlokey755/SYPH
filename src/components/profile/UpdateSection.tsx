@@ -5,7 +5,8 @@
  */
 
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../parchment';
 import { useTheme } from '../../hooks/themeContext';
 import { useAppUpdate } from '../../hooks/useAppUpdate';
 import { isActionable } from '../../utils/appUpdate';

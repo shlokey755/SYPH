@@ -16,24 +16,14 @@ import { useState } from 'react';
 
 import {
   ActivityIndicator,
-
   Alert,
-
   FlatList,
-
-
   Modal,
-
   StyleSheet,
-
-  Text,
-
-  TextInput,
-
   TouchableOpacity,
-
   View,
 } from 'react-native';
+import { Text, TextInput } from '../../components/parchment';
 
 import { useTheme } from '../../hooks/themeContext';
 

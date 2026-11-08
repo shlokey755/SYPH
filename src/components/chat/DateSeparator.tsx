@@ -6,7 +6,8 @@
  */
 
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../parchment';
 import { ThemeColors } from '../../hooks/themeContext';
 
 export function DayChip({ label, colors }: { label: string; colors: ThemeColors }) {

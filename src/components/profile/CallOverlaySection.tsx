@@ -9,7 +9,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../parchment';
 import { useTheme } from '../../hooks/themeContext';
 import {
   canDrawOverApps,

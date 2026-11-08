@@ -7,7 +7,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../parchment';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
 import { LiveShare, PositionFailure, readCurrentPosition } from '../../services/liveLocationManager';

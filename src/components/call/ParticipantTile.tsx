@@ -7,7 +7,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../parchment';
 import type { MediaStream } from 'react-native-webrtc';
 import { useTheme } from '../../hooks/themeContext';
 import { getWebRTC } from '../../services/webrtc';

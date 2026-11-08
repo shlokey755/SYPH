@@ -8,7 +8,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Text } from '../parchment';
 import { ThemeColors } from '../../hooks/themeContext';
 import {
   buildPlayerHtml,

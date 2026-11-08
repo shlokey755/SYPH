@@ -21,7 +21,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/parchment';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { buzz, hasBundledSounds, stopBuzz } from '../services/alertSounds';
 import { getAlertPrefs } from '../services/alertPrefsStore';

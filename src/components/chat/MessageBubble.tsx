@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo, useMemo } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../parchment';
 import { ThemeColors } from '../../hooks/themeContext';
 import { useSwipeToReply } from '../../hooks/useSwipeToReply';
 import { Message, MessageStatus } from '../../types';

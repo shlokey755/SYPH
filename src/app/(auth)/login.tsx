@@ -6,10 +6,9 @@ import {
   Alert,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
 } from 'react-native';
+import { Text, TextInput } from '../../components/parchment';
 import { useTheme } from '../../hooks/themeContext';
 import { useAuth } from '../../hooks/useAuth';
 import { looksLikeEmail } from '../../utils/auth';

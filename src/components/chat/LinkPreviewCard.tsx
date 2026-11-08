@@ -9,7 +9,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { memo, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../parchment';
 import { ThemeColors } from '../../hooks/themeContext';
 import { useLinkPreview } from '../../hooks/useLinkPreview';
 import { extractYouTube, YouTubeLink } from '../../utils/linkPreview';

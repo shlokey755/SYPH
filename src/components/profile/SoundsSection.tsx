@@ -9,7 +9,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '../parchment';
 import { useTheme } from '../../hooks/themeContext';
 import { buzz, hasBundledSounds, playTone } from '../../services/alertSounds';
 import { setAlertPrefs, useAlertPrefs } from '../../services/alertPrefsStore';

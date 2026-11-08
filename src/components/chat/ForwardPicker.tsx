@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../parchment';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
 import { useProfiles } from '../../hooks/useProfiles';

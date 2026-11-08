@@ -6,7 +6,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../parchment';
 import { ThemeColors } from '../../hooks/themeContext';
 import { CallType } from '../../types';
 import { participantCountLabel } from '../../utils/groupCall';

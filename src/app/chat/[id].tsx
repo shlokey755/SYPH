@@ -19,11 +19,10 @@ import {
   Linking,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   View,
   ViewToken,
 } from 'react-native';
+import { Text, TextInput } from '../../components/parchment';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ForwardPicker } from '../../components/chat/ForwardPicker';

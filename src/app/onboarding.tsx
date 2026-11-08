@@ -12,10 +12,10 @@ import {
   NativeSyntheticEvent,
   Pressable,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Text } from '../components/parchment';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../hooks/themeContext';
 import { markOnboardingSeen } from '../services/onboarding';

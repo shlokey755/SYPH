@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../parchment';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
 import { ReplyPreview } from '../../types';

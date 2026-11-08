@@ -5,7 +5,8 @@
  */
 
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text, TextInput } from '../parchment';
 import { setCachedProfile } from '../../hooks/useProfiles';
 import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';

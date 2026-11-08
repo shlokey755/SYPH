@@ -7,7 +7,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../parchment';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
 

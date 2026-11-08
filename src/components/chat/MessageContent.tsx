@@ -8,7 +8,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../parchment';
 import { Message, MessageMedia } from '../../types';
 import { emojiOnly } from '../../utils/emoji';
 import { isLegacyMediaType, legacyMediaLabel } from '../../utils/messageType';

@@ -20,7 +20,8 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/parchment';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from './themeContext';
 
