@@ -156,12 +156,12 @@ export function AccountEmailSection() {
 const styles = StyleSheet.create({
   section: { paddingHorizontal: 15, marginBottom: 25 },
   title: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase' },
-  card: { padding: 14, borderRadius: 10, borderWidth: 1, marginBottom: 12, gap: 4 },
+  card: { padding: 14, borderWidth: 1, marginBottom: 12, gap: 4 },
   email: { fontSize: 16, fontWeight: '600' },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   link: { fontSize: 14, fontWeight: '600' },
-  input: { padding: 14, borderRadius: 10, borderWidth: 1, fontSize: 16, marginBottom: 10 },
+  input: { padding: 14, borderWidth: 1, fontSize: 16, marginBottom: 10 },
   hint: { fontSize: 12, lineHeight: 17, marginBottom: 10 },
-  button: { padding: 14, borderRadius: 10, alignItems: 'center' },
+  button: { padding: 14, alignItems: 'center' },
   buttonText: { fontSize: 15, fontWeight: '600' },
 });

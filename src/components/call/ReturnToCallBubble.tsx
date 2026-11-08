@@ -89,7 +89,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: BUBBLE.width,
     height: BUBBLE.height,
-    borderRadius: 28,
     elevation: 8,
     shadowColor: '#000000',
     shadowOpacity: 0.3,

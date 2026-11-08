@@ -661,3 +661,24 @@ Phone test (about 3 minutes):
 | 13 | Play a video whose owner turned embedding off (many music videos) | The pop-up says the owner does not allow it, with "Open in YouTube". If it says "YouTube would not start the player here" for a normal video, tell me: that is the referrer problem |
 
 Not built: in-app reels (SYPH has no reels feature), Instagram and other site previews (other sites need a server to read their pages; Instagram was parked), a card for every link in a message.
+
+## 5. Sharp-cornered look (Nov 8)
+
+Every rounded shape in the app is now square. Avatars, message bubbles, text fields, every button (Me tab, Add tab, sheets, call screens), chips, badges, cards, pop-ups, toasts, dots and GIF corners have sharp corners. The code has no corner radius left in `src/` (a search for `Radius` finds only shadow blur settings).
+
+| Part | How it reaches phones |
+|------|-----------------------|
+| All app screens (JavaScript) | `eas update --channel preview`. No new APK |
+| The full-screen incoming call over other apps, and the floating "return to call" bubble (native Kotlin in `modules/syph-call-service`) | Square only after a **new APK** (`eas build --profile preview --platform android`). On an old APK they stay round; nothing breaks |
+
+Not drawn by SYPH, so Android decides the shape: the system notification, the permission pop-ups, the on/off switches, the keyboard. The blue position dot on the location map comes from the map library and stays round.
+
+Rule for new screens: no `borderRadius`. Use a border or a fill colour to mark a shape.
+
+| Test | Expect |
+|------|--------|
+| Chat list, chat, Me tab, Add tab | Square avatars, square fields and buttons everywhere |
+| Send a message and receive one | Both bubbles are plain rectangles, no tail corner |
+| Open the GIF picker, a link preview, the action sheet, the Read by sheet | Square corners, nothing clipped or cut |
+| Call screens | Square buttons and avatar |
+| New APK: ring a phone with SYPH closed | Square buttons and avatar on the incoming call screen; the bubble over other apps is square |

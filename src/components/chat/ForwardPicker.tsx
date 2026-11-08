@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, borderBottomWidth: 1 },
   title: { fontSize: 18, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontWeight: '700', fontSize: 16 },
   name: { flex: 1, fontSize: 16 },
   empty: { textAlign: 'center', marginTop: 40 },

@@ -74,8 +74,8 @@ export function NameSection({ uid, username, savedName, onSaved }: Props) {
 const styles = StyleSheet.create({
   section: { paddingHorizontal: 15, marginBottom: 25 },
   title: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase' },
-  input: { padding: 14, borderRadius: 10, borderWidth: 1, fontSize: 16, marginBottom: 8 },
+  input: { padding: 14, borderWidth: 1, fontSize: 16, marginBottom: 8 },
   hint: { fontSize: 12, lineHeight: 17, marginBottom: 10 },
-  button: { padding: 14, borderRadius: 10, alignItems: 'center' },
+  button: { padding: 14, alignItems: 'center' },
   buttonText: { fontSize: 15, fontWeight: '600' },
 });

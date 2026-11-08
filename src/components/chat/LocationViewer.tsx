@@ -218,10 +218,10 @@ const styles = StyleSheet.create({
   message: { textAlign: 'center', paddingHorizontal: 32, fontSize: 15 },
   footer: { borderTopWidth: 1, paddingHorizontal: 16, paddingTop: 14, gap: 12 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
+  dot: { width: 10, height: 10 },
   status: { fontSize: 15, fontWeight: '600' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  action: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
+  action: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10 },
   actionText: { fontSize: 14, fontWeight: '600' },
   disabled: { opacity: 0.4 },
 });

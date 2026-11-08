@@ -1,6 +1,6 @@
 /**
  * InitialAvatar.tsx
- * A round avatar with the person's initial. SYPH has no profile photos (no file storage), so this is every avatar.
+ * A square avatar with the person's initial. SYPH has no profile photos (no file storage), so this is every avatar.
  * `ring` draws a border in the given colour, which is how overlapping avatars are told apart.
  */
 
@@ -21,11 +21,10 @@ export function InitialAvatar({ name, size, colors, ring }: Props) {
   return (
     <View
       style={[
-        styles.circle,
+        styles.box,
         {
           width: size,
           height: size,
-          borderRadius: size / 2,
           backgroundColor: colors.accent,
           borderWidth: ring ? 2 : 0,
           borderColor: ring,
@@ -38,5 +37,5 @@ export function InitialAvatar({ name, size, colors, ring }: Props) {
 }
 
 const styles = StyleSheet.create({
-  circle: { alignItems: 'center', justifyContent: 'center' },
+  box: { alignItems: 'center', justifyContent: 'center' },
 });

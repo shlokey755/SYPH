@@ -112,7 +112,7 @@ export function GifPicker({ visible, colors, onPick, onClose }: Props) {
               <Pressable style={styles.cell} onPress={() => onPick(item.url, item.width, item.height)}>
                 <Image
                   source={{ uri: item.url }}
-                  style={{ width: '100%', aspectRatio: item.width / item.height || 1, borderRadius: 8 }}
+                  style={{ width: '100%', aspectRatio: item.width / item.height || 1 }}
                   contentFit="cover"
                 />
               </Pressable>
@@ -128,7 +128,7 @@ export function GifPicker({ visible, colors, onPick, onClose }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderBottomWidth: 1 },
-  input: { flex: 1, borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, fontSize: 15 },
+  input: { flex: 1, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 8, fontSize: 15 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8 },
   message: { fontSize: 16, fontWeight: '600', textAlign: 'center' },
   hint: { fontSize: 13, textAlign: 'center' },

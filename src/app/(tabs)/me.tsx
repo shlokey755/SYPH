@@ -293,7 +293,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   usernameDisplay: {
-    borderRadius: 10,
     padding: 15,
     marginBottom: 12,
     borderWidth: 1,
@@ -304,7 +303,6 @@ const styles = StyleSheet.create({
   },
   input: {
     padding: 12,
-    borderRadius: 10,
     marginBottom: 12,
     fontSize: 16,
     borderWidth: 1,
@@ -313,7 +311,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#2A2A1A',
-    borderRadius: 10,
     padding: 12,
     marginBottom: 12,
     borderWidth: 1,
@@ -335,7 +332,6 @@ const styles = StyleSheet.create({
   },
   button: {
     padding: 15,
-    borderRadius: 10,
     alignItems: 'center',
   },
   buttonText: {
@@ -348,7 +344,6 @@ const styles = StyleSheet.create({
   themeOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 10,
     padding: 12,
     borderWidth: 1,
   },
@@ -359,7 +354,6 @@ const styles = StyleSheet.create({
   colorBadge: {
     width: 16,
     height: 16,
-    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#777',
     marginRight: -4,
@@ -374,7 +368,6 @@ const styles = StyleSheet.create({
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 10,
     padding: 15,
     borderWidth: 1,
   },
@@ -396,7 +389,6 @@ const styles = StyleSheet.create({
   photo: {
     width: 96,
     height: 96,
-    borderRadius: 48,
   },
   photoPlaceholder: {
     alignItems: 'center',
@@ -410,7 +402,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    borderRadius: 10,
     padding: 14,
     borderWidth: 1,
   },

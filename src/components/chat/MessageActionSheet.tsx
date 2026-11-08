@@ -67,7 +67,7 @@ export function MessageActionSheet({ message, isMine, colors, onSelect, onClose 
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: 1, paddingTop: 8 },
+  sheet: { borderWidth: 1, paddingTop: 8 },
   item: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 14 },
   label: { fontSize: 16 },
 });

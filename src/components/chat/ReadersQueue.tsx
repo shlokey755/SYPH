@@ -84,7 +84,6 @@ const styles = StyleSheet.create({
   more: {
     height: AVATAR,
     minWidth: AVATAR,
-    borderRadius: AVATAR / 2,
     borderWidth: 2,
     paddingHorizontal: 4,
     alignItems: 'center',

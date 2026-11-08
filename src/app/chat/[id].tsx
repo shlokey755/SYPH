@@ -874,7 +874,7 @@ const styles = StyleSheet.create({
   shareBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8 },
   shareBannerText: { flex: 1, fontSize: 14, fontWeight: '600' },
   shareBannerStop: { fontSize: 14, fontWeight: '800', textDecorationLine: 'underline' },
-  searchInput: { borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6, fontSize: 14 },
+  searchInput: { borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6, fontSize: 14 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   flipped: { transform: [{ scaleY: -1 }] },
   list: { paddingVertical: 8 },

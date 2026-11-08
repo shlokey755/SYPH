@@ -150,7 +150,7 @@ export function SoundsSection() {
 const styles = StyleSheet.create({
   section: { paddingHorizontal: 15, marginBottom: 25 },
   title: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase' },
-  card: { borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
+  card: { borderWidth: 1, overflow: 'hidden' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
