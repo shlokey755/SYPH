@@ -40,7 +40,13 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon5.png"
+      "favicon": "./assets/images/favicon-compass.png",
+      "name": "SYPH",
+      "shortName": "SYPH",
+      "lang": "en",
+      "description": "Chats and calls, drawn on a pirate's map.",
+      "themeColor": "#14232E",
+      "backgroundColor": "#14232E"
     },
     "plugins": [
       "expo-router",
@@ -83,30 +89,7 @@
         }
       ],
       "expo-font",
-      "expo-asset",
-      [
-        "@variant-systems/expo-dynamic-app-icon",
-        {
-          "cyber": {
-            "image": "./assets/images/Cyber.png"
-          },
-          "monochrome": {
-            "image": "./assets/images/Monochrome.png"
-          },
-          "candy": {
-            "image": "./assets/images/Candy.png"
-          },
-          "ocean": {
-            "image": "./assets/images/Ocean.png"
-          },
-          "forest": {
-            "image": "./assets/images/Forest.png"
-          },
-          "sunset": {
-            "image": "./assets/images/Sunset.png"
-          }
-        }
-      ]
+      "expo-asset"
     ],
     "extra": {
       "router": {},

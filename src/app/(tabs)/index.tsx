@@ -1,23 +1,28 @@
 /**
  * (tabs)/index.tsx - Chat tab
  * Recent 1-on-1 and group conversations with search, unread counts and mute indicators.
+ * Each conversation is a dispatch pinned to the map: a brass medallion of the person, the name in blackletter, the time in quill.
+ * A dispatch you have not read yet is held up with a tack and sealed with a count in red wax.
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../components/OfflineBanner';
+import {
+  Avatar,
+  CountSeal,
+  Loading,
+  POINTER,
+  Page,
+  PageTitle,
+  Paper,
+  Text,
+  TextInput,
+  TrailLine,
+} from '../../components/parchment';
 import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
@@ -37,7 +42,7 @@ export default function ChatTab() {
   const toast = useToast();
   const { currentUser } = useAuth();
   const { themeColors } = useTheme();
-  const { conversations, isLoading, deleteConversation } = useConversations();
+  const { conversations, isLoading, deleteConversation, unreadTotal } = useConversations();
   const { isMuted } = useUserSettings();
   const [searchText, setSearchText] = useState('');
 
@@ -92,93 +97,83 @@ export default function ChatTab() {
       <Pressable
         onPress={() => openChat(item.id)}
         onLongPress={() => confirmDelete(item)}
-        style={({ pressed }) => [
-          styles.row,
-          { borderBottomColor: themeColors.border },
-          pressed && { backgroundColor: themeColors.cardBackground },
-        ]}
+        accessibilityRole="button"
+        accessibilityLabel={unread > 0 ? `${title}, ${unread} unread` : title}
+        style={({ pressed }) => [styles.press, POINTER, pressed && styles.pressed]}
       >
-        <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: themeColors.accent }]}>
-          {item.isGroup ? (
-            <Ionicons name="people" size={22} color={themeColors.buttonText} />
-          ) : (
-            <Text style={[styles.avatarText, { color: themeColors.buttonText }]}>
-              {title[0]?.toUpperCase() ?? '?'}
-            </Text>
-          )}
-        </View>
+        {/* A new dispatch is tacked to the map; one you have read is only laid on it. */}
+        <Paper seed={item.id} maxTilt={0.7} pin={unread > 0 ? 'tack' : 'none'} contentStyle={styles.row}>
+          <Avatar
+            name={title}
+            size={48}
+            icon={item.isGroup ? <Ionicons name="people" size={22} color={themeColors.ink} /> : undefined}
+          />
 
-        <View style={styles.body}>
-          <View style={styles.line}>
-            <Text
-              style={[styles.title, { color: themeColors.text }, unread > 0 && styles.bold]}
-              numberOfLines={1}
-            >
-              {title}
-            </Text>
-            <Text style={[styles.time, { color: unread > 0 ? themeColors.accent : themeColors.subText }]}>
-              {formatListTime(item.lastMessageTime ?? null)}
-            </Text>
+          <View style={styles.body}>
+            <View style={styles.line}>
+              <Text kind="display" style={[styles.title, { color: themeColors.ink }]} numberOfLines={1}>
+                {title}
+              </Text>
+              <Text kind="hand" style={[styles.time, { color: unread > 0 ? themeColors.stamp : themeColors.inkSoft }]}>
+                {formatListTime(item.lastMessageTime ?? null)}
+              </Text>
+            </View>
+            <View style={styles.line}>
+              <Text
+                style={[styles.preview, { color: unread > 0 ? themeColors.ink : themeColors.inkSoft }]}
+                numberOfLines={1}
+              >
+                {item.lastMessage ? `${prefix}${item.lastMessage}` : 'No messages yet'}
+              </Text>
+              {muted && <Ionicons name="notifications-off" size={14} color={themeColors.inkSoft} />}
+              <CountSeal count={unread} />
+            </View>
           </View>
-          <View style={styles.line}>
-            <Text
-              style={[styles.preview, { color: themeColors.subText }, unread > 0 && { color: themeColors.text }]}
-              numberOfLines={1}
-            >
-              {item.lastMessage ? `${prefix}${item.lastMessage}` : 'No messages yet'}
-            </Text>
-            {muted && <Ionicons name="notifications-off" size={14} color={themeColors.subText} />}
-            {unread > 0 && (
-              <View style={[styles.badge, { backgroundColor: themeColors.accent }]}>
-                <Text style={[styles.badgeText, { color: themeColors.buttonText }]}>
-                  {unread > 99 ? '99+' : unread}
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
+        </Paper>
       </Pressable>
     );
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: themeColors.text }]}>Chats</Text>
-      </View>
+    <Page variant="map" style={{ paddingTop: insets.top }}>
+      <PageTitle
+        title="Chats"
+        note={unreadTotal > 0 ? `${unreadTotal} new ${unreadTotal === 1 ? 'dispatch' : 'dispatches'}` : 'all quiet on deck'}
+        style={styles.header}
+      />
+      <TrailLine x style={styles.trail} />
 
       <OfflineBanner message="You're offline. Chats update when you reconnect." />
 
       <View style={styles.searchWrap}>
-        <Ionicons name="search" size={18} color={themeColors.subText} style={styles.searchIcon} />
-        <TextInput
-          style={[
-            styles.search,
-            { backgroundColor: themeColors.inputBg, color: themeColors.text, borderColor: themeColors.border },
-          ]}
-          placeholder="Search chats"
-          placeholderTextColor={themeColors.subText}
-          value={searchText}
-          onChangeText={setSearchText}
-          autoCapitalize="none"
-        />
+        <Paper trail lift={1} contentStyle={styles.search}>
+          <Ionicons name="search" size={18} color={themeColors.inkSoft} />
+          <TextInput
+            style={[styles.searchInput, { color: themeColors.ink }]}
+            placeholder="Search chats"
+            placeholderTextColor={themeColors.inkSoft}
+            value={searchText}
+            onChangeText={setSearchText}
+            autoCapitalize="none"
+          />
+        </Paper>
       </View>
 
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={themeColors.accent} />
+          <Loading label="Charting the course..." />
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.center}>
-          <Ionicons name="chatbubbles-outline" size={48} color={themeColors.subText} />
-          <Text style={[styles.emptyTitle, { color: themeColors.subText }]}>
-            {searchText ? 'No chats match your search' : 'No conversations yet'}
-          </Text>
-          {!searchText && (
-            <Text style={[styles.emptyHint, { color: themeColors.subText }]}>
-              Use the Add tab to start a chat or create a group
+          <Paper torn="both" angle={1.2} contentStyle={styles.empty}>
+            <Ionicons name={searchText ? 'search' : 'boat'} size={40} color={themeColors.stamp} />
+            <Text kind="display" style={[styles.emptyTitle, { color: themeColors.ink }]}>
+              {searchText ? 'Nothing charted' : 'No chats on the horizon'}
             </Text>
-          )}
+            <Text kind="hand" style={[styles.emptyHint, { color: themeColors.inkSoft }]}>
+              {searchText ? 'Try another word' : 'Open the Add tab to start a chat or gather a crew'}
+            </Text>
+          </Paper>
         </View>
       ) : (
         <FlatList
@@ -186,32 +181,36 @@ export default function ChatTab() {
           keyExtractor={(c) => c.id}
           renderItem={renderItem}
           keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.list}
+          ItemSeparatorComponent={Gap}
         />
       )}
-    </View>
+    </Page>
   );
 }
 
+function Gap() {
+  return <View style={styles.gap} />;
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { fontSize: 26, fontWeight: '800' },
-  searchWrap: { paddingHorizontal: 12, paddingBottom: 8, justifyContent: 'center' },
-  searchIcon: { position: 'absolute', left: 24, zIndex: 1, top: 11 },
-  search: { borderRadius: 20, borderWidth: 1, paddingLeft: 38, paddingRight: 14, paddingVertical: 8, fontSize: 15 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  emptyTitle: { fontSize: 16 },
-  emptyHint: { fontSize: 13 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-  avatar: { width: 50, height: 50, borderRadius: 25 },
-  avatarPlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 20, fontWeight: '700' },
-  body: { flex: 1, gap: 4 },
+  header: { paddingHorizontal: 18, paddingTop: 8 },
+  trail: { marginHorizontal: 18, marginTop: 2 },
+  searchWrap: { paddingHorizontal: 14, paddingTop: 4, paddingBottom: 10 },
+  search: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12 },
+  searchInput: { flex: 1, fontSize: 15, paddingVertical: 9 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
+  empty: { alignItems: 'center', gap: 6, paddingHorizontal: 26, paddingVertical: 14 },
+  emptyTitle: { fontSize: 26, lineHeight: 32, textAlign: 'center' },
+  emptyHint: { fontSize: 20, lineHeight: 24, textAlign: 'center' },
+  list: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 28 },
+  gap: { height: 12 },
+  press: { paddingLeft: 4 },
+  pressed: { opacity: 0.85, transform: [{ translateY: 1 }] },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 12, paddingVertical: 12 },
+  body: { flex: 1, gap: 3 },
   line: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { flex: 1, fontSize: 16, fontWeight: '600' },
-  bold: { fontWeight: '800' },
-  time: { fontSize: 12 },
-  preview: { flex: 1, fontSize: 14 },
-  badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
-  badgeText: { fontSize: 11, fontWeight: '700' },
+  title: { flex: 1, fontSize: 22, lineHeight: 26 },
+  time: { fontSize: 18, lineHeight: 22 },
+  preview: { flex: 1, fontSize: 15 },
 });

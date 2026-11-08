@@ -7,7 +7,6 @@ const profile = {
   username: 'Alice',
   usernameLowercase: 'alice',
   displayName: 'Alice A',
-  theme: 'ocean',
   createdAt: new Date(),
 };
 
@@ -20,7 +19,6 @@ describe('profile cache', () => {
       username: 'Alice',
       usernameLowercase: 'alice',
       displayName: 'Alice A',
-      theme: 'ocean',
     });
   });
 
@@ -39,13 +37,12 @@ describe('profile cache', () => {
   });
 
   it('falls back to the username when there is no display name, and drops wrongly typed fields', () => {
-    const raw = JSON.stringify({ uid: 'u1', username: 'bob', displayName: 5, theme: 7 });
+    const raw = JSON.stringify({ uid: 'u1', username: 'bob', displayName: 5, status: 7 });
     assert.deepEqual(parseCachedProfile(raw, 'u1'), {
       uid: 'u1',
       username: 'bob',
       usernameLowercase: undefined,
       displayName: 'bob',
-      theme: undefined,
     });
   });
 

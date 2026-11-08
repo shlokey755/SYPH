@@ -8,8 +8,6 @@ export interface UserProfile {
   username: string;
   usernameLowercase?: string;
   displayName: string;
-  /** Theme id saved to the profile (FR-15). */
-  theme?: string;
   lastUsernameChange?: FirestoreTime | Date;
   createdAt: FirestoreTime | Date;
 }

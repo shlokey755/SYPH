@@ -1,8 +1,8 @@
 /**
  * userService.ts
- * Profile and private-settings writes (FR-02, FR-12, FR-13, FR-15).
+ * Profile and private-settings writes (FR-02, FR-12).
  *
- *   users/{uid}                     public profile (username, display name, theme)
+ *   users/{uid}                     public profile (username, display name)
  *   users/{uid}/private/settings    only the owner (and the server) can read: muted chats, push tokens
  *   userPush/{uid}                  the part of those settings a sender needs to notify this user (see syncPushMirror)
  */
@@ -62,10 +62,6 @@ export async function removePushToken(uid: string, token: string) {
  */
 export function syncPushMirror(uid: string, mirror: PushMirror) {
   return setDoc(doc(db, 'userPush', uid), { ...mirror, updatedAt: serverTimestamp() });
-}
-
-export function saveTheme(uid: string, theme: string) {
-  return setDoc(doc(db, 'users', uid), { theme }, { merge: true });
 }
 
 export function updateProfileFields(uid: string, fields: { displayName?: string }) {

@@ -5,7 +5,7 @@ import '../services/liveLocationTask';
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { StatusBar } from 'react-native';
-import { ThemeProvider, useTheme } from '../hooks/themeContext';
+import { useTheme } from '../hooks/themeContext';
 import { ActiveCallProvider } from '../components/call/ActiveCallHost';
 import { StartupStack } from '../components/StartupStack';
 import { ToastProvider } from '../hooks/toastNotifications';
@@ -16,6 +16,8 @@ import { useSplashGate } from '../hooks/useSplashGate';
 import { UserSettingsProvider } from '../hooks/useUserSettings';
 import { restoreLiveShares } from '../services/liveLocationManager';
 import { keepSplashVisible } from '../services/splashService';
+import { WebFrame } from '../components/parchment';
+import { useMapFonts } from '../theme/fonts';
 
 // In global scope on purpose: the native splash stays up until the app is ready (see utils/splash.ts), and this must run
 // before the first render, otherwise the splash can already be gone.
@@ -50,12 +52,19 @@ function RootNav() {
   );
 }
 
-// Provider order matters: settings, conversations and incoming calls read the signed-in user; toasts read the theme; the
-// active call runs inside incoming calls (it marks the device busy) and above every screen (it outlives them).
+// Provider order matters: settings, conversations and incoming calls read the signed-in user; the active call runs inside
+// incoming calls (it marks the device busy) and above every screen (it outlives them).
 export default function RootLayout() {
+  // Nothing is drawn until the map's typefaces are registered (the native splash is still up): text drawn earlier would
+  // keep the system font for good.
+  const fontsReady = useMapFonts();
+  if (!fontsReady) return null;
+
+  // WebFrame is outermost so toasts, the incoming-call banner and the call screen all stay on the map column in a wide
+  // browser window. On a phone, and in a narrow window, it does nothing.
   return (
-    <AuthProvider>
-      <ThemeProvider>
+    <WebFrame>
+      <AuthProvider>
         <ToastProvider>
           <UserSettingsProvider>
             <ConversationsProvider>
@@ -67,7 +76,7 @@ export default function RootLayout() {
             </ConversationsProvider>
           </UserSettingsProvider>
         </ToastProvider>
-      </ThemeProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </WebFrame>
   );
 }

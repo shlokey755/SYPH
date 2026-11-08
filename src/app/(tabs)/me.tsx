@@ -18,7 +18,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { themeList, useTheme } from '../../hooks/themeContext';
+import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
@@ -35,7 +35,7 @@ export default function MeTab() {
   const { profile, canChangeUsername, timeUntilCanChange, updateUsername, patchProfile } =
     useUserProfile(currentUser?.uid);
 
-  const { selectedTheme, themeColors, setTheme } = useTheme();
+  const { themeColors } = useTheme();
   const router = useRouter();
 
   const toast = useToast();
@@ -218,38 +218,6 @@ export default function MeTab() {
       {/* Permissions behind the call bubble and the lock-screen call */}
       <CallOverlaySection />
 
-      {/* Theme Options Section */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: themeColors.subText }]}>Theme</Text>
-        <View style={styles.themeContainer}>
-          {themeList.map((item) => {
-            const isSelected = selectedTheme === item.id;
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={[
-                  styles.themeOption,
-                  { backgroundColor: themeColors.cardBackground, borderColor: themeColors.border },
-                  isSelected && { borderColor: themeColors.accent, borderWidth: 2 },
-                ]}
-                onPress={() => setTheme(item.id)}
-              >
-                <View style={styles.themePreview}>
-                  <View style={[styles.colorBadge, { backgroundColor: item.colors.background, borderWidth: 1, borderColor: item.colors.border }]} />
-                  <View style={[styles.colorBadge, { backgroundColor: item.colors.accent }]} />
-                </View>
-                <Text style={[styles.themeLabel, { color: themeColors.subText }, isSelected && { color: themeColors.text, fontWeight: '600' }]}>
-                  {item.label}
-                </Text>
-                {isSelected && (
-                  <Ionicons name="checkmark-circle" size={18} color={themeColors.accent} style={styles.checkIcon} />
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
       {/* Logout Section */}
       <View style={styles.section}>
         <TouchableOpacity style={[styles.logoutButton, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.danger }]} onPress={handleLogout}>
@@ -336,35 +304,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontWeight: '600',
     fontSize: 14,
-  },
-  themeContainer: {
-    gap: 10,
-  },
-  themeOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-  },
-  themePreview: {
-    flexDirection: 'row',
-    marginRight: 12,
-  },
-  colorBadge: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#777',
-    marginRight: -4,
-  },
-  themeLabel: {
-    fontSize: 15,
-    flex: 1,
-  },
-  checkIcon: {
-    marginLeft: 'auto',
   },
   logoutButton: {
     flexDirection: 'row',

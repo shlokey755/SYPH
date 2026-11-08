@@ -7,19 +7,22 @@ import {
   readableTextOn,
   readBubbleColors,
 } from '../../src/utils/bubbleColors.ts';
+import { vintage } from '../../src/theme/colors.ts';
 
-// The six themes: accent and the colour the theme puts on top of it (src/hooks/themeContext.tsx).
-const THEMES: Record<string, { accent: string; buttonText: string }> = {
-  cyber: { accent: '#00E5FF', buttonText: '#000000' },
-  monochrome: { accent: '#000000', buttonText: '#FFFFFF' },
-  candy: { accent: '#800080', buttonText: '#FFFFFF' },
-  ocean: { accent: '#4DA3FF', buttonText: '#06121F' },
-  forest: { accent: '#3DDC84', buttonText: '#06130B' },
-  sunset: { accent: '#FF7A59', buttonText: '#1A0A05' },
+// An accent and the colour put on top of it: the app's own (src/theme/colors.ts), then a spread of other pairs so the maths
+// is also checked on black, dark, light and saturated accents.
+const ACCENTS: Record<string, { accent: string; buttonText: string }> = {
+  vintage: { accent: vintage.accent, buttonText: vintage.buttonText },
+  black: { accent: '#000000', buttonText: '#FFFFFF' },
+  plum: { accent: '#800080', buttonText: '#FFFFFF' },
+  cyan: { accent: '#00E5FF', buttonText: '#000000' },
+  blue: { accent: '#4DA3FF', buttonText: '#06121F' },
+  green: { accent: '#3DDC84', buttonText: '#06130B' },
+  coral: { accent: '#FF7A59', buttonText: '#1A0A05' },
 };
 
 describe('parseHex', () => {
-  it('reads the colour forms the themes use', () => {
+  it('reads the colour forms the app uses', () => {
     assert.deepEqual(parseHex('#00E5FF'), [0, 229, 255]);
     assert.deepEqual(parseHex('#0af'), [0, 170, 255]);
     assert.deepEqual(parseHex('#10203040'), [16, 32, 48]); // alpha ignored
@@ -46,7 +49,7 @@ describe('darkenColor', () => {
   });
 
   it('is slightly darker by default, never lighter', () => {
-    for (const { accent } of Object.values(THEMES)) {
+    for (const { accent } of Object.values(ACCENTS)) {
       const darker = parseHex(darkenColor(accent))!;
       const original = parseHex(accent)!;
       for (let i = 0; i < 3; i++) assert.ok(darker[i] <= original[i]);
@@ -90,8 +93,8 @@ describe('readBubbleColors', () => {
     assert.equal(readBubbleColors('#800080', '#FFFFFF').background, darkenColor('#800080'));
   });
 
-  it('is darker than the accent in every theme (black stays black)', () => {
-    for (const { accent, buttonText } of Object.values(THEMES)) {
+  it('is darker than the accent for every accent (black stays black)', () => {
+    for (const { accent, buttonText } of Object.values(ACCENTS)) {
       const own = readBubbleColors(accent, buttonText);
       const darker = parseHex(own.background)!;
       const original = parseHex(accent)!;
@@ -99,14 +102,14 @@ describe('readBubbleColors', () => {
     }
   });
 
-  for (const [name, { accent, buttonText }] of Object.entries(THEMES)) {
-    it(`keeps the text readable in the ${name} theme`, () => {
+  for (const [name, { accent, buttonText }] of Object.entries(ACCENTS)) {
+    it(`keeps the text readable on the ${name} accent`, () => {
       const own = readBubbleColors(accent, buttonText);
       assert.ok(contrastRatio(own.text, own.background) >= 4.5);
     });
   }
 
-  it('keeps the theme text colour where it still reads well', () => {
+  it('keeps the preferred text colour where it still reads well', () => {
     assert.equal(readBubbleColors('#4DA3FF', '#06121F').text, '#06121F');
     assert.equal(readBubbleColors('#00E5FF', '#000000').text, '#000000');
   });
