@@ -309,14 +309,24 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     pressRef.current = { ringKey, accept, decline };
   });
+  // A press whose call is not ringing here (yet). When SYPH was closed, the call screen came from the push and the person
+  // pressed Accept before SYPH had even started; the call only appears in `ring` once Firestore has delivered it, so the
+  // press waits for it. A press about a call that never appears here is harmless: keys are never reused.
+  const waitingPressRef = useRef<IncomingPress | null>(null);
   useEffect(() => {
     const handle = (press: IncomingPress) => {
       const current = pressRef.current;
-      if (press.key !== current.ringKey) return; // about a call that is no longer ringing here
+      if (press.key !== current.ringKey) {
+        waitingPressRef.current = press;
+        return;
+      }
       if (press.action === 'accept') current.accept();
       else current.decline();
     };
     const stop = onIncomingPress(handle);
+    // Also when SYPH starts: the press that opened it is already waiting.
+    const waiting = consumeIncomingPress();
+    if (waiting) handle(waiting);
     const subscription = AppState.addEventListener('change', (state) => {
       if (state !== 'active') return;
       const missed = consumeIncomingPress();
@@ -327,6 +337,13 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
       subscription.remove();
     };
   }, []);
+  useEffect(() => {
+    const waiting = waitingPressRef.current;
+    if (!waiting || ringKey === null || waiting.key !== ringKey) return;
+    waitingPressRef.current = null;
+    if (waiting.action === 'accept') pressRef.current.accept();
+    else pressRef.current.decline();
+  }, [ringKey]);
 
   const value = useMemo(() => ({ setOnCall, expectGroupCall }), [setOnCall, expectGroupCall]);
 

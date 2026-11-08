@@ -17,6 +17,7 @@ import {
   isOverlayAvailable,
   openFullScreenSettings,
   openOverlaySettings,
+  supportsClosedAlerts,
 } from '../../services/callOverlay';
 import { OverlayAccess, overlayStatus, PermissionStatus } from '../../utils/callOverlay';
 
@@ -93,9 +94,11 @@ export function CallOverlaySection() {
         )}
         <View style={styles.note}>
           <Text style={[styles.hint, { color: themeColors.subText }]}>
-            This works while SYPH is running in the background. If Android has already closed SYPH, a call arrives as a
-            notification, as before. Some phones (Xiaomi, Oppo, Vivo, Huawei) also have a switch for pop-up windows while an app
-            is in the background, under the phone's permission settings for SYPH.
+            {supportsClosedAlerts()
+              ? 'This works whether SYPH is open, in the background or closed. A phone you force-stopped in Android Settings cannot be reached until SYPH is opened once. '
+              : 'This works while SYPH is running in the background. If Android has already closed SYPH, a call arrives as a notification (the newest version of the app fixes that). '}
+            Some phones (Xiaomi, Oppo, Vivo, Huawei) also have a switch for pop-up windows while an app is in the background,
+            under the phone's permission settings for SYPH.
           </Text>
         </View>
       </View>

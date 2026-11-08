@@ -13,3 +13,10 @@ android {
     versionName "1.0.0"
   }
 }
+
+dependencies {
+  // SyphMessagingService extends expo-notifications' push service, so it needs that module and the Firebase library its
+  // signature uses. Same version as expo-notifications declares (node_modules/expo-notifications/android/build.gradle).
+  implementation project(':expo-notifications')
+  implementation 'com.google.firebase:firebase-messaging:25.0.1'
+}

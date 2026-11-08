@@ -2,7 +2,8 @@
  * pushTargets.ts
  * Looks up where (and whether) to notify a user, from the sender's side.
  *
- *   userPush/{uid}        devices, master switch and muted chats, mirrored from the owner's private settings
+ *   userPush/{uid}        devices, master switch, muted chats and alert choices (tone, ringtone, vibration), mirrored from
+ *                         the owner's private settings
  *   pushTokens/{token}    which account is signed in on that device right now
  *
  * A token is only used when the registry names this user, so a phone that switched accounts never receives the
@@ -12,7 +13,7 @@
 
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { MAX_MIRROR_TOKENS, PushTarget, isExpoPushToken, verifiedTokens } from '../utils/push';
+import { MAX_MIRROR_TOKENS, PushTarget, isExpoPushToken, normalizeAccountAlerts, verifiedTokens } from '../utils/push';
 
 const CACHE_MS = 2 * 60 * 1000;
 const cache = new Map<string, { at: number; target: PushTarget | null }>();
@@ -21,7 +22,13 @@ async function loadTarget(uid: string): Promise<PushTarget | null> {
   const mirror = await getDoc(doc(db, 'userPush', uid));
   if (!mirror.exists()) return null; // never opened a build that can receive push
 
-  const data = mirror.data() as { tokens?: unknown; notificationsEnabled?: unknown; mutedChats?: unknown };
+  const data = mirror.data() as {
+    tokens?: unknown;
+    notificationsEnabled?: unknown;
+    mutedChats?: unknown;
+    alerts?: unknown;
+    alertTokens?: unknown;
+  };
   const claimed = (Array.isArray(data.tokens) ? data.tokens : []).filter(isExpoPushToken).slice(0, MAX_MIRROR_TOKENS);
 
   const owners = new Map<string, string | undefined>();
@@ -36,11 +43,18 @@ async function loadTarget(uid: string): Promise<PushTarget | null> {
     })
   );
 
+  const tokens = verifiedTokens(uid, claimed, owners);
+  // Only a verified device whose build can show the person's alert choices while SYPH is closed gets them.
+  const alertTokens = (Array.isArray(data.alertTokens) ? data.alertTokens : []).filter(
+    (token): token is string => typeof token === 'string' && tokens.includes(token)
+  );
   return {
     uid,
-    tokens: verifiedTokens(uid, claimed, owners),
+    tokens,
     notificationsEnabled: data.notificationsEnabled !== false,
     mutedChats: Array.isArray(data.mutedChats) ? data.mutedChats.filter((id): id is string => typeof id === 'string') : [],
+    alerts: normalizeAccountAlerts(data.alerts),
+    alertTokens,
   };
 }
 

@@ -9,6 +9,16 @@
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
   <application>
+    <!-- Sees every push before expo-notifications does (a higher priority; expo-notifications' own is -1): with SYPH closed, a
+         call push rings and opens the call screen from here. Anything else goes on to expo-notifications unchanged. -->
+    <service
+      android:name="expo.modules.syphcallservice.SyphMessagingService"
+      android:exported="false">
+      <intent-filter android:priority="10">
+        <action android:name="com.google.firebase.MESSAGING_EVENT" />
+      </intent-filter>
+    </service>
+
     <service
       android:name="expo.modules.syphcallservice.CallForegroundService"
       android:exported="false"

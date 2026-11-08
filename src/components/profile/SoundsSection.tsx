@@ -3,8 +3,9 @@
  * "Sounds & vibration" in the Me tab: vibration on or off, touch feedback on or off, the ringtone for incoming calls and the
  * tone for new messages. Choosing a ringtone or tone plays it once, so it can be heard before it is kept.
  *
- * The choices live on this phone (services/alertPrefsStore.ts) and apply while SYPH is open. While SYPH is closed Android
- * plays the alerts itself, from the phone's own notification settings for SYPH.
+ * The choices live on this phone (services/alertPrefsStore.ts) and apply while SYPH is open. A build that can show them while
+ * SYPH is closed (supportsClosedAlerts) also copies them to the account, so the notification that wakes the phone uses the
+ * same tone, ringtone and vibration; an older build lets Android play its own notification sound then.
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +15,7 @@ import { useTheme } from '../../hooks/themeContext';
 import { buzz, hasBundledSounds, playTone } from '../../services/alertSounds';
 import { setAlertPrefs, useAlertPrefs } from '../../services/alertPrefsStore';
 import { getActiveCall } from '../../services/activeCallStore';
+import { supportsClosedAlerts } from '../../services/callOverlay';
 import { startRinging, stopRinging } from '../../services/callAudio';
 import {
   MESSAGE_BUZZ_PATTERN,
@@ -138,8 +140,9 @@ export function SoundsSection() {
             </Text>
           )}
           <Text style={[styles.hint, { color: themeColors.subText }]}>
-            These apply while SYPH is open. While it is closed, Android plays the alerts itself: change them under the phone's
-            notification settings for SYPH.
+            {supportsClosedAlerts()
+              ? 'These apply whether SYPH is open or closed. Other people\'s phones send the notification with your tone, so a message sounds the same either way.'
+              : 'These apply while SYPH is open. While it is closed, Android plays the alerts itself: change them under the phone\'s notification settings for SYPH. The newest version of the app makes them apply then too.'}
           </Text>
         </View>
       </View>
