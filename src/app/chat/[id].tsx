@@ -44,6 +44,7 @@ import { useActiveGroupCall } from '../../hooks/useActiveGroupCall';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
 import { useGifSender } from '../../hooks/useGifSender';
+import { warmGifs } from '../../services/gifService';
 import { useLiveShareIn } from '../../hooks/useLiveShares';
 import { useTypingPeers, useTypingReporter } from '../../hooks/useTyping';
 import { useMessages } from '../../hooks/useMessages';
@@ -161,6 +162,12 @@ export default function ChatScreen() {
     replyTo,
     onReplyConsumed: () => setReplyTo(null),
   });
+
+  // Get the GIF picker ready while the chat opens: trending and its first pictures are downloaded now, so the picker has
+  // GIFs on screen the moment it is opened. Once per ten minutes at most (services/gifService.ts).
+  useEffect(() => {
+    warmGifs();
+  }, []);
 
   // Tell the conversations provider which chat is open (suppresses its toasts).
   useFocusEffect(
