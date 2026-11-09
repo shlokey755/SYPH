@@ -3,21 +3,33 @@ import { describe, it } from 'node:test';
 import {
   CALLS_CHANNEL_ID,
   CALL_PUSH_TTL_SECONDS,
+  DEFAULT_ACCOUNT_ALERTS,
+  DEFAULT_ROUTE,
   MAX_MIRROR_MUTED,
   MAX_MIRROR_TOKENS,
   MESSAGES_CHANNEL_ID,
+  MESSAGE_CHANNEL_SPECS,
+  MESSAGE_TONE_FILES,
+  MESSAGE_TONE_IDS,
   MISSED_CALL_PUSH_TTL_SECONDS,
+  RINGTONE_IDS,
   allowsCallPush,
   allowsMessagePush,
+  buildCallEndedPushes,
   buildCallPushes,
+  buildGroupCallPushes,
   buildMessagePushes,
   buildMissedCallPushes,
   chunk,
   isExpoPushToken,
+  messageChannelId,
   missedCallText,
   mirrorFromSettings,
   mirrorKey,
+  normalizeAccountAlerts,
   parsePushMode,
+  routeFor,
+  routeOfTokens,
   verifiedTokens,
 } from '../../src/utils/push.ts';
 
@@ -48,7 +60,13 @@ describe('token validation', () => {
 
 describe('mirror from private settings', () => {
   it('turns an empty settings document into "on, no devices, nothing muted"', () => {
-    assert.deepEqual(mirrorFromSettings({}), { tokens: [], notificationsEnabled: true, mutedChats: [] });
+    assert.deepEqual(mirrorFromSettings({}), {
+      tokens: [],
+      notificationsEnabled: true,
+      mutedChats: [],
+      alerts: DEFAULT_ACCOUNT_ALERTS,
+      alertTokens: [],
+    });
   });
 
   it('only an explicit false switches notifications off', () => {
@@ -189,5 +207,134 @@ describe('group call push', () => {
     const [m] = buildGroupCallPushes({ callId: 'c', conversationId: 'g', callerName: ' ', type: 'audio', tokens: [T('1')] });
     assert.equal(m.title, 'Group');
     assert.equal(m.body, 'Someone started a voice call');
+  });
+});
+
+describe('alerts while SYPH is closed', () => {
+  const alerts = { messageTone: 'pop', ringtone: 'phone', vibrate: false } as const;
+
+  it('reads saved choices and falls back to the defaults for anything unknown', () => {
+    assert.deepEqual(normalizeAccountAlerts(undefined), DEFAULT_ACCOUNT_ALERTS);
+    assert.deepEqual(normalizeAccountAlerts({ messageTone: 'drop', ringtone: 'phone', vibrate: false }), {
+      messageTone: 'drop',
+      ringtone: 'phone',
+      vibrate: false,
+    });
+    assert.deepEqual(normalizeAccountAlerts({ messageTone: 'bell', ringtone: 3, vibrate: 'no' }), DEFAULT_ACCOUNT_ALERTS);
+  });
+
+  it('has one message channel per tone and vibration choice, each with a sound file unless silent', () => {
+    assert.equal(MESSAGE_CHANNEL_SPECS.length, MESSAGE_TONE_IDS.length * 2);
+    assert.equal(new Set(MESSAGE_CHANNEL_SPECS.map((spec) => spec.id)).size, MESSAGE_CHANNEL_SPECS.length);
+    assert.equal(messageChannelId('pop', true), 'messages_pop_buzz');
+    assert.equal(messageChannelId('off', false), 'messages_off_quiet');
+    for (const spec of MESSAGE_CHANNEL_SPECS) {
+      const tone = MESSAGE_TONE_IDS.find((id) => spec.id.startsWith(`messages_${id}_`));
+      assert.ok(tone, spec.id);
+      assert.equal(spec.sound, tone === 'off' ? null : MESSAGE_TONE_FILES[tone as 'syph' | 'pop' | 'drop']);
+      assert.equal(spec.vibrate, spec.id.endsWith('_buzz'));
+    }
+  });
+
+  it('offers the same tones and ringtones as the settings screen', async () => {
+    const prefs = await import('../../src/utils/alertPrefs.ts');
+    assert.deepEqual([...MESSAGE_TONE_IDS], prefs.MESSAGE_TONES.map((tone: { id: string }) => tone.id));
+    assert.deepEqual([...RINGTONE_IDS], prefs.RINGTONES.map((tone: { id: string }) => tone.id));
+  });
+
+  it('keeps alert devices only when they are also registered devices', () => {
+    const mirror = mirrorFromSettings({
+      expoPushTokens: [T('1'), T('2')],
+      closedAlertTokens: [T('2'), T('gone'), T('2')],
+      alerts,
+    });
+    assert.deepEqual(mirror.alertTokens, [T('2')]);
+    assert.deepEqual(mirror.alerts, alerts);
+  });
+
+  it('mirrorKey notices a changed tone, ringtone, vibration or alert device', () => {
+    const base = mirrorFromSettings({ expoPushTokens: [T('1')], closedAlertTokens: [T('1')] });
+    assert.notEqual(mirrorKey(base), mirrorKey(mirrorFromSettings({ expoPushTokens: [T('1')], closedAlertTokens: [T('1')], alerts })));
+    assert.notEqual(mirrorKey(base), mirrorKey(mirrorFromSettings({ expoPushTokens: [T('1')] })));
+  });
+
+  it('routes only devices that registered as able to; the rest keep the original channels', () => {
+    const target = { alerts, alertTokens: [T('new')] };
+    assert.deepEqual(routeFor(target, T('old')), DEFAULT_ROUTE);
+    assert.deepEqual(routeFor(target, T('new')), {
+      messageChannel: 'messages_pop_quiet',
+      closedAlerts: true,
+      ringtone: 'phone',
+      vibrate: false,
+    });
+    assert.equal(DEFAULT_ROUTE.messageChannel, MESSAGES_CHANNEL_ID);
+    assert.equal(DEFAULT_ROUTE.closedAlerts, false);
+  });
+
+  it('looks up the devices of several people at once and tolerates missing targets', () => {
+    const routeOf = routeOfTokens([
+      { tokens: [T('a')], alertTokens: [T('a')], alerts },
+      null,
+      { tokens: [T('b')], alertTokens: [], alerts },
+      undefined,
+    ]);
+    assert.equal(routeOf(T('a')).messageChannel, 'messages_pop_quiet');
+    assert.deepEqual(routeOf(T('b')), DEFAULT_ROUTE);
+    assert.deepEqual(routeOf(T('unknown')), DEFAULT_ROUTE);
+  });
+
+  it('puts a message on the channel of the receiving device', () => {
+    const routeOf = routeOfTokens([{ tokens: [T('new'), T('old')], alertTokens: [T('new')], alerts }]);
+    const [onNew, onOld] = buildMessagePushes({
+      conversationId: 'c1',
+      isGroup: false,
+      senderName: 'Alice',
+      preview: 'hi',
+      tokens: [T('new'), T('old')],
+      routeOf,
+    });
+    assert.equal(onNew.channelId, 'messages_pop_quiet');
+    assert.equal(onOld.channelId, MESSAGES_CHANNEL_ID);
+  });
+
+  it('adds the ringtone to a call only for devices that can ring while closed', () => {
+    const routeOf = routeOfTokens([{ tokens: [T('new'), T('old')], alertTokens: [T('new')], alerts }]);
+    const input = { callId: 'k1', conversationId: 'c1', callerName: 'Alice', type: 'video' as const, tokens: [T('new'), T('old')], routeOf };
+    const [onNew, onOld] = buildCallPushes(input);
+    assert.deepEqual(onNew.data, { type: 'call', conversationId: 'c1', callId: 'k1', ringtone: 'phone', vibrate: '0' });
+    assert.deepEqual(onOld.data, { type: 'call', conversationId: 'c1', callId: 'k1' });
+    assert.equal(onNew.channelId, CALLS_CHANNEL_ID);
+
+    const [groupOnNew, groupOnOld] = buildGroupCallPushes({ ...input, groupName: 'Team' });
+    assert.deepEqual(groupOnNew.data, {
+      type: 'call',
+      conversationId: 'c1',
+      callId: 'k1',
+      ringtone: 'phone',
+      vibrate: '0',
+      group: '1',
+    });
+    assert.equal(groupOnOld.data.ringtone, undefined);
+  });
+
+  it('a call push without routes is the original payload', () => {
+    const [push] = buildCallPushes({ callId: 'k1', conversationId: 'c1', callerName: 'Alice', type: 'audio', tokens: [T('1')] });
+    assert.deepEqual(push.data, { type: 'call', conversationId: 'c1', callId: 'k1' });
+  });
+
+  it('the call-ended push is silent and carries only the call id', () => {
+    const [push] = buildCallEndedPushes({ callId: 'k1', tokens: [T('1')] });
+    assert.equal(push.title, undefined);
+    assert.equal(push.body, undefined);
+    assert.equal(push.sound, undefined);
+    assert.equal(push.priority, 'high');
+    assert.equal(push.ttl, CALL_PUSH_TTL_SECONDS);
+    assert.deepEqual(push.data, { type: 'call-ended', callId: 'k1' });
+  });
+
+  it('a missed call uses the receiving device\'s message channel', () => {
+    const routeOf = routeOfTokens([{ tokens: [T('new')], alertTokens: [T('new')], alerts }]);
+    const [push] = buildMissedCallPushes({ callId: 'k1', conversationId: 'c1', callerName: 'A', type: 'audio', tokens: [T('new')], routeOf });
+    assert.equal(push.channelId, 'messages_pop_quiet');
   });
 });

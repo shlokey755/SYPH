@@ -71,6 +71,11 @@ class SyphCallServiceModule : Module() {
       true
     }
 
+    // True in a build that has the native push handler: it can ring and show the call screen while SYPH is closed.
+    Function("supportsClosedAlerts") {
+      true
+    }
+
     Function("consumeIncomingAction") {
       CallServiceEvents.consumePendingIncoming()
     }

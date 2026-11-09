@@ -286,6 +286,10 @@ const no = (n, p) => check(n, p, false);
   await no('more than 5 devices is refused', alice.doc('userPush/alice').set(mirror({ tokens: ['1', '2', '3', '4', '5', '6'] })));
   await no('unexpected fields are refused', alice.doc('userPush/alice').set(mirror({ admin: true })));
   await no('notificationsEnabled must be a boolean', alice.doc('userPush/alice').set(mirror({ notificationsEnabled: 'yes' })));
+  await ok('mirror may carry the sound choices and alert devices', alice.doc('userPush/alice').set(mirror({ alerts: { messageTone: 'pop', ringtone: 'phone', vibrate: false }, alertTokens: ['ExponentPushToken[a]'] })));
+  await no('alerts must be a map', alice.doc('userPush/alice').set(mirror({ alerts: 'loud' })));
+  await no('alertTokens must be a list', alice.doc('userPush/alice').set(mirror({ alertTokens: 'ExponentPushToken[a]' })));
+  await no('more than 5 alert devices is refused', alice.doc('userPush/alice').set(mirror({ alertTokens: ['1', '2', '3', '4', '5', '6'] })));
   await ok('owner deletes own mirror', alice.doc('userPush/alice').delete());
   await no('others cannot delete a mirror', carol.doc('userPush/alice').delete());
 

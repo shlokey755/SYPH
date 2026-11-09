@@ -14,12 +14,14 @@ import {
   MAX_MESSAGE_RECIPIENTS,
   allowsCallPush,
   allowsMessagePush,
+  buildCallEndedPushes,
   buildCallPushes,
   buildGroupCallPushes,
   buildMessagePushes,
   buildMissedCallPushes,
   chunk,
   parsePushMode,
+  routeOfTokens,
 } from '../utils/push';
 import { getPushTarget } from './pushTargets';
 
@@ -88,6 +90,7 @@ export async function notifyMessage(request: MessagePushRequest): Promise<void> 
         senderName: request.senderName,
         preview: request.preview,
         tokens,
+        routeOf: routeOfTokens(targets),
       })
     );
   } catch (error) {
@@ -116,6 +119,7 @@ export async function notifyCall(request: CallPushRequest): Promise<void> {
         callerName: request.callerName,
         type: request.type,
         tokens: target.tokens,
+        routeOf: routeOfTokens([target]),
       })
     );
   } catch (error) {
@@ -139,8 +143,14 @@ export async function notifyMissedCall(request: CallPushRequest): Promise<void> 
         callerName: request.callerName,
         type: request.type,
         tokens: target.tokens,
+        routeOf: routeOfTokens([target]),
       })
     );
+    // A phone that is ringing natively because SYPH is closed has no other way to learn the caller gave up: tell it, so
+    // the ring and the call screen stop at once instead of running to their time limit.
+    if (target.alertTokens.length > 0) {
+      await postToExpo(buildCallEndedPushes({ callId: request.callId, tokens: target.alertTokens }));
+    }
   } catch (error) {
     warn('missed call')(error);
   }
@@ -179,6 +189,7 @@ export async function notifyGroupCall(request: GroupCallPushRequest): Promise<vo
         callerName: request.callerName,
         type: request.type,
         tokens,
+        routeOf: routeOfTokens(targets),
       })
     );
   } catch (error) {

@@ -276,18 +276,23 @@ service cloud.firestore {
 
     // ---------------- Push mirror ----------------
     // The part of a user's private settings that a sender's phone needs to wake the recipient's phone: their device
-    // tokens, the notifications switch and muted chats. Only the owner writes it; any signed-in user can read one
+    // tokens, the notifications switch, muted chats and the sound choices. Only the owner writes it; any signed-in user can read one
     // document by uid but nobody can list them. Without a server, this is what lets closed-app push work for free.
     match /userPush/{uid} {
       allow get: if signedIn();
       allow list: if false;
       allow create, update: if isOwner(uid)
-        && request.resource.data.keys().hasOnly(['tokens', 'notificationsEnabled', 'mutedChats', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['tokens', 'notificationsEnabled', 'mutedChats', 'alerts', 'alertTokens', 'updatedAt'])
         && request.resource.data.tokens is list
         && request.resource.data.tokens.size() <= 5
         && request.resource.data.notificationsEnabled is bool
         && request.resource.data.mutedChats is list
-        && request.resource.data.mutedChats.size() <= 200;
+        && request.resource.data.mutedChats.size() <= 200
+        // The tone / ringtone / vibration choices and the devices that can ring while SYPH is closed (optional: an older
+        // build writes a mirror without them).
+        && (!('alerts' in request.resource.data) || request.resource.data.alerts is map)
+        && (!('alertTokens' in request.resource.data)
+            || (request.resource.data.alertTokens is list && request.resource.data.alertTokens.size() <= 5));
       allow delete: if isOwner(uid);
     }
 

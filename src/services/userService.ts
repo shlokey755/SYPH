@@ -18,7 +18,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { PushMirror } from '../utils/push';
+import { AccountAlerts, PushMirror } from '../utils/push';
 
 const settingsRef = (uid: string) => doc(db, 'users', uid, 'private', 'settings');
 
@@ -41,27 +41,53 @@ export function setNotificationsEnabled(uid: string, enabled: boolean) {
   return setDoc(settingsRef(uid), { notificationsEnabled: enabled }, { merge: true });
 }
 
-/** Saves this device's token to the user's settings and claims it in the registry (one atomic write). */
-export function addPushToken(uid: string, token: string, platform: string) {
+/**
+ * Saves this device's token to the user's settings and claims it in the registry (one atomic write). `closedAlerts` says the
+ * build on this device can show the person's tone, ringtone and call screen while SYPH is closed, so senders use them for it.
+ */
+export function addPushToken(uid: string, token: string, platform: string, closedAlerts = false) {
   const batch = writeBatch(db);
-  batch.set(settingsRef(uid), { expoPushTokens: arrayUnion(token) }, { merge: true });
+  batch.set(
+    settingsRef(uid),
+    { expoPushTokens: arrayUnion(token), ...(closedAlerts ? { closedAlertTokens: arrayUnion(token) } : {}) },
+    { merge: true }
+  );
   batch.set(tokenRef(token), { uid, platform, updatedAt: serverTimestamp() });
   return batch.commit();
 }
 
 /** Removes this device's token. The registry delete is best effort: another account may have claimed it already. */
 export async function removePushToken(uid: string, token: string) {
-  await setDoc(settingsRef(uid), { expoPushTokens: arrayRemove(token) }, { merge: true });
+  await setDoc(
+    settingsRef(uid),
+    { expoPushTokens: arrayRemove(token), closedAlertTokens: arrayRemove(token) },
+    { merge: true }
+  );
   await deleteDoc(tokenRef(token)).catch(() => {});
 }
 
+/** Saves the message tone, ringtone and vibration choice to the account; senders read it (through the mirror) to pick a channel. */
+export function saveAlertChoices(uid: string, alerts: AccountAlerts) {
+  return setDoc(settingsRef(uid), { alerts }, { merge: true });
+}
+
 /**
- * Copies the push-relevant settings (devices, master switch, muted chats) to userPush/{uid}, which other signed-in
+ * Copies the push-relevant settings (devices, master switch, muted chats, alert choices) to userPush/{uid}, which other signed-in
  * users may read one document at a time. A sender's phone needs them to wake this user's phone, and the private
  * settings document is owner-only. Written in full each time, so removed devices and unmuted chats disappear.
+ *
+ * If the published rules do not know the alert fields yet (firestore.rules not re-published), the write is refused as a
+ * whole; it is then repeated without them, so push keeps working exactly as before until the rules are published.
  */
-export function syncPushMirror(uid: string, mirror: PushMirror) {
-  return setDoc(doc(db, 'userPush', uid), { ...mirror, updatedAt: serverTimestamp() });
+export async function syncPushMirror(uid: string, mirror: PushMirror) {
+  const ref = doc(db, 'userPush', uid);
+  try {
+    await setDoc(ref, { ...mirror, updatedAt: serverTimestamp() });
+  } catch (error) {
+    if ((error as { code?: string } | null)?.code !== 'permission-denied') throw error;
+    const { alerts: _alerts, alertTokens: _alertTokens, ...basic } = mirror;
+    await setDoc(ref, { ...basic, updatedAt: serverTimestamp() });
+  }
 }
 
 export function saveTheme(uid: string, theme: string) {
