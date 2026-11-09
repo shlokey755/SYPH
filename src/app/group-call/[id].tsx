@@ -268,9 +268,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
   },
-  round: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  round: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
   // The phone glyph points up-right; turned over it reads as "hang up".
   hangUpIcon: { transform: [{ rotate: '135deg' }] },
-  pill: { paddingHorizontal: 36, paddingVertical: 14, borderRadius: 28 },
+  pill: { paddingHorizontal: 36, paddingVertical: 14 },
   pillText: { fontSize: 16, fontWeight: '600' },
 });

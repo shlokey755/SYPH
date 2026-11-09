@@ -167,14 +167,12 @@ const styles = StyleSheet.create({
   },
   input: {
     padding: 15,
-    borderRadius: 10,
     marginBottom: 15,
     fontSize: 16,
     borderWidth: 1,
   },
   button: {
     padding: 15,
-    borderRadius: 10,
     alignItems: 'center',
     marginTop: 10,
   },

@@ -106,7 +106,7 @@ export function CallOverlaySection() {
 const styles = StyleSheet.create({
   section: { paddingHorizontal: 15, marginBottom: 25 },
   title: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase' },
-  card: { borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
+  card: { borderWidth: 1, overflow: 'hidden' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 16, fontWeight: '600' },
   hint: { fontSize: 12 },
   state: { fontSize: 12, fontWeight: '600', marginTop: 2 },
-  button: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  button: { borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
   buttonText: { fontSize: 13, fontWeight: '600' },
   note: { padding: 14 },
 });

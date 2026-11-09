@@ -767,7 +767,6 @@ const styles = StyleSheet.create({
 
     paddingVertical: 6,
 
-    borderRadius: 20,
 
     fontWeight: '600',
 
@@ -781,7 +780,6 @@ const styles = StyleSheet.create({
 
     alignItems: 'center',
 
-    borderRadius: 10,
 
     marginHorizontal: 15,
 
@@ -841,7 +839,6 @@ const styles = StyleSheet.create({
 
     justifyContent: 'space-between',
 
-    borderRadius: 12,
 
     padding: 12,
 
@@ -867,7 +864,6 @@ const styles = StyleSheet.create({
 
     height: 50,
 
-    borderRadius: 25,
 
     marginRight: 12,
 
@@ -879,7 +875,6 @@ const styles = StyleSheet.create({
 
     height: 50,
 
-    borderRadius: 25,
 
     justifyContent: 'center',
 
@@ -921,7 +916,6 @@ const styles = StyleSheet.create({
 
   addButton: {
 
-    borderRadius: 50,
 
     width: 40,
 
@@ -987,7 +981,6 @@ const styles = StyleSheet.create({
 
     padding: 14,
 
-    borderRadius: 10,
 
     gap: 8,
 
@@ -1015,7 +1008,6 @@ const styles = StyleSheet.create({
 
   modalContent: {
 
-    borderRadius: 15,
 
     padding: 20,
 
@@ -1037,7 +1029,6 @@ const styles = StyleSheet.create({
 
     padding: 12,
 
-    borderRadius: 10,
 
     marginBottom: 15,
 
@@ -1061,7 +1052,6 @@ const styles = StyleSheet.create({
 
     padding: 12,
 
-    borderRadius: 10,
 
     alignItems: 'center',
 
@@ -1079,7 +1069,6 @@ const styles = StyleSheet.create({
 
     padding: 12,
 
-    borderRadius: 10,
 
     alignItems: 'center',
 

@@ -417,7 +417,6 @@ const styles = StyleSheet.create({
   avatar: {
     width: 128,
     height: 128,
-    borderRadius: 64,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -428,7 +427,7 @@ const styles = StyleSheet.create({
   kind: { fontSize: 16 },
   actions: { flexDirection: 'row', justifyContent: 'space-around', alignSelf: 'stretch' },
   action: { alignItems: 'center', gap: 10 },
-  round: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
+  round: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center' },
   // The phone glyph points up-right; turned over it reads as "hang up".
   hangUpIcon: { transform: [{ rotate: '135deg' }] },
   label: { fontSize: 14 },

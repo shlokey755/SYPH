@@ -45,7 +45,7 @@ export function ParticipantTile({ name, stream, mode, muted, caption, mirror, wi
             <View
               style={[
                 styles.avatar,
-                { width: avatar, height: avatar, borderRadius: avatar / 2, borderColor: themeColors.accent },
+                { width: avatar, height: avatar, borderColor: themeColors.accent },
               ]}
             >
               <Text style={[styles.initial, { color: themeColors.accent, fontSize: avatar * 0.45 }]}>{initial}</Text>
@@ -80,7 +80,7 @@ export function ParticipantTile({ name, stream, mode, muted, caption, mirror, wi
 export const TILE_GAP = 3;
 
 const styles = StyleSheet.create({
-  tile: { flex: 1, borderRadius: 12, borderWidth: 1, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  tile: { flex: 1, borderWidth: 1, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   panel: { alignItems: 'center', gap: 6, paddingHorizontal: 8 },
   avatar: { borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   initial: { fontWeight: '600' },
@@ -91,7 +91,6 @@ const styles = StyleSheet.create({
   badge: {
     width: 28,
     height: 28,
-    borderRadius: 14,
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -99,7 +98,6 @@ const styles = StyleSheet.create({
   namePill: {
     flexShrink: 1,
     flexDirection: 'row',
-    borderRadius: 12,
     backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: 8,
     paddingVertical: 4,

@@ -143,7 +143,6 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 140,
     height: 140,
-    borderRadius: 70,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -152,8 +151,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 26, fontWeight: '800', textAlign: 'center' },
   body: { fontSize: 16, lineHeight: 23, textAlign: 'center' },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 20 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  dot: { width: 8, height: 8 },
   dotActive: { width: 22 },
-  button: { marginHorizontal: 24, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
+  button: { marginHorizontal: 24, height: 52, alignItems: 'center', justifyContent: 'center' },
   buttonText: { fontSize: 16, fontWeight: '700' },
 });

@@ -45,6 +45,6 @@ const styles = StyleSheet.create({
   text: { flex: 1 },
   title: { fontSize: 14, fontWeight: '600' },
   sub: { fontSize: 12 },
-  join: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 18 },
+  join: { paddingHorizontal: 18, paddingVertical: 8 },
   joinText: { fontSize: 14, fontWeight: '700' },
 });

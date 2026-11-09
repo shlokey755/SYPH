@@ -100,10 +100,10 @@ export function UpdateSection() {
 const styles = StyleSheet.create({
   section: { paddingHorizontal: 15, marginBottom: 25 },
   title: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase' },
-  card: { padding: 14, borderRadius: 10, borderWidth: 1, gap: 8 },
+  card: { padding: 14, borderWidth: 1, gap: 8 },
   version: { fontSize: 16, fontWeight: '600' },
   hint: { fontSize: 12, lineHeight: 17 },
-  button: { padding: 14, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  button: { padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 },
   buttonText: { fontSize: 15, fontWeight: '600' },
   link: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
 });

@@ -52,7 +52,7 @@ export function MessageContent({ message, textColor, onOpenLocation, onLongPress
       return (
         <Image
           source={{ uri: media.url }}
-          style={{ width: MEDIA_WIDTH, height: gifHeight(media), borderRadius: 12 }}
+          style={{ width: MEDIA_WIDTH, height: gifHeight(media) }}
           contentFit="cover"
           transition={150}
         />

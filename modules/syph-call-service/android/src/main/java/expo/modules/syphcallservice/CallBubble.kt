@@ -26,7 +26,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * The small round "return to call" bubble that floats over other apps while a call is running and SYPH is in the
+ * The small square "return to call" bubble that floats over other apps while a call is running and SYPH is in the
  * background: a phone glyph with the call clock. Drag it anywhere, tap it to go back to the call.
  *
  * It is a window drawn by Android on top of other apps, which needs the person to have turned on "Display over other
@@ -90,7 +90,7 @@ internal object CallBubble {
       orientation = LinearLayout.VERTICAL
       gravity = Gravity.CENTER
       background = GradientDrawable().apply {
-        shape = GradientDrawable.OVAL
+        shape = GradientDrawable.RECTANGLE
         setColor(accent)
       }
       elevation = dp(context, 6).toFloat()

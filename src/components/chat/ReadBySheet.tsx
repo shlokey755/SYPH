@@ -131,8 +131,8 @@ export function ReadBySheet({ readers, nameOf, colors, onClose }: Props) {
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   stop: { width: '100%' },
-  sheet: { borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: 1, borderBottomWidth: 0 },
-  grabber: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, marginTop: 8 },
+  sheet: { borderWidth: 1, borderBottomWidth: 0 },
+  grabber: { alignSelf: 'center', width: 40, height: 4, marginTop: 8 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

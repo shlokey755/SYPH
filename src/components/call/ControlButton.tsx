@@ -1,6 +1,6 @@
 /**
  * ControlButton.tsx
- * The round buttons on the call screens (mute, speaker, camera, switch camera). Highlighted while switched on.
+ * The square buttons on the call screens (mute, speaker, camera, switch camera). Highlighted while switched on.
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -35,5 +35,5 @@ export function ControlButton({ icon, label, active, onPress }: Props) {
 
 const styles = StyleSheet.create({
   // Five buttons (mute, speaker, camera, switch camera, hang up) must fit a 360dp-wide screen: 5 x 56 + 4 x 10 = 320.
-  round: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  round: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
 });
