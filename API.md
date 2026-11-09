@@ -560,7 +560,7 @@ No new key, no billing, no server. `server/` (the optional relay) was not change
 - Declining from the call screen while SYPH is closed only dismisses it on that phone; the caller keeps ringing until the 30 second timeout (the app is not running to tell them). Group calls ring for 45 seconds and then stop by themselves.
 - A phone in Do Not Disturb or on silent follows its own rules, as for any app.
 - Old APKs keep working as before (old channels, ordinary call notification). Phones on the new APK get the new behaviour only after they have opened it once.
-- The Kotlin compiles against Android 34 stubs and a stand-in for the Expo classes, but has **never run on a device**. The gradle line `implementation project(':expo-notifications')` and the manifest priority over expo-notifications' own service are the two things most likely to need a fix after the first build.
+- The Kotlin compiles against Android 34 stubs and a stand-in for the Expo classes, but has **never run on a device**. The first EAS build failed on the gradle line `implementation project(':expo-notifications')`: in SDK 57 Expo links expo-notifications as a prebuilt Maven package, so that project does not exist. `modules/syph-call-service/android/build.gradle` now takes whichever form Expo links (project or published package). Not yet confirmed by a successful build; the manifest priority over expo-notifications' own service is the next most likely thing to need a fix.
 
 **Test checklist (two phones, new APK on both, rules published)**
 
