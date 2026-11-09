@@ -13,7 +13,7 @@
  *   failed       filled                a red alert, tap to retry
  *   sent         filled                one tick
  *   delivered    filled                two ticks (everyone's phone has it)
- *   partial      filled                avatars of the people who have seen it (groups only)
+ *   partial      filled                avatars of the people who have seen it (groups only, and only under your newest sent message)
  *   seen         hollow                nothing (the 1-to-1 recipient, or the whole group, has seen it)
  */
 
@@ -142,6 +142,20 @@ export const isHollow = (state: ReceiptState): boolean => state === 'seen';
 
 /** The avatar queue is shown while only some of a group have seen the message. */
 export const showsQueue = (state: ReceiptState): boolean => state === 'partial';
+
+/**
+ * The id of the newest message `uid` has sent, given the chat newest first. Only that message shows the avatar queue; older
+ * ones show nothing once the newer one is out. A message still sending, one that failed, and one deleted for everyone
+ * are not "sent", so they do not take the queue.
+ */
+export function latestSentId(
+  messagesNewestFirst: readonly { id: string; senderId: string; pending?: boolean; failed?: boolean; deletedForEveryone?: boolean }[],
+  uid: string | null | undefined
+): string | null {
+  if (!uid) return null;
+  const latest = messagesNewestFirst.find((m) => m.senderId === uid && !m.pending && !m.failed && !m.deletedForEveryone);
+  return latest ? latest.id : null;
+}
 
 /** The first people for the avatar queue and how many more there are. */
 export function queueSplit(readers: readonly Reader[], max: number = MAX_QUEUE_AVATARS): { shown: Reader[]; extra: number } {
