@@ -41,6 +41,7 @@ function RootNav() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="chat/[id]" />
+        <Stack.Screen name="shortcut/[action]" />
         {/* No swipe-back: it is easy to do by accident mid-call. The minimise button and the Android back button leave the
             call running (see ActiveCallHost); only hanging up ends it. */}
         <Stack.Screen name="call/[id]" options={{ gestureEnabled: false, animation: 'slide_from_bottom' }} />

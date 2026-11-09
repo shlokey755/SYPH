@@ -602,6 +602,44 @@ An emoji-only message plays Google's animated Noto emoji, as Google Messages doe
 | Turn on the phone's "remove animations" setting, send 🦍 | Still, no animation |
 | Long-press an animated emoji | The usual message menu opens |
 
+### 1.17.1 Long-press menu on the SYPH icon (needs a new APK)
+
+Long-pressing the SYPH icon on the Android home screen or app drawer now opens a menu (Android "app shortcuts") with three entries, above Android's own App info:
+
+| Entry | Opens |
+|---|---|
+| New chat | The Add tab: search people by username, start a chat or group |
+| Chats | The chat list (also gets you out of a chat or call screen in one tap; a running call keeps going) |
+| Me | Your profile and settings |
+
+Holding an entry and dragging it out puts it on the home screen as its own icon (Android does this for every app). Signed out, every entry goes to onboarding or login like a normal launch.
+
+**Needs from you:** build a new APK (`eas build --profile preview --platform android`). The menu is native Android resources, so an `eas update` cannot add it. No key, no Firestore rules, no billing, no new package (SDK 57's own `expo-router` handles the links).
+
+**How it works (for whoever changes it):** `plugins/withAppShortcuts.js` is an Expo config plugin. At build time it writes `res/xml/shortcuts.xml`, the labels and the three icons (`assets/shortcuts/*.xml`, white symbol on a black disc) into the generated Android project. Each entry opens `syph://shortcut/<action>`; `src/app/shortcut/[action].tsx` waits for sign-in, then goes to the screen chosen by `utils/shortcuts.ts`. The entries are the plugin's `shortcuts` list in `app.json`: change a label or add one there, add its action to `utils/shortcuts.ts`, and rebuild. A unit test keeps the two lists in step. Android shows about four entries, so the plugin refuses more than four and labels over 10 / 25 characters.
+
+The alternate app icons (Cyber, Monochrome, Candy, Ocean, Forest, Sunset) are separate launcher entries, and Android reads the menu from whichever one is on the home screen, so the plugin adds the menu to all of them. It must stay listed **before** `@variant-systems/expo-dynamic-app-icon` in `app.json` (Expo runs the last-listed plugin first; a test checks the order).
+
+**Limits**
+- Android 7.1 and newer only. Older phones just show no menu. iOS is not built (needs a paid Apple developer account).
+- Fixed entries only: no "recent chats" in the menu (that needs native code that updates the list as chats change; possible later).
+- Labels are English and the icons do not follow the theme colour.
+- A few phone makers' launchers show fewer entries or none; the menu is drawn by the launcher, not by SYPH.
+- Checked: the plugin's output (generated with `expo prebuild`: well-formed XML, the menu on the main activity and all six icon aliases, icons rendered), unit tests, type check. **Not run on a phone.** The one part to watch is opening an entry while a chat is already open: it should return to the tabs and show the screen (`router.dismissTo`).
+
+**Test checklist (new APK, signed in)**
+
+| # | Do this | Expect |
+|---|---------|--------|
+| 1 | Long-press the SYPH icon | Menu with New chat, Chats, Me |
+| 2 | Tap New chat with SYPH closed | SYPH starts on the Add tab (no flash of another screen under the splash) |
+| 3 | Tap Me with SYPH closed | Starts on the Me tab |
+| 4 | Open a chat, press Home, long-press the icon, tap Chats | Chat list; Back leaves SYPH or goes to the previous tab, not into a loop |
+| 5 | On a live call, press Home, long-press the icon, tap Me | Me tab; the call bubble and call keep running |
+| 6 | Me tab > pick another app icon, long-press the new icon | The same menu |
+| 7 | Sign out, long-press the icon, tap Me | Login (or onboarding on a fresh install), not a blank screen |
+| 8 | Drag "New chat" out to the home screen, tap it | Opens the Add tab |
+
 ### 1.18 Read receipts: hollow bubble, avatar queue, "Read by" (JavaScript only, nothing to set up)
 
 Implements the design in `DOC-20261107-WA0000`. No new rules to publish: the existing rule already lets a member change their own `readState` entry, and the read log lives inside it. No new package, so `eas update --channel preview` is enough.
