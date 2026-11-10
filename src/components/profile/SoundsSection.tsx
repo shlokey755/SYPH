@@ -60,8 +60,8 @@ export function SoundsSection() {
 
   return (
     <View style={styles.section}>
-      <Text style={[styles.title, { color: themeColors.subText }]}>Sounds & vibration</Text>
-      <View style={[styles.card, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.border }]}>
+      <Text kind="label" style={[styles.title, { color: themeColors.stamp }]}>Sounds & vibration</Text>
+      <View style={[styles.card, { backgroundColor: themeColors.paper, borderColor: themeColors.trail }]}>
         <View style={row}>
           <View style={styles.grow}>
             <Text style={[styles.label, { color: themeColors.text }]}>Vibration</Text>
@@ -73,7 +73,8 @@ export function SoundsSection() {
               setAlertPrefs({ vibrate });
               if (vibrate) buzz([...MESSAGE_BUZZ_PATTERN]);
             }}
-            trackColor={{ true: themeColors.accent, false: themeColors.border }}
+            trackColor={{ true: themeColors.accent, false: themeColors.paperAlt }}
+            thumbColor={themeColors.paper}
           />
         </View>
 
@@ -90,7 +91,8 @@ export function SoundsSection() {
               setAlertPrefs({ touchFeedback });
               if (touchFeedback) buzz(TOUCH_TICK_MS);
             }}
-            trackColor={{ true: themeColors.accent, false: themeColors.border }}
+            trackColor={{ true: themeColors.accent, false: themeColors.paperAlt }}
+            thumbColor={themeColors.paper}
           />
         </View>
 
@@ -150,8 +152,8 @@ export function SoundsSection() {
 
 const styles = StyleSheet.create({
   section: { paddingHorizontal: 15, marginBottom: 25 },
-  title: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase' },
-  card: { borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
+  title: { fontSize: 17, letterSpacing: 1, marginBottom: 10 },
+  card: { borderRadius: 4, borderWidth: 1.5, borderStyle: 'dashed', overflow: 'hidden' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -162,8 +164,8 @@ const styles = StyleSheet.create({
   group: { padding: 14, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   last: { borderBottomWidth: 0 },
   grow: { flex: 1 },
-  label: { fontSize: 16, fontWeight: '600' },
-  optionLabel: { fontSize: 15 },
+  label: { fontSize: 18, fontWeight: '600' },
+  optionLabel: { fontSize: 17 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
-  hint: { fontSize: 12 },
+  hint: { fontSize: 15 },
 });

@@ -19,10 +19,10 @@ export function OfflineBanner({ message }: Props) {
   return (
     <View
       accessibilityRole="alert"
-      style={[styles.banner, { backgroundColor: themeColors.cardBackground, borderBottomColor: themeColors.border }]}
+      style={[styles.banner, { backgroundColor: themeColors.paperAlt, borderBottomColor: themeColors.brass }]}
     >
-      <Ionicons name="cloud-offline-outline" size={16} color={themeColors.subText} />
-      <Text style={[styles.text, { color: themeColors.text }]} numberOfLines={2}>
+      <Ionicons name="cloud-offline-outline" size={18} color={themeColors.stamp} />
+      <Text kind="hand" style={[styles.text, { color: themeColors.ink }]} numberOfLines={2}>
         {message}
       </Text>
     </View>
@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderBottomWidth: 1,
+    borderBottomWidth: 2,
   },
-  text: { flex: 1, fontSize: 12 },
+  text: { flex: 1, fontSize: 17, lineHeight: 20 },
 });

@@ -3,12 +3,13 @@
 //   signed in                        -> tabs
 //   signed out, first launch         -> onboarding
 //   signed out, onboarding already seen -> login
-// The native splash stays up until this has navigated (markStartupRouted), so the spinner below is only ever seen if
-// the splash time limit is reached first.
+// On a phone the native splash stays up until this has navigated (markStartupRouted), so the compass below is only ever
+// seen there if the splash time limit is reached first. In a browser there is no native splash, so it is what people see
+// while the sign-in state is being read.
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { useTheme } from '../hooks/themeContext';
+import { StyleSheet } from 'react-native';
+import { Loading, Page } from '../components/parchment';
 import { useAuth } from '../hooks/useAuth';
 import { hasSeenOnboarding } from '../services/onboarding';
 import { markStartupRouted } from '../services/startupRoute';
@@ -16,7 +17,6 @@ import { markStartupRouted } from '../services/startupRoute';
 export default function Index() {
   const router = useRouter();
   const { currentUser, isLoading } = useAuth();
-  const { themeColors } = useTheme();
 
   useEffect(() => {
     if (isLoading) return;
@@ -39,15 +39,14 @@ export default function Index() {
   }, [currentUser, isLoading, router]);
 
   return (
-    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-      <ActivityIndicator size="large" color={themeColors.accent} />
-    </View>
+    <Page variant="map" style={styles.container}>
+      <Loading size={56} label="Charting the course..." />
+    </Page>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },

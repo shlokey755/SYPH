@@ -108,6 +108,8 @@ The web build is the same screens and the same pieces. What differs, and where:
 | Hand cursor and hover brightening on buttons | `POINTER`, `isHovered` |
 | A `Modal` is drawn over the whole browser window, not over the map column, so a sheet or panel inside one is given `SHEET_FRAME` (full width up to the column width, centred) | `SHEET_FRAME` |
 | No native animation engine in a browser, so Animated must not ask for one | `NATIVE_DRIVER` |
+| `Alert.alert` does nothing in React Native Web, so `app/_layout.tsx` points it at the browser's own `alert` / `confirm` (the logic is `utils/browserAlert.ts`: a destructive button is what `confirm` runs on OK) | `utils/browserAlert.ts` |
+| A text box is `Field`: a dashed, hand-drawn box around a `TextInput`, which turns brass-red while it has focus. Enter sends a message in a browser, Shift+Enter adds a line | `Field`, `components/chat/MessageInput.tsx` |
 | Tab icon and name, and the colour of the browser's address bar on phones | `web` in `app.json`, `assets/images/favicon-compass.png` |
 
 Calls, push notifications and live location sharing are not available in a browser; their screens look the same but the

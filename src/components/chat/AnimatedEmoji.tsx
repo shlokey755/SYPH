@@ -10,6 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { emojiSize } from '../../utils/emoji';
+import { NATIVE_DRIVER } from '../parchment';
 
 interface Props {
   emojis: string[];
@@ -57,15 +58,15 @@ export function AnimatedEmoji({ emojis, onLongPress }: Props) {
     }
     Animated.stagger(
       STAGGER_MS,
-      values.map(({ pop }) => Animated.spring(pop, { toValue: 1, friction: 3.5, tension: 120, useNativeDriver: true }))
+      values.map(({ pop }) => Animated.spring(pop, { toValue: 1, friction: 3.5, tension: 120, useNativeDriver: NATIVE_DRIVER }))
     ).start(({ finished }) => {
       if (!finished) return;
       floats.current = values.map(({ float }, index) => {
         const loop = Animated.loop(
           Animated.sequence([
             Animated.delay(index * 220),
-            Animated.timing(float, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-            Animated.timing(float, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            Animated.timing(float, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: NATIVE_DRIVER }),
+            Animated.timing(float, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: NATIVE_DRIVER }),
           ])
         );
         loop.start();

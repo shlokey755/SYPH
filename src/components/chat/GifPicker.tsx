@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
-import { Text, TextInput } from '../parchment';
+import { IS_WEB, PageTexture, SHEET_FRAME, Text, TextInput } from '../parchment';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
 
@@ -69,8 +69,11 @@ export function GifPicker({ visible, colors, onPick, onClose }: Props) {
   }, [visible, query, load]);
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <Modal visible={visible} animationType="slide" transparent={IS_WEB} onRequestClose={onClose}>
+      <View
+        style={[styles.container, IS_WEB ? SHEET_FRAME : null, { backgroundColor: colors.background, paddingTop: insets.top }]}
+      >
+        <PageTexture variant="plain" />
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Close">
             <Ionicons name="close" size={26} color={colors.text} />

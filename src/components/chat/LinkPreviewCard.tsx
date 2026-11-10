@@ -66,7 +66,7 @@ function LinkPreviewCardBase({ text, isMine, colors, onLongPress }: Props) {
 
   const textColor = isMine ? colors.buttonText : colors.text;
   const subColor = isMine ? colors.buttonText : colors.subText;
-  const background = isMine ? 'rgba(0,0,0,0.15)' : colors.inputBg;
+  const background = isMine ? 'rgba(0,0,0,0.15)' : colors.paperAlt;
   const openYouTube = () => {
     Linking.openURL(link.openUrl).catch(() => {});
   };
@@ -209,8 +209,8 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   info: { paddingHorizontal: 10, paddingVertical: 8, gap: 4 },
-  title: { fontSize: 14, lineHeight: 18, fontWeight: '600' },
-  author: { fontSize: 12 },
+  title: { fontSize: 16, lineHeight: 20, fontWeight: '600' },
+  author: { fontSize: 14 },
   bar: { height: 10, borderRadius: 5, opacity: 0.25 },
   note: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10 },
   noteIcon: {
@@ -222,5 +222,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.2)',
   },
   noteText: { flex: 1, gap: 2 },
-  noteTitle: { fontSize: 14, fontWeight: '600' },
+  noteTitle: { fontSize: 16, fontWeight: '600' },
 });

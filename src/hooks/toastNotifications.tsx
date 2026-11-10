@@ -21,7 +21,7 @@ import React, {
   useState,
 } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../components/parchment';
+import { NATIVE_DRIVER, Paper, POINTER, Text } from '../components/parchment';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from './themeContext';
 
@@ -135,7 +135,7 @@ function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: str
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(anim, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    Animated.timing(anim, { toValue: 1, duration: 220, useNativeDriver: NATIVE_DRIVER }).start();
   }, [anim]);
 
   const duration =
@@ -157,41 +157,37 @@ function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: str
         transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
       }}
     >
-      <Pressable
-        accessibilityRole="alert"
-        onPress={() => {
-          toast.onPress?.();
-          onDismiss(toast.id);
-        }}
-        style={[
-          styles.toast,
-          {
-            backgroundColor: themeColors.cardBackground,
-            borderColor: themeColors.border,
-            borderLeftColor: color,
-          },
-        ]}
-      >
-        <Ionicons name={ICONS[toast.type]} size={22} color={color} />
-        <View style={styles.body}>
-          <Text style={[styles.title, { color: themeColors.text }]} numberOfLines={1}>
-            {toast.title}
-          </Text>
-          {toast.message ? (
-            <Text style={[styles.message, { color: themeColors.subText }]} numberOfLines={2}>
-              {toast.message}
+      {/* A note pinned to the top of the map; a failure gets a blob of red wax on it. */}
+      <Paper trail lift={2} seed={toast.id} maxTilt={0.6} pin={toast.type === 'error' ? 'seal' : 'none'}>
+        <Pressable
+          accessibilityRole="alert"
+          onPress={() => {
+            toast.onPress?.();
+            onDismiss(toast.id);
+          }}
+          style={[styles.toast, POINTER]}
+        >
+          <Ionicons name={ICONS[toast.type]} size={24} color={color} />
+          <View style={styles.body}>
+            <Text kind="label" style={[styles.title, { color: themeColors.ink }]} numberOfLines={1}>
+              {toast.title}
             </Text>
-          ) : null}
-          {toast.type === 'progress' ? (
-            <View style={[styles.track, { backgroundColor: themeColors.border }]}>
-              <View style={[styles.fill, { backgroundColor: color, width: `${pct * 100}%` }]} />
-            </View>
-          ) : null}
-        </View>
-        <Pressable onPress={() => onDismiss(toast.id)} hitSlop={10}>
-          <Ionicons name="close" size={18} color={themeColors.subText} />
+            {toast.message ? (
+              <Text style={[styles.message, { color: themeColors.inkSoft }]} numberOfLines={2}>
+                {toast.message}
+              </Text>
+            ) : null}
+            {toast.type === 'progress' ? (
+              <View style={[styles.track, { backgroundColor: themeColors.paperAlt }]}>
+                <View style={[styles.fill, { backgroundColor: color, width: `${pct * 100}%` }]} />
+              </View>
+            ) : null}
+          </View>
+          <Pressable onPress={() => onDismiss(toast.id)} hitSlop={10} style={POINTER} accessibilityLabel="Dismiss">
+            <Ionicons name="close" size={18} color={themeColors.inkSoft} />
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </Paper>
     </Animated.View>
   );
 }
@@ -206,18 +202,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 8,
   },
-  toast: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderLeftWidth: 4,
-  },
+  toast: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 15, paddingHorizontal: 18 },
   body: { flex: 1 },
-  title: { fontSize: 14, fontWeight: '600' },
-  message: { fontSize: 12, marginTop: 2 },
-  track: { height: 4, borderRadius: 2, marginTop: 8, overflow: 'hidden' },
-  fill: { height: 4, borderRadius: 2 },
+  title: { fontSize: 16, lineHeight: 19, letterSpacing: 0.5 },
+  message: { fontSize: 16, lineHeight: 19, marginTop: 2 },
+  track: { height: 5, borderRadius: 3, marginTop: 8, overflow: 'hidden' },
+  fill: { height: 5, borderRadius: 3 },
 });

@@ -12,6 +12,8 @@ export { MapButton, RoundButton, buttonInk, roundLook } from './Button';
 export type { MapButtonProps, MapButtonVariant, RoundButtonProps, RoundLook, RoundTone } from './Button';
 export { Compass, Loading } from './Compass';
 export type { CompassProps, LoadingProps } from './Compass';
+export { Field } from './Field';
+export type { FieldProps } from './Field';
 export { Banner, HeroTitle, Note, PageTitle } from './Headings';
 export type { BannerProps, HeroTitleProps, NoteProps, PageTitleProps } from './Headings';
 export { Page, PageTexture } from './Page';

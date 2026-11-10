@@ -246,6 +246,12 @@ export interface RoundButtonProps {
   /** Lit up, for toggles such as mute or speaker: a brass face. */
   active?: boolean;
   disabled?: boolean;
+  /** Looks faded but still takes presses (a send button with nothing to send that also opens a menu when held). */
+  dimmed?: boolean;
+  /** Holding the button. */
+  onLongPress?: () => void;
+  delayLongPress?: number;
+  accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -257,6 +263,10 @@ export function RoundButton({
   tone = 'paper',
   active = false,
   disabled = false,
+  dimmed = false,
+  onLongPress,
+  delayLongPress,
+  accessibilityHint,
   style,
 }: RoundButtonProps) {
   const { themeColors: c } = useTheme();
@@ -268,14 +278,17 @@ export function RoundButton({
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={delayLongPress}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ disabled, selected: active }}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: disabled || dimmed, selected: active }}
       hitSlop={6}
       style={({ pressed }) => [
         POINTER,
-        { opacity: disabled ? 0.5 : 1, transform: [{ scale: pressed ? 0.93 : 1 }] },
+        { opacity: disabled ? 0.5 : dimmed ? 0.45 : 1, transform: [{ scale: pressed ? 0.93 : 1 }] },
         style,
       ]}
     >

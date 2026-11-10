@@ -66,7 +66,7 @@ export function MessageContent({ message, textColor, onOpenLocation, onLongPress
 }
 
 const styles = StyleSheet.create({
-  text: { fontSize: 15, lineHeight: 20 },
+  text: { fontSize: 18, lineHeight: 23 },
   legacy: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legacyText: { fontStyle: 'italic', opacity: 0.8 },
 });

@@ -10,7 +10,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  Image,
   Alert,
   Animated,
   AppState,
@@ -22,7 +22,7 @@ import {
   View,
   ViewToken,
 } from 'react-native';
-import { Text, TextInput } from '../../components/parchment';
+import { ART, Loading, NATIVE_DRIVER, PageTexture, POINTER, Text, TextInput } from '../../components/parchment';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ForwardPicker } from '../../components/chat/ForwardPicker';
@@ -228,12 +228,12 @@ export default function ChatScreen() {
       if (event.nativeEvent.contentOffset.y < 24) return;
       if (!chipShown.current) {
         chipShown.current = true;
-        Animated.timing(chipOpacity, { toValue: 1, duration: 120, useNativeDriver: true }).start();
+        Animated.timing(chipOpacity, { toValue: 1, duration: 120, useNativeDriver: NATIVE_DRIVER }).start();
       }
       if (chipTimer.current) clearTimeout(chipTimer.current);
       chipTimer.current = setTimeout(() => {
         chipShown.current = false;
-        Animated.timing(chipOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+        Animated.timing(chipOpacity, { toValue: 0, duration: 300, useNativeDriver: NATIVE_DRIVER }).start();
       }, 1400);
     },
     [chipOpacity]
@@ -524,74 +524,91 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}
+      style={[styles.container, { backgroundColor: themeColors.background }]}
       behavior="padding"
     >
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back">
-          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </Pressable>
-        <Pressable
-          style={styles.headerInfo}
-          disabled={!conversation?.isGroup}
-          onPress={() => setGroupInfoOpen(true)}
-          accessibilityLabel={conversation?.isGroup ? 'Group info' : undefined}
-        >
-          <Text style={[styles.headerTitle, { color: themeColors.text }]} numberOfLines={1}>
-            {title}
-          </Text>
-          {typingText ? (
-            <Text
-              style={[styles.headerSubtitle, { color: themeColors.accent }]}
-              numberOfLines={1}
-              accessibilityLiveRegion="polite"
-            >
-              {typingText}
+      <PageTexture variant="plain" />
+      {/* Header: a strip of ship's planking with a brass rail along its edge */}
+      <View style={[styles.headerWrap, { backgroundColor: themeColors.wood, paddingTop: insets.top }]}>
+        <Image source={ART.wood} resizeMode="cover" style={StyleSheet.absoluteFill} />
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back" style={POINTER}>
+            <Ionicons name="arrow-back" size={24} color={themeColors.buttonText} />
+          </Pressable>
+          <Pressable
+            style={[styles.headerInfo, conversation?.isGroup ? POINTER : null]}
+            disabled={!conversation?.isGroup}
+            onPress={() => setGroupInfoOpen(true)}
+            accessibilityLabel={conversation?.isGroup ? 'Group info' : undefined}
+          >
+            <Text kind="display" style={[styles.headerTitle, { color: themeColors.gilt }]} numberOfLines={1}>
+              {title}
             </Text>
-          ) : subtitle ? (
-            <Text style={[styles.headerSubtitle, { color: themeColors.subText }]}>
-              {subtitle} - tap for info
-            </Text>
-          ) : null}
-        </Pressable>
-        {callee && (
-          <>
-            <Pressable onPress={() => startCall('audio')} hitSlop={10} accessibilityLabel="Voice call">
-              <Ionicons name="call-outline" size={22} color={themeColors.text} />
-            </Pressable>
-            <Pressable onPress={() => startCall('video')} hitSlop={10} accessibilityLabel="Video call">
-              <Ionicons name="videocam-outline" size={24} color={themeColors.text} />
-            </Pressable>
-          </>
-        )}
-        {conversation?.isGroup && (
-          <>
-            <Pressable onPress={() => startOrJoinGroupCall('audio')} hitSlop={10} accessibilityLabel="Group voice call">
-              <Ionicons name="call-outline" size={22} color={themeColors.text} />
-            </Pressable>
-            <Pressable onPress={() => startOrJoinGroupCall('video')} hitSlop={10} accessibilityLabel="Group video call">
-              <Ionicons name="videocam-outline" size={24} color={themeColors.text} />
-            </Pressable>
-          </>
-        )}
-        <Pressable
-          onPress={() => {
-            setSearchOpen((open) => !open);
-            setSearchText('');
-          }}
-          hitSlop={10}
-          accessibilityLabel="Search in chat"
-        >
-          <Ionicons name={searchOpen ? 'close' : 'search'} size={22} color={themeColors.text} />
-        </Pressable>
-        <Pressable onPress={handleToggleMute} hitSlop={10} accessibilityLabel="Mute notifications">
-          <Ionicons
-            name={muted ? 'notifications-off' : 'notifications-outline'}
-            size={22}
-            color={muted ? themeColors.accent : themeColors.text}
-          />
-        </Pressable>
+            {typingText ? (
+              <Text
+                kind="hand"
+                style={[styles.headerSubtitle, { color: themeColors.gilt }]}
+                numberOfLines={1}
+                accessibilityLiveRegion="polite"
+              >
+                {typingText}
+              </Text>
+            ) : subtitle ? (
+              <Text kind="hand" style={[styles.headerSubtitle, { color: themeColors.buttonText }]}>
+                {subtitle} - tap for info
+              </Text>
+            ) : null}
+          </Pressable>
+          {callee && (
+            <>
+              <Pressable onPress={() => startCall('audio')} hitSlop={10} accessibilityLabel="Voice call" style={POINTER}>
+                <Ionicons name="call-outline" size={22} color={themeColors.buttonText} />
+              </Pressable>
+              <Pressable onPress={() => startCall('video')} hitSlop={10} accessibilityLabel="Video call" style={POINTER}>
+                <Ionicons name="videocam-outline" size={24} color={themeColors.buttonText} />
+              </Pressable>
+            </>
+          )}
+          {conversation?.isGroup && (
+            <>
+              <Pressable
+                onPress={() => startOrJoinGroupCall('audio')}
+                hitSlop={10}
+                accessibilityLabel="Group voice call"
+                style={POINTER}
+              >
+                <Ionicons name="call-outline" size={22} color={themeColors.buttonText} />
+              </Pressable>
+              <Pressable
+                onPress={() => startOrJoinGroupCall('video')}
+                hitSlop={10}
+                accessibilityLabel="Group video call"
+                style={POINTER}
+              >
+                <Ionicons name="videocam-outline" size={24} color={themeColors.buttonText} />
+              </Pressable>
+            </>
+          )}
+          <Pressable
+            onPress={() => {
+              setSearchOpen((open) => !open);
+              setSearchText('');
+            }}
+            hitSlop={10}
+            accessibilityLabel="Search in chat"
+            style={POINTER}
+          >
+            <Ionicons name={searchOpen ? 'close' : 'search'} size={22} color={themeColors.buttonText} />
+          </Pressable>
+          <Pressable onPress={handleToggleMute} hitSlop={10} accessibilityLabel="Mute notifications" style={POINTER}>
+            <Ionicons
+              name={muted ? 'notifications-off' : 'notifications-outline'}
+              size={22}
+              color={muted ? themeColors.gilt : themeColors.buttonText}
+            />
+          </Pressable>
+        </View>
+        <View style={[styles.rail, { backgroundColor: themeColors.brass }]} />
       </View>
 
       <OfflineBanner message="You're offline. Messages you send now are sent when you reconnect." />
@@ -640,7 +657,7 @@ export default function ChatScreen() {
       {/* Messages */}
       {isLoading && messages.length === 0 ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={themeColors.accent} />
+          <Loading label="Hauling in the messages..." />
         </View>
       ) : (
         <View style={styles.listArea}>
@@ -662,7 +679,7 @@ export default function ChatScreen() {
             onScrollToIndexFailed={() => toast.info('Original message is not loaded')}
             ListEmptyComponent={
               <View style={[styles.center, styles.flipped]}>
-                <Text style={{ color: themeColors.subText }}>
+                <Text kind="hand" style={{ color: themeColors.subText, fontSize: 21, lineHeight: 26 }}>
                   {searchOpen && searchText ? 'No matching messages' : 'No messages yet. Say hello!'}
                 </Text>
               </View>
@@ -689,7 +706,7 @@ export default function ChatScreen() {
         />
       ) : (
         <View style={[styles.connecting, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <ActivityIndicator color={themeColors.accent} />
+          <Loading size={28} />
         </View>
       )}
 
@@ -756,17 +773,18 @@ export default function ChatScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  headerWrap: { overflow: 'hidden' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingVertical: 10,
   },
+  rail: { height: 3 },
   headerInfo: { flex: 1 },
-  headerTitle: { fontSize: 18, fontWeight: '700' },
-  headerSubtitle: { fontSize: 12, marginTop: 1 },
+  headerTitle: { fontSize: 24, lineHeight: 28 },
+  headerSubtitle: { fontSize: 16, lineHeight: 18 },
   searchBar: { padding: 8, borderBottomWidth: 1 },
   shareBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8 },
   shareBannerText: { flex: 1, fontSize: 14, fontWeight: '600' },

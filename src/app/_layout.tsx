@@ -4,7 +4,7 @@
 import '../services/liveLocationTask';
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
-import { StatusBar } from 'react-native';
+import { Alert, Platform, StatusBar } from 'react-native';
 import { useTheme } from '../hooks/themeContext';
 import { ActiveCallProvider } from '../components/call/ActiveCallHost';
 import { StartupStack } from '../components/StartupStack';
@@ -18,10 +18,18 @@ import { restoreLiveShares } from '../services/liveLocationManager';
 import { keepSplashVisible } from '../services/splashService';
 import { WebFrame } from '../components/parchment';
 import { useMapFonts } from '../theme/fonts';
+import { showBrowserAlert } from '../utils/browserAlert';
 
 // In global scope on purpose: the native splash stays up until the app is ready (see utils/splash.ts), and this must run
 // before the first render, otherwise the splash can already be gone.
 keepSplashVisible();
+
+// React Native Web leaves Alert.alert empty, so in a browser errors and "are you sure?" questions would never show.
+// Use the browser's own dialogs there. A phone keeps its native alert.
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  Alert.alert = (title, message, buttons) =>
+    showBrowserAlert({ alert: (t) => window.alert(t), confirm: (t) => window.confirm(t) }, title, message, buttons);
+}
 
 function RootNav() {
   const { themeColors } = useTheme();

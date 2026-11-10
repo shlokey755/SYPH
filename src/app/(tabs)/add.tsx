@@ -15,7 +15,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Modal,
@@ -23,7 +22,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Text, TextInput } from '../../components/parchment';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  Avatar,
+  buttonInk,
+  Compass,
+  Field,
+  Loading,
+  MapButton,
+  PageTexture,
+  RoundButton,
+  roundLook,
+  Text,
+  TextInput,
+  TrailLine,
+} from '../../components/parchment';
 
 import { useTheme } from '../../hooks/themeContext';
 
@@ -40,6 +53,7 @@ export default function AddTab() {
   const { currentUser } = useAuth();
 
   const { themeColors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const router = useRouter();
 
@@ -247,7 +261,7 @@ export default function AddTab() {
 
   const renderUserCard = ({ item }: { item: SearchResult }) => {
 
-    const initial = item.username?.[0]?.toUpperCase() || '?';
+    
 
     const isLoading = isAddingUser === item.uid;
 
@@ -265,9 +279,9 @@ export default function AddTab() {
 
           {
 
-            backgroundColor: themeColors.cardBackground,
+            backgroundColor: themeColors.paper,
 
-            borderColor: themeColors.border,
+            borderColor: themeColors.trail,
 
           },
 
@@ -295,11 +309,7 @@ export default function AddTab() {
 
         >
 
-          <View style={[styles.avatarPlaceholder, { backgroundColor: themeColors.accent }]}>
-
-            <Text style={[styles.avatarText, { color: themeColors.buttonText }]}>{initial}</Text>
-
-          </View>
+          <Avatar name={item.username} size={46} seed={item.uid} />
 
 
 
@@ -321,35 +331,15 @@ export default function AddTab() {
 
         {selectedUsers.size === 0 ? (
 
-          <TouchableOpacity
-
-            style={[
-
-              styles.addButton,
-
-              { backgroundColor: themeColors.accent },
-
-              isLoading && { opacity: 0.6 },
-
-            ]}
-
+          <RoundButton
+            tone="wax"
+            size={44}
             onPress={() => handleAddSingleUser(item)}
-
             disabled={isLoading}
-
+            accessibilityLabel={`Add ${item.username}`}
           >
-
-            {isLoading ? (
-
-              <ActivityIndicator size="small" color={themeColors.buttonText} />
-
-            ) : (
-
-              <Ionicons name="add" size={24} color={themeColors.buttonText} />
-
-            )}
-
-          </TouchableOpacity>
+            {isLoading ? <Compass size={22} spin color={roundLook(themeColors, 'wax').ink} /> : <Ionicons name="add" size={24} color={roundLook(themeColors, 'wax').ink} />}
+          </RoundButton>
 
         ) : (
 
@@ -399,11 +389,14 @@ export default function AddTab() {
 
   return (
 
-    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
+      <PageTexture variant="map" />
 
-      <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
+      <View style={styles.header}>
 
-        <Text style={[styles.headerTitle, { color: themeColors.text }]}>Add Friends</Text>
+        <Text kind="display" style={[styles.headerTitle, { color: themeColors.ink }]}>
+          Add Friends
+        </Text>
 
         {hasSelection && (
 
@@ -429,6 +422,7 @@ export default function AddTab() {
 
 
 
+      <TrailLine x style={styles.trailLine} />
       {/* Search Bar */}
 
       <View
@@ -439,9 +433,9 @@ export default function AddTab() {
 
           {
 
-            backgroundColor: themeColors.cardBackground,
+            backgroundColor: themeColors.paper,
 
-            borderColor: themeColors.border,
+            borderColor: themeColors.trail,
 
           },
 
@@ -497,7 +491,7 @@ export default function AddTab() {
 
         <View style={styles.loadingContainer}>
 
-          <ActivityIndicator size="large" color={themeColors.accent} />
+          <Loading label="Searching the seas..." />
 
         </View>
 
@@ -565,9 +559,9 @@ export default function AddTab() {
 
             {
 
-              backgroundColor: themeColors.cardBackground,
+              backgroundColor: themeColors.paper,
 
-              borderTopColor: themeColors.border,
+              borderTopColor: themeColors.brass,
 
             },
 
@@ -575,23 +569,11 @@ export default function AddTab() {
 
         >
 
-          <TouchableOpacity
-
-            style={[styles.groupChatButton, { backgroundColor: themeColors.accent }]}
-
+          <MapButton
+            title={`Create group chat (${selectedUsers.size})`}
             onPress={() => setShowGroupNameModal(true)}
-
-          >
-
-            <Ionicons name="people" size={20} color={themeColors.buttonText} />
-
-            <Text style={[styles.groupChatButtonText, { color: themeColors.buttonText }]}>
-
-              Create Group Chat ({selectedUsers.size})
-
-            </Text>
-
-          </TouchableOpacity>
+            icon={<Ionicons name="people" size={20} color={buttonInk(themeColors, 'plank')} />}
+          />
 
         </View>
 
@@ -617,89 +599,35 @@ export default function AddTab() {
 
           <View
 
-            style={[
-
-              styles.modalContent,
-
-              { backgroundColor: themeColors.cardBackground },
-
-            ]}
+            style={[styles.modalContent, { backgroundColor: themeColors.paper, borderColor: themeColors.trail }]}
 
           >
 
-            <Text style={[styles.modalTitle, { color: themeColors.text }]}>
+            <Text kind="display" style={[styles.modalTitle, { color: themeColors.ink }]}>
 
               Group Chat Name (Optional)
 
             </Text>
 
-            <TextInput
-
-              style={[
-
-                styles.modalInput,
-
-                {
-
-                  backgroundColor: themeColors.inputBg,
-
-                  color: themeColors.text,
-
-                  borderColor: themeColors.border,
-
-                },
-
-              ]}
-
+            <Field
+              boxStyle={styles.modalInput}
               placeholder="Enter group name or leave blank"
-
-              placeholderTextColor={themeColors.subText}
-
               value={groupName}
-
               onChangeText={setGroupName}
-
             />
 
             <View style={styles.modalButtonsContainer}>
 
-              <TouchableOpacity
-
-                style={[styles.modalCancelButton, { backgroundColor: themeColors.inputBg }]}
-
-                onPress={() => setShowGroupNameModal(false)}
-
-              >
-
-                <Text style={[styles.modalCancelButtonText, { color: themeColors.subText }]}>
-
-                  Cancel
-
-                </Text>
-
-              </TouchableOpacity>
-
-              <TouchableOpacity
-
-                style={[styles.modalCreateButton, { backgroundColor: themeColors.accent }]}
-
+              <MapButton variant="ghost" small title="Cancel" style={styles.modalButton} onPress={() => setShowGroupNameModal(false)} />
+              <MapButton
+                small
+                title="Create"
+                style={styles.modalButton}
                 onPress={() => {
-
                   setShowGroupNameModal(false);
-
                   handleCreateGroupChat();
-
                 }}
-
-              >
-
-                <Text style={[styles.modalCreateButtonText, { color: themeColors.buttonText }]}>
-
-                  Create
-
-                </Text>
-
-              </TouchableOpacity>
+              />
 
             </View>
 
@@ -737,19 +665,15 @@ const styles = StyleSheet.create({
 
     paddingHorizontal: 15,
 
-    paddingBottom: 15,
-
-    borderBottomWidth: 1,
+    paddingBottom: 4,
 
   },
 
   headerTitle: {
-
-    fontSize: 24,
-
-    fontWeight: 'bold',
-
+    fontSize: 40,
+    lineHeight: 46,
   },
+  trailLine: { marginHorizontal: 15 },
 
   selectionCount: {
 
@@ -761,7 +685,7 @@ const styles = StyleSheet.create({
 
     fontWeight: '600',
 
-    fontSize: 12,
+    fontSize: 15,
 
   },
 
@@ -771,7 +695,7 @@ const styles = StyleSheet.create({
 
     alignItems: 'center',
 
-    borderRadius: 10,
+    borderRadius: 4,
 
     marginHorizontal: 15,
 
@@ -779,7 +703,8 @@ const styles = StyleSheet.create({
 
     paddingHorizontal: 12,
 
-    borderWidth: 1,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
 
   },
 
@@ -793,7 +718,7 @@ const styles = StyleSheet.create({
 
     flex: 1,
 
-    fontSize: 16,
+    fontSize: 18,
 
     paddingVertical: 12,
 
@@ -831,13 +756,14 @@ const styles = StyleSheet.create({
 
     justifyContent: 'space-between',
 
-    borderRadius: 12,
+    borderRadius: 4,
 
     padding: 12,
 
     marginBottom: 10,
 
-    borderWidth: 1,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
 
   },
 
@@ -895,7 +821,7 @@ const styles = StyleSheet.create({
 
   username: {
 
-    fontSize: 16,
+    fontSize: 18,
 
     fontWeight: '600',
 
@@ -905,7 +831,7 @@ const styles = StyleSheet.create({
 
   userId: {
 
-    fontSize: 12,
+    fontSize: 15,
 
   },
 
@@ -943,7 +869,7 @@ const styles = StyleSheet.create({
 
   emptyText: {
 
-    fontSize: 16,
+    fontSize: 18,
 
     marginTop: 12,
 
@@ -951,7 +877,7 @@ const styles = StyleSheet.create({
 
   emptySubtext: {
 
-    fontSize: 13,
+    fontSize: 15,
 
     marginTop: 6,
 
@@ -987,7 +913,7 @@ const styles = StyleSheet.create({
 
     fontWeight: 'bold',
 
-    fontSize: 16,
+    fontSize: 18,
 
   },
 
@@ -995,7 +921,7 @@ const styles = StyleSheet.create({
 
     flex: 1,
 
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(51, 38, 27, 0.6)',
 
     justifyContent: 'center',
 
@@ -1004,18 +930,19 @@ const styles = StyleSheet.create({
   },
 
   modalContent: {
-
-    borderRadius: 15,
-
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
     padding: 20,
-
     width: '80%',
-
+    maxWidth: 380,
   },
+  modalButton: { flex: 1 },
 
   modalTitle: {
 
-    fontSize: 18,
+    fontSize: 32,
+    lineHeight: 36,
 
     fontWeight: 'bold',
 
@@ -1024,17 +951,7 @@ const styles = StyleSheet.create({
   },
 
   modalInput: {
-
-    padding: 12,
-
-    borderRadius: 10,
-
     marginBottom: 15,
-
-    fontSize: 14,
-
-    borderWidth: 1,
-
   },
 
   modalButtonsContainer: {
