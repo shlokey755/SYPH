@@ -45,16 +45,6 @@
     "plugins": [
       "expo-router",
       [
-        "./plugins/withAppShortcuts",
-        {
-          "shortcuts": [
-            { "id": "new_chat", "shortLabel": "New chat", "longLabel": "Find people to chat with", "icon": "shortcut_new_chat", "url": "syph://shortcut/new-chat" },
-            { "id": "chats", "shortLabel": "Chats", "longLabel": "Open your chats", "icon": "shortcut_chats", "url": "syph://shortcut/chats" },
-            { "id": "me", "shortLabel": "Me", "longLabel": "Your profile and settings", "icon": "shortcut_me", "url": "syph://shortcut/me" }
-          ]
-        }
-      ],
-      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
