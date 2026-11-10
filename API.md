@@ -602,43 +602,35 @@ An emoji-only message plays Google's animated Noto emoji, as Google Messages doe
 | Turn on the phone's "remove animations" setting, send 🦍 | Still, no animation |
 | Long-press an animated emoji | The usual message menu opens |
 
-### 1.17.1 Long-press menu on the SYPH icon (needs a new APK)
+### 1.17.1 Long-press menu on the SYPH icon: your three recent chats (needs a new APK)
 
-Long-pressing the SYPH icon on the Android home screen or app drawer now opens a menu (Android "app shortcuts") with three entries, above Android's own App info:
+Long-pressing the SYPH icon on the Android home screen or app drawer shows your **three most recent chats** (the other person's name for a 1-on-1 chat, the group's name for a group; an icon with their initial on your theme colour). Tap one to open that chat. It follows the signed-in account: it changes as chats get new messages, and it is emptied at sign-out, so the next person on the phone never sees your chats. With no chats it shows nothing. Holding an entry and dragging it out puts it on the home screen as its own icon (Android does this for every app).
 
-| Entry | Opens |
-|---|---|
-| New chat | The Add tab: search people by username, start a chat or group |
-| Chats | The chat list (also gets you out of a chat or call screen in one tap; a running call keeps going) |
-| Me | Your profile and settings |
+This replaces the first version of the menu (fixed entries New chat / Chats / Me), whose taps did nothing on a phone. Most likely cause: Android opens a fixed ("static") shortcut with intent flags that include "clear the app's task", which restarts SYPH's screen and loses the link, and a fixed shortcut cannot change those flags. The new entries are built from code, with their own flags, so a running SYPH just receives the link and a closed one starts with it. Not confirmed on a phone: if a tap still does nothing, tell me whether SYPH opens at all and on which screen.
 
-Holding an entry and dragging it out puts it on the home screen as its own icon (Android does this for every app). Signed out, every entry goes to onboarding or login like a normal launch.
+**Needs from you:** build a new APK (`eas build --profile preview --platform android`). Native code, so an `eas update` cannot add it. No key, no Firestore rules, no billing, no new package. Open SYPH once after installing; the menu fills as soon as your chats have loaded.
 
-**Needs from you:** build a new APK (`eas build --profile preview --platform android`). The menu is native Android resources, so an `eas update` cannot add it. No key, no Firestore rules, no billing, no new package (SDK 57's own `expo-router` handles the links).
-
-**How it works (for whoever changes it):** `plugins/withAppShortcuts.js` is an Expo config plugin. At build time it writes `res/xml/shortcuts.xml`, the labels and the three icons (`assets/shortcuts/*.xml`, white symbol on a black disc) into the generated Android project. Each entry opens `syph://shortcut/<action>`; `src/app/shortcut/[action].tsx` waits for sign-in, then goes to the screen chosen by `utils/shortcuts.ts`. The entries are the plugin's `shortcuts` list in `app.json`: change a label or add one there, add its action to `utils/shortcuts.ts`, and rebuild. A unit test keeps the two lists in step. Android shows about four entries, so the plugin refuses more than four and labels over 10 / 25 characters.
-
-The alternate app icons (Cyber, Monochrome, Candy, Ocean, Forest, Sunset) are separate launcher entries, and Android reads the menu from whichever one is on the home screen, so the plugin adds the menu to all of them. It must stay listed **before** `@variant-systems/expo-dynamic-app-icon` in `app.json` (Expo runs the last-listed plugin first; a test checks the order).
+**How it works (for whoever changes it):** `components/ChatShortcutsBridge.tsx` (mounted in the root layout) takes the newest three conversations of the signed-in user from `useConversations`, builds the entries with `utils/shortcuts.ts` and hands them, as JSON, to `services/chatShortcuts.ts`, which calls the native module `modules/syph-call-service` (`ChatShortcuts.kt`: Android `ShortcutManager.setDynamicShortcuts`; it is in that module only because it is SYPH's one native module). Entries open `syph://shortcut/chat?id=<conversation id>`; `src/app/shortcut/[action].tsx` waits for sign-in, then shows the chat list with the chat on top. It updates 0.6 s after a change, again each time SYPH comes to the front (Android can drop entries when the app icon is switched, and refuses updates made while SYPH is in the background), and is cleared when the signed-in user becomes none. The old fixed-menu plugin (`plugins/withAppShortcuts.js`, `assets/shortcuts`) was removed; the route still understands its `new-chat` / `chats` / `me` links, in case an older build is still installed.
 
 **Limits**
 - Android 7.1 and newer only. Older phones just show no menu. iOS is not built (needs a paid Apple developer account).
-- Fixed entries only: no "recent chats" in the menu (that needs native code that updates the list as chats change; possible later).
-- Labels are English and the icons do not follow the theme colour.
-- A few phone makers' launchers show fewer entries or none; the menu is drawn by the launcher, not by SYPH.
-- Checked: the plugin's output (generated with `expo prebuild`: well-formed XML, the menu on the main activity and all six icon aliases, icons rendered), unit tests, type check. **Not run on a phone.** The one part to watch is opening an entry while a chat is already open: it should return to the tabs and show the screen (`router.dismissTo`).
+- Chat names show in the menu on the home screen. The chats are the same list as the Chats tab: chats you deleted are not in it, muted chats are.
+- The launcher draws the menu: its icon shape follows the phone's launcher, and a few makers' launchers show fewer entries.
+- It updates while SYPH is running. A chat that gets a message while SYPH is fully closed moves up the next time SYPH opens.
+- Checked: unit tests for the ordering, names, labels, links and sign-out clearing; the Kotlin compiles against Android 34 stubs and a stand-in for the Expo classes. **Not run on a phone.**
 
-**Test checklist (new APK, signed in)**
+**Test checklist (new APK, signed in, at least 3 chats)**
 
 | # | Do this | Expect |
 |---|---------|--------|
-| 1 | Long-press the SYPH icon | Menu with New chat, Chats, Me |
-| 2 | Tap New chat with SYPH closed | SYPH starts on the Add tab (no flash of another screen under the splash) |
-| 3 | Tap Me with SYPH closed | Starts on the Me tab |
-| 4 | Open a chat, press Home, long-press the icon, tap Chats | Chat list; Back leaves SYPH or goes to the previous tab, not into a loop |
-| 5 | On a live call, press Home, long-press the icon, tap Me | Me tab; the call bubble and call keep running |
-| 6 | Me tab > pick another app icon, long-press the new icon | The same menu |
-| 7 | Sign out, long-press the icon, tap Me | Login (or onboarding on a fresh install), not a blank screen |
-| 8 | Drag "New chat" out to the home screen, tap it | Opens the Add tab |
+| 1 | Open SYPH, wait a few seconds, press Home, long-press the icon | Your 3 newest chats, newest first, each with an initial |
+| 2 | Tap one with SYPH closed (swipe it away first) | SYPH starts and opens that chat; Back goes to the chat list |
+| 3 | Open a different chat, press Home, long-press the icon, tap another chat | That chat opens (not the old one); Back goes to the chat list |
+| 4 | Have someone message your 4th chat, then reopen SYPH and long-press the icon | That chat is now in the menu |
+| 5 | On a live call, press Home, long-press the icon, tap a chat | The chat opens; the call bubble and call keep running |
+| 6 | Me tab > pick another app icon, long-press the new icon | Same menu |
+| 7 | Sign out, press Home, long-press the icon | No chat entries |
+| 8 | Sign in as someone else | Only their chats |
 
 ### 1.18 Read receipts: hollow bubble, avatar queue, "Read by" (JavaScript only, nothing to set up)
 

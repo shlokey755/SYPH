@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { ThemeProvider, useTheme } from '../hooks/themeContext';
 import { ActiveCallProvider } from '../components/call/ActiveCallHost';
+import { ChatShortcutsBridge } from '../components/ChatShortcutsBridge';
 import { StartupStack } from '../components/StartupStack';
 import { ToastProvider } from '../hooks/toastNotifications';
 import { AuthProvider, useAuth } from '../hooks/useAuth';
@@ -35,6 +36,7 @@ function RootNav() {
   return (
     <>
       <StatusBar barStyle={themeColors.isDark ? 'light-content' : 'dark-content'} />
+      <ChatShortcutsBridge />
       <StartupStack>
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" />
