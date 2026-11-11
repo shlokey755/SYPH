@@ -5,7 +5,7 @@ import { Image, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PushNotificationsBridge } from '../../components/PushNotificationsBridge';
-import { ART } from '../../components/parchment';
+import { ART, useDesktopLayout } from '../../components/parchment';
 import { useTheme } from '../../hooks/themeContext';
 import { useConversations } from '../../hooks/useConversations';
 import { FONT, mixColors } from '../../theme/parchment';
@@ -55,6 +55,8 @@ export default function TabsLayout() {
   const { themeColors } = useTheme();
   const { unreadTotal } = useConversations();
   const insets = useSafeAreaInsets();
+  // On a desktop window the rail (components/desktop) does the job of the tab bar.
+  const { desktop } = useDesktopLayout();
 
   return (
     <>
@@ -63,7 +65,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarBackground: () => <TabBarBackdrop />,
-        tabBarStyle: {
+        tabBarStyle: desktop ? { display: 'none' } : {
           backgroundColor: themeColors.wood,
           borderTopWidth: 0,
           elevation: 10,

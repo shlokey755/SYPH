@@ -1,27 +1,49 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { COLUMN_WIDTH, DESK_MIN_WIDTH, boxShadowCss, deskLayout } from '../../src/theme/web.ts';
+import {
+  DESKTOP_MIN_WIDTH,
+  LIST_WIDTH,
+  LIST_WIDTH_NARROW,
+  MAIN_MIN_WIDTH,
+  RAIL_WIDTH,
+  boxShadowCss,
+  desktopLayout,
+} from '../../src/theme/web.ts';
 
-describe('deskLayout', () => {
-  it('fills the window on a phone and in a narrow browser window', () => {
-    for (const width of [320, 390, 430, 719]) {
-      assert.deepEqual(deskLayout(width), { desk: false, columnWidth: null });
+describe('desktopLayout', () => {
+  const phone = { desktop: false, railWidth: 0, listWidth: 0 };
+
+  it('is the phone layout on a phone and in a narrow browser window', () => {
+    for (const width of [320, 390, 430, 768, DESKTOP_MIN_WIDTH - 1]) {
+      assert.deepEqual(desktopLayout(width), phone);
     }
   });
 
-  it('puts the map on the table from the minimum width up, in a column of one fixed width', () => {
-    for (const width of [DESK_MIN_WIDTH, 1024, 1920, 3840]) {
-      assert.deepEqual(deskLayout(width), { desk: true, columnWidth: COLUMN_WIDTH });
+  it('is the desktop layout from the minimum width up, with a rail of one fixed width', () => {
+    for (const width of [DESKTOP_MIN_WIDTH, 1024, 1366, 1920, 3840]) {
+      const layout = desktopLayout(width);
+      assert.equal(layout.desktop, true);
+      assert.equal(layout.railWidth, RAIL_WIDTH);
     }
   });
 
-  it('never makes the column wider than the window it sits in', () => {
-    assert.ok(COLUMN_WIDTH < DESK_MIN_WIDTH);
+  it('gives the list a narrower width on a window just over the minimum', () => {
+    assert.equal(desktopLayout(DESKTOP_MIN_WIDTH).listWidth, LIST_WIDTH_NARROW);
+    assert.equal(desktopLayout(1099).listWidth, LIST_WIDTH_NARROW);
+    assert.equal(desktopLayout(1100).listWidth, LIST_WIDTH);
+    assert.equal(desktopLayout(2560).listWidth, LIST_WIDTH);
+  });
+
+  it('always leaves the open page room next to the rail and the list', () => {
+    for (const width of [DESKTOP_MIN_WIDTH, 950, 1099, 1100, 1280, 1920]) {
+      const { railWidth, listWidth } = desktopLayout(width);
+      assert.ok(width - railWidth - listWidth >= MAIN_MIN_WIDTH, `${width} leaves too little room`);
+    }
   });
 
   it('treats a width that is not a number as a small window', () => {
-    assert.deepEqual(deskLayout(NaN), { desk: false, columnWidth: null });
-    assert.deepEqual(deskLayout(Infinity), { desk: false, columnWidth: null });
+    assert.deepEqual(desktopLayout(NaN), phone);
+    assert.deepEqual(desktopLayout(Infinity), phone);
   });
 });
 

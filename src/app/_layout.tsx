@@ -16,7 +16,7 @@ import { useSplashGate } from '../hooks/useSplashGate';
 import { UserSettingsProvider } from '../hooks/useUserSettings';
 import { restoreLiveShares } from '../services/liveLocationManager';
 import { keepSplashVisible } from '../services/splashService';
-import { WebFrame } from '../components/parchment';
+import { DesktopShell } from '../components/desktop/DesktopShell';
 import { useMapFonts } from '../theme/fonts';
 import { showBrowserAlert } from '../utils/browserAlert';
 
@@ -45,6 +45,7 @@ function RootNav() {
   return (
     <>
       <StatusBar barStyle={themeColors.isDark ? 'light-content' : 'dark-content'} />
+      <DesktopShell>
       <StartupStack>
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" />
@@ -56,6 +57,7 @@ function RootNav() {
         <Stack.Screen name="call/[id]" options={{ gestureEnabled: false, animation: 'slide_from_bottom' }} />
         <Stack.Screen name="group-call/[id]" options={{ gestureEnabled: false, animation: 'slide_from_bottom' }} />
       </StartupStack>
+      </DesktopShell>
     </>
   );
 }
@@ -68,10 +70,7 @@ export default function RootLayout() {
   const fontsReady = useMapFonts();
   if (!fontsReady) return null;
 
-  // WebFrame is outermost so toasts, the incoming-call banner and the call screen all stay on the map column in a wide
-  // browser window. On a phone, and in a narrow window, it does nothing.
   return (
-    <WebFrame>
       <AuthProvider>
         <ToastProvider>
           <UserSettingsProvider>
@@ -85,6 +84,5 @@ export default function RootLayout() {
           </UserSettingsProvider>
         </ToastProvider>
       </AuthProvider>
-    </WebFrame>
   );
 }

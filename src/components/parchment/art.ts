@@ -13,8 +13,6 @@ export const ART = {
   night: require('../../../assets/parchment/night-sea.jpg'),
   /** Ship's planking: plank buttons and the tab bar. */
   wood: require('../../../assets/parchment/wood.jpg'),
-  /** A ship's table, behind the map on wide browser windows. */
-  desk: require('../../../assets/parchment/desk.jpg'),
   /** The ragged edge of torn paper, and the pale fibres along it. Black with transparency: tint them. */
   tear: require('../../../assets/parchment/tear.png'),
   tearRim: require('../../../assets/parchment/tear-rim.png'),

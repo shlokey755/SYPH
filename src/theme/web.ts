@@ -1,26 +1,37 @@
 /**
  * web.ts
- * How the app sits in a browser window. On a phone, or a narrow window, the map fills the screen like it does in the app.
- * On a wide window it would be a stretched, mostly empty page, so it becomes a column of map lying on a dark ship's table.
- * No React, no native code, so plain Node can test it (tests/unit/web.test.ts). The frame itself is components/parchment/WebFrame.tsx.
+ * How the app sits in a browser window. A phone, or a window narrower than DESKTOP_MIN_WIDTH, gets the phone layout filling the
+ * window, with the tab bar at the bottom. From DESKTOP_MIN_WIDTH up it is a desktop layout: a plank rail down the left, the list of
+ * chats beside it, and the open page (a conversation, Add, Me) taking the rest. Nothing stretches across a whole monitor either:
+ * reading text, forms and pop-ups each have a widest size.
+ * No React, no native code, so plain Node can test it (tests/unit/web.test.ts). The pieces are components/desktop/DesktopShell.tsx.
  */
 
-/** From this window width on, the map is a column on the table. Below it the map fills the window. */
-export const DESK_MIN_WIDTH = 720;
+/** From this window width on, the app is the desktop layout. */
+export const DESKTOP_MIN_WIDTH = 900;
+/** The plank rail with the Chats, Add and Me buttons. */
+export const RAIL_WIDTH = 84;
+/** The list of chats beside the rail; a little narrower on a window just over the minimum, so the open page keeps its room. */
+export const LIST_WIDTH = 360;
+export const LIST_WIDTH_NARROW = 320;
+export const LIST_NARROW_BELOW = 1100;
+/** The least room the open page keeps next to the rail and the list. */
+export const MAIN_MIN_WIDTH = 480;
+/** The widest the text of a conversation gets, the widest a form page (Add, Me) gets, and the widest a pop-up gets. */
+export const READING_WIDTH = 820;
+export const FORM_WIDTH = 640;
+export const SHEET_WIDTH = 560;
 
-/** The width of the map column on the table. A phone-sized column: every screen is laid out for it. */
-export const COLUMN_WIDTH = 480;
-
-export interface DeskLayout {
-  /** True when the map is a column on the table. */
-  desk: boolean;
-  /** The width of the map: the column's, or null when it fills the window. */
-  columnWidth: number | null;
+export interface DesktopLayout {
+  /** True when the app is the desktop layout. */
+  desktop: boolean;
+  railWidth: number;
+  listWidth: number;
 }
 
-export function deskLayout(windowWidth: number): DeskLayout {
-  if (!Number.isFinite(windowWidth) || windowWidth < DESK_MIN_WIDTH) return { desk: false, columnWidth: null };
-  return { desk: true, columnWidth: COLUMN_WIDTH };
+export function desktopLayout(windowWidth: number): DesktopLayout {
+  if (!Number.isFinite(windowWidth) || windowWidth < DESKTOP_MIN_WIDTH) return { desktop: false, railWidth: 0, listWidth: 0 };
+  return { desktop: true, railWidth: RAIL_WIDTH, listWidth: windowWidth < LIST_NARROW_BELOW ? LIST_WIDTH_NARROW : LIST_WIDTH };
 }
 
 /**

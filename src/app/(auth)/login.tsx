@@ -119,7 +119,16 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 18, paddingVertical: 24, gap: 14 },
+  content: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 24,
+    gap: 14,
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+  },
   panel: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12, gap: 14 },
   heading: { fontSize: 30, lineHeight: 36, textAlign: 'center' },
   cta: { marginTop: 4 },

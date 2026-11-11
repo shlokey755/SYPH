@@ -4,18 +4,38 @@
  * on both, so a screen that uses these pieces looks the same in the app and on the web.
  */
 
-import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Platform, ViewStyle } from 'react-native';
+import { createContext, useEffect, useState } from 'react';
+import { AccessibilityInfo, Platform, ViewStyle, useWindowDimensions } from 'react-native';
 import { shadowSpec } from '../../theme/parchment';
-import { COLUMN_WIDTH, boxShadowCss } from '../../theme/web';
+import { type DesktopLayout, SHEET_WIDTH, boxShadowCss, desktopLayout } from '../../theme/web';
 
 export const IS_WEB = Platform.OS === 'web';
 
 /**
  * For the outer box of a bottom sheet or a centred panel inside a `Modal`. A Modal on the web is drawn over the whole browser window,
- * not over the map column, so without this a sheet would stretch across a desktop monitor. On a phone it changes nothing.
+ * so without this a sheet would stretch across a desktop monitor. On a phone it changes nothing.
  */
-export const SHEET_FRAME: ViewStyle = { width: '100%', maxWidth: COLUMN_WIDTH, alignSelf: 'center' };
+export const SHEET_FRAME: ViewStyle = { width: '100%', maxWidth: SHEET_WIDTH, alignSelf: 'center' };
+
+/** A full-height picker (forward, GIFs, group info) as a card in the middle of a desktop browser window instead of a wall. */
+export const DIALOG_FRAME: ViewStyle = {
+  ...SHEET_FRAME,
+  marginVertical: 24,
+  borderRadius: 4,
+  overflow: 'hidden',
+  boxShadow: '0px 12px 40px rgba(0, 0, 0, 0.5)',
+};
+
+const PHONE: DesktopLayout = { desktop: false, railWidth: 0, listWidth: 0 };
+
+/** The desktop layout when this is a browser window wide enough for it (theme/web.ts), the phone layout everywhere else. */
+export function useDesktopLayout(): DesktopLayout {
+  const { width } = useWindowDimensions();
+  return IS_WEB ? desktopLayout(width) : PHONE;
+}
+
+/** True inside the desktop shell's panes: the shell has already painted the page, so a screen must not paint its own over it. */
+export const InShellContext = createContext(false);
 
 /** `useNativeDriver` for Animated: the web has no native animation engine and warns if it is asked for one. */
 export const NATIVE_DRIVER = !IS_WEB;

@@ -22,7 +22,8 @@ import {
   View,
   ViewToken,
 } from 'react-native';
-import { ART, Loading, NATIVE_DRIVER, PageTexture, POINTER, Text, TextInput } from '../../components/parchment';
+import { ART, Loading, NATIVE_DRIVER, PageTexture, POINTER, Text, TextInput, useDesktopLayout } from '../../components/parchment';
+import { READING_WIDTH } from '../../theme/web';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ForwardPicker } from '../../components/chat/ForwardPicker';
@@ -96,6 +97,8 @@ const BACKGROUND_ASKED_KEY = 'syph.hint.backgroundLocationAsked';
 export default function ChatScreen() {
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  // In a desktop browser window the list of chats is beside this page, so there is nothing to go back to.
+  const { desktop } = useDesktopLayout();
   const insets = useSafeAreaInsets();
   const { themeColors } = useTheme();
   const { currentUser } = useAuth();
@@ -524,7 +527,7 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: themeColors.background }]}
+      style={[styles.container, { backgroundColor: desktop ? 'transparent' : themeColors.background }]}
       behavior="padding"
     >
       <PageTexture variant="plain" />
@@ -532,9 +535,11 @@ export default function ChatScreen() {
       <View style={[styles.headerWrap, { backgroundColor: themeColors.wood, paddingTop: insets.top }]}>
         <Image source={ART.wood} resizeMode="cover" style={StyleSheet.absoluteFill} />
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back" style={POINTER}>
-            <Ionicons name="arrow-back" size={24} color={themeColors.buttonText} />
-          </Pressable>
+          {desktop ? null : (
+            <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back" style={POINTER}>
+              <Ionicons name="arrow-back" size={24} color={themeColors.buttonText} />
+            </Pressable>
+          )}
           <Pressable
             style={[styles.headerInfo, conversation?.isGroup ? POINTER : null]}
             disabled={!conversation?.isGroup}
@@ -792,7 +797,8 @@ const styles = StyleSheet.create({
   searchInput: { borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6, fontSize: 14 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   flipped: { transform: [{ scaleY: -1 }] },
-  list: { paddingVertical: 8 },
+  // Lines of text stay a readable length on a wide window: the column of messages is centred and never wider than this.
+  list: { paddingVertical: 8, width: '100%', maxWidth: READING_WIDTH, alignSelf: 'center' },
   listArea: { flex: 1 },
   floatingDay: { position: 'absolute', top: 8, left: 0, right: 0, alignItems: 'center' },
   connecting: { alignItems: 'center', paddingTop: 12 },

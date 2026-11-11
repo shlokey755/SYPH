@@ -124,7 +124,9 @@ function ToastHost({
   return (
     <View pointerEvents="box-none" style={[styles.host, { top: insets.top + 8 }]}>
       {toasts.map((t) => (
-        <ToastView key={t.id} toast={t} onDismiss={onDismiss} />
+        <View key={t.id} style={styles.slot}>
+          <ToastView toast={t} onDismiss={onDismiss} />
+        </View>
       ))}
     </View>
   );
@@ -201,7 +203,10 @@ const styles = StyleSheet.create({
     elevation: 9999,
     paddingHorizontal: 12,
     gap: 8,
+    alignItems: 'center',
   },
+  // On a wide window a toast is a note, not a banner across the whole window.
+  slot: { width: '100%', maxWidth: 440 },
   toast: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 15, paddingHorizontal: 18 },
   body: { flex: 1 },
   title: { fontSize: 16, lineHeight: 19, letterSpacing: 0.5 },

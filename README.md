@@ -49,7 +49,7 @@ Everything is drawn as a pirate's torn map: aged parchment, tilted slips of pape
 
 ###  Web
 
-The same app runs in a browser (`npm run web`, or `npx expo export --platform web` for a static site). On a wide window the map is a column lying on a dark ship's table; on a phone-sized window it fills the screen. Chats, GIFs, search, read receipts and the profile work there. Calls need the Android build: browsers are not supported for them.
+The same app runs in a browser (`npm run web`, or `npx expo export --platform web` for a static site). From a window 900 points wide it is a desktop layout: a plank rail down the left (Chats, Add, Me), the list of chats beside it, and the open page taking the rest on a wide sheet of the map. Conversation text, forms and pop-ups keep a readable width instead of stretching across the monitor. A narrower window gets the phone layout. Chats, GIFs, search, read receipts and the profile work there. Calls need the Android build: browsers are not supported for them.
 
 ##  Screenshots
 

@@ -22,6 +22,7 @@ import {
   Text,
   TrailLine,
 } from '../../components/parchment';
+import { FORM_WIDTH } from '../../theme/web';
 import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
@@ -243,7 +244,7 @@ export default function MeTab() {
 
 const styles = StyleSheet.create({
   center: { justifyContent: 'center', alignItems: 'center' },
-  scroll: { paddingBottom: 32 },
+  scroll: { paddingBottom: 32, width: '100%', maxWidth: FORM_WIDTH, alignSelf: 'center' },
   head: { paddingHorizontal: 15 },
   trail: { marginTop: 4, marginBottom: 14 },
   section: { paddingHorizontal: 15, marginBottom: 25 },

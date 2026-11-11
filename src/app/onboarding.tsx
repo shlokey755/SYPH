@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   topRow: { height: 44, alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 22 },
   skip: { fontSize: 20, lineHeight: 24 },
   slide: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22, gap: 28 },
-  cardWrap: { alignSelf: 'stretch' },
+  cardWrap: { alignSelf: 'center', width: '100%', maxWidth: 520 },
   card: { paddingHorizontal: 22, paddingTop: 26, paddingBottom: 22, gap: 10 },
   title: { fontSize: 32, lineHeight: 38, textAlign: 'center' },
   body: { fontSize: 18, lineHeight: 25, textAlign: 'center' },

@@ -17,7 +17,7 @@ Everything is drawn from a fixed random seed, so running it again gives the same
   tear-rim.png         the pale fibres along that tear; the app tints it lighter than the paper.
   compass.png          a compass rose, black with transparency. The app tints it.
   seal.png, seal-ring.png   a blob of sealing wax and the groove stamped in it (tinted red and darker red).
-  desk.jpg             a ship's table of dark planks, behind the map on wide browser windows.
+  parchment-map-wide.jpg, parchment-plain-wide.jpg   the same two pages in landscape, for desktop browser windows.
   ../images/favicon-compass.png   the browser tab icon.
 """
 
@@ -57,7 +57,7 @@ def smooth(x):
     return x * x * (3 - 2 * x)
 
 
-def parchment(with_burn=True):
+def parchment(with_burn=True, wide=False):
     """The aged page as a float RGB array (0..255)."""
     yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
     base = np.array([232, 211, 163], np.float32)
@@ -69,7 +69,9 @@ def parchment(with_burn=True):
     img *= (0.965 + 0.07 * fibres)[..., None]                          # paper fibres
 
     # tea and coffee stains: two rings and a few cloudy blotches
-    for cx, cy, r, width, strength in ((150, 610, 70, 5.0, 0.30), (505, 470, 58, 4.0, 0.24), (300, 1128, 40, 3.5, 0.18)):
+    stains = ((330, 610, 90, 6.0, 0.28), (1180, 260, 70, 5.0, 0.24), (1010, 790, 52, 4.0, 0.20), (150, 120, 46, 4.0, 0.18)) if wide else (
+        (150, 610, 70, 5.0, 0.30), (505, 470, 58, 4.0, 0.24), (300, 1128, 40, 3.5, 0.18))
+    for cx, cy, r, width, strength in stains:
         d = np.abs(np.hypot(xx - cx, yy - cy) - r)
         ring = np.exp(-((d / width) ** 2)) * strength
         inside = (np.hypot(xx - cx, yy - cy) < r).astype(np.float32) * 0.05
@@ -81,10 +83,16 @@ def parchment(with_burn=True):
     def crease(dist, line=1.2, hi=1.8):
         return -0.17 * np.exp(-((dist / line) ** 2)) + 0.09 * np.exp(-(((dist - 2.4) / hi) ** 2))
 
-    wob = 3 * np.sin(yy / 61.0) + 2 * np.sin(yy / 23.0 + 1)
-    shade = crease(xx - W / 2 - wob)
-    for frac in (1 / 3, 2 / 3):
-        shade += crease(yy - H * frac - 2.5 * np.sin(xx / 47.0))
+    if wide:                                                           # landscape: once across the middle, twice down the long side
+        wob = 3 * np.sin(xx / 61.0) + 2 * np.sin(xx / 23.0 + 1)
+        shade = crease(yy - H / 2 - wob)
+        for frac in (1 / 3, 2 / 3):
+            shade += crease(xx - W * frac - 2.5 * np.sin(yy / 47.0))
+    else:
+        wob = 3 * np.sin(yy / 61.0) + 2 * np.sin(yy / 23.0 + 1)
+        shade = crease(xx - W / 2 - wob)
+        for frac in (1 / 3, 2 / 3):
+            shade += crease(yy - H * frac - 2.5 * np.sin(xx / 47.0))
     img *= (1 + shade)[..., None]
     for col in range(2):
         for row in range(3):
@@ -225,59 +233,59 @@ def island(d, d_light, cx, cy, rx, ry, phase, ink):
     return shore
 
 
-def map_overlay():
-    """The inked map as a mask (0..1) and the red of the X as a second mask."""
+def map_overlay(wide=False):
+    """The inked map as a mask (0..1) and the red of the X as a second mask. `wide` lays it out for a landscape page."""
     mask = Image.new('L', (W * S, H * S), 0)
     faint = Image.new('L', (W * S, H * S), 0)
     red = Image.new('L', (W * S, H * S), 0)
     d, dl, dr = ImageDraw.Draw(mask), ImageDraw.Draw(faint), ImageDraw.Draw(red)
     ink, soft = 255, 120
     s = S
-
-    def sc(pts):
-        return [(x * s, y * s) for x, y in pts]
-
+    if wide:
+        compass_cx, compass_cy, compass_r, reach = 1390, 690, 118, 2000
+        islands = ((300, 330, 150, 100, 0.4), (1010, 560, 112, 80, 2.1), (560, 745, 72, 54, 4.0))
+        trail_pts = [(400, 420), (470, 450), (545, 468), (610, 520), (645, 590), (660, 655), (650, 720), (640, 762)]
+        x_at, arm = (668, 800), 24
+        ship_at, serpent_at, wave_count, wave_box = (880, 190, 1.35), (110, 800), 80, (40, 40, W - 70, H - 60)
+        near = [(300, 330, 190), (1010, 560, 150), (560, 745, 110), (compass_cx, compass_cy, 160), (880, 250, 130), (668, 800, 60)]
+    else:
+        compass_cx, compass_cy, compass_r, reach = 410, 985, 98, 1400
+        islands = ((150, 395, 120, 88, 0.4), (392, 650, 88, 62, 2.1), (128, 840, 58, 44, 4.0))
+        trail_pts = [(212, 462), (262, 505), (318, 520), (356, 575), (350, 640), (330, 712), (268, 770), (205, 812), (170, 880)]
+        x_at, arm = (170, 892), 22
+        ship_at, serpent_at, wave_count, wave_box = (380, 268, 1.05), (70, 1095), 38, (40, 190, W - 70, H - 60)
+        near = [(150, 395, 190), (392, 650, 150), (128, 840, 110), (compass_cx, compass_cy, 140), (380, 330, 120), (170, 892, 60)]
     # rhumb lines out of the compass, very faint
-    compass_cx, compass_cy = 410, 985
     for i in range(16):
         a = i * math.pi / 8
-        dl.line([(compass_cx * s, compass_cy * s), ((compass_cx + 1400 * math.cos(a)) * s, (compass_cy + 1400 * math.sin(a)) * s)], fill=70, width=2)
-
-    isl_a = island(d, dl, 150 * s, 395 * s, 120 * s, 88 * s, 0.4, ink)
-    isl_b = island(d, dl, 392 * s, 650 * s, 88 * s, 62 * s, 2.1, ink)
-    isl_c = island(d, dl, 128 * s, 840 * s, 58 * s, 44 * s, 4.0, ink)
-
-    trail = catmull([(212, 462), (262, 505), (318, 520), (356, 575), (350, 640), (330, 712), (268, 770), (205, 812), (170, 880)])
+        dl.line([(compass_cx * s, compass_cy * s), ((compass_cx + reach * math.cos(a)) * s, (compass_cy + reach * math.sin(a)) * s)], fill=70, width=2)
+    for cx, cy, rx, ry, phase in islands:
+        island(d, dl, cx * s, cy * s, rx * s, ry * s, phase, ink)
+    trail = catmull(trail_pts)
     for x, y in trail[:-1]:
         d.ellipse([x * s - 3.2, y * s - 3.2, x * s + 3.2, y * s + 3.2], fill=ink)
-
     # the X that marks the spot
-    xx0, yy0, arm = 170 * s, 892 * s, 22 * s
+    xx0, yy0 = x_at[0] * s, x_at[1] * s
     for a, b in (((-1, -1), (1, 1)), ((-1, 1), (1, -1))):
-        dr.line([(xx0 + a[0] * arm, yy0 + a[1] * arm), (xx0 + b[0] * arm, yy0 + b[1] * arm)], fill=255, width=11 * s // 2)
-
-    compass_rose(d, compass_cx * s, compass_cy * s, 98 * s, ink, width=4)
-    ship(d, 380 * s, 268 * s, 1.05 * s, ink, 40)
-    serpent(d, 70 * s, 1095 * s, soft, k=s)
-
+        dr.line([(xx0 + a[0] * arm * s, yy0 + a[1] * arm * s), (xx0 + b[0] * arm * s, yy0 + b[1] * arm * s)], fill=255, width=11 * s // 2)
+    compass_rose(d, compass_cx * s, compass_cy * s, compass_r * s, ink, width=4)
+    ship(d, ship_at[0] * s, ship_at[1] * s, ship_at[2] * s, ink, 40)
+    serpent(d, serpent_at[0] * s, serpent_at[1] * s, soft, k=s)
     # waves in open water, kept off the islands and the trail
     spots = []
     attempts = 0
-    while len(spots) < 38 and attempts < 4000:
+    while len(spots) < wave_count and attempts < 4000:
         attempts += 1
-        x, y = rng.uniform(40, W - 70), rng.uniform(190, H - 60)
+        x, y = rng.uniform(wave_box[0], wave_box[2]), rng.uniform(wave_box[1], wave_box[3])
         if any(math.hypot(x - sx, y - sy) < 62 for sx, sy in spots):
             continue
         if min(math.hypot(x - px, y - py) for px, py in trail) < 34:
             continue
-        near = [(150, 395, 190), (392, 650, 150), (128, 840, 110), (compass_cx, compass_cy, 140), (380, 330, 120), (170, 892, 60)]
         if any(math.hypot(x - ox, y - oy) < r for ox, oy, r in near):
             continue
         spots.append((x, y))
     for x, y in spots:
         wave(d, x * s, y * s, soft, k=s * 1.0)
-
-    # title cartouche, lightly, in the top right corner of the open sea
     return mask, faint, red
 
 
@@ -286,10 +294,10 @@ def to_alpha(img):
     return np.asarray(img, dtype=np.float32) / 255
 
 
-def make_map(path, with_art):
-    img = parchment()
+def make_map(path, with_art, wide=False):
+    img = parchment(wide=wide)
     if with_art:
-        mask, faint, red = map_overlay()
+        mask, faint, red = map_overlay(wide)
         wobble = 0.82 + 0.18 * fbm(H, W, cells=(8, 3), weights=(0.6, 0.4))      # uneven inking
         a = np.clip(to_alpha(mask) * 0.60 * wobble + to_alpha(faint) * 0.30 * wobble, 0, 1)
         ink = np.broadcast_to(np.array([72, 44, 20], np.float32), img.shape).copy()
@@ -423,27 +431,6 @@ def make_seal(path, ring_path):
     ring.save(ring_path, optimize=True)
 
 
-def make_desk(path):
-    """A ship's table: dark planks, lit from the middle as if by a lantern. For wide browser windows (components/parchment/WebFrame)."""
-    w, h = 1600, 900
-    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
-    grain = fbm(h, w, cells=(220, 60, 16), weights=(0.45, 0.35, 0.2), stretch=(0.14, 5.0))
-    img = lerp(np.broadcast_to(np.array([74, 46, 24], np.float32), (h, w, 3)).copy(),
-               np.broadcast_to(np.array([38, 23, 12], np.float32), (h, w, 3)).copy(), grain)
-    img += (rng.random((h, w, 1)).astype(np.float32) - 0.5) * 7
-    plank = 150
-    for y0 in range(plank, h, plank):                                       # seams between planks
-        seam = np.exp(-(((yy - y0) / 1.3) ** 2))
-        img *= (1 - 0.55 * seam)[..., None]
-        img *= (1 + 0.10 * np.exp(-(((yy - y0 - 2.6) / 1.6) ** 2)))[..., None]
-    for i, y0 in enumerate(range(0, h, plank)):                             # every plank its own tone
-        img[y0:y0 + plank] *= 0.86 + 0.28 * ((i * 37 % 11) / 10)
-    light = np.exp(-(((xx - w / 2) / (w * 0.42)) ** 2 + ((yy - h * 0.45) / (h * 0.62)) ** 2))
-    img *= (0.34 + 0.9 * light)[..., None]
-    img = lerp(img, np.broadcast_to(np.array([255, 190, 110], np.float32), img.shape).copy(), 0.07 * light)
-    Image.fromarray(np.clip(img, 0, 255).astype(np.uint8)).save(path, quality=80, optimize=True)
-
-
 def make_favicon(path):
     """A brass compass on a dark sea, as a round badge. 64x64, drawn at 8x and brought down."""
     size, k = 64, 8
@@ -471,8 +458,11 @@ if __name__ == '__main__':
     make_wood(os.path.join(OUT, 'wood.jpg'))
     make_tear(os.path.join(OUT, 'tear.png'), os.path.join(OUT, 'tear-rim.png'))
     make_compass(os.path.join(OUT, 'compass.png'))
-    make_desk(os.path.join(OUT, 'desk.jpg'))
     make_seal(os.path.join(OUT, 'seal.png'), os.path.join(OUT, 'seal-ring.png'))
     make_favicon(os.path.join(HERE, '..', 'assets', 'images', 'favicon-compass.png'))
+    # Landscape pages for a desktop browser window. Made last, so running this script again changes none of the pictures above.
+    W, H = 1600, 900
+    make_map(os.path.join(OUT, 'parchment-map-wide.jpg'), with_art=True, wide=True)
+    make_map(os.path.join(OUT, 'parchment-plain-wide.jpg'), with_art=False, wide=True)
     for name in sorted(os.listdir(OUT)):
         print(name, os.path.getsize(os.path.join(OUT, name)) // 1024, 'KB')

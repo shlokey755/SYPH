@@ -37,6 +37,7 @@ import {
   TextInput,
   TrailLine,
 } from '../../components/parchment';
+import { FORM_WIDTH } from '../../theme/web';
 
 import { useTheme } from '../../hooks/themeContext';
 
@@ -653,6 +654,9 @@ const styles = StyleSheet.create({
 
     paddingTop: 50,
 
+    width: '100%',
+    maxWidth: FORM_WIDTH,
+    alignSelf: 'center',
   },
 
   header: {

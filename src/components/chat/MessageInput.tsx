@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { NativeSyntheticEvent, Pressable, StyleSheet, TextInputKeyPressEventData, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
+import { READING_WIDTH } from '../../theme/web';
 import { ReplyPreview } from '../../types';
 import { Field, IS_WEB, POINTER, RoundButton, roundLook, Text } from '../parchment';
 
@@ -108,13 +109,23 @@ export function MessageInput({
 
 const styles = StyleSheet.create({
   container: { borderTopWidth: 3, paddingHorizontal: 10, paddingTop: 8, gap: 8 },
-  row: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, width: '100%', maxWidth: READING_WIDTH, alignSelf: 'center' },
   iconButton: { height: 46, justifyContent: 'center' },
   gifBadge: { borderWidth: 1.5, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
   gifText: { fontSize: 15, lineHeight: 17, letterSpacing: 1 },
   fieldBox: { flex: 1 },
   input: { maxHeight: 120, paddingVertical: 9 },
-  replyBar: { flexDirection: 'row', alignItems: 'center', gap: 8, borderLeftWidth: 3, borderRadius: 4, padding: 8 },
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderLeftWidth: 3,
+    borderRadius: 4,
+    padding: 8,
+    width: '100%',
+    maxWidth: READING_WIDTH,
+    alignSelf: 'center',
+  },
   replyBody: { flex: 1 },
   replyName: { fontSize: 14, lineHeight: 17, letterSpacing: 0.6 },
   replyText: { fontSize: 15, lineHeight: 18 },

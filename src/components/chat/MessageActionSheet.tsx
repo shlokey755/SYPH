@@ -40,8 +40,8 @@ export function MessageActionSheet({ message, isMine, colors, onSelect, onClose 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        {/* A torn strip of map slid up from the bottom. In a browser it stays inside the map column. */}
-        <Paper torn="top" style={IS_WEB ? SHEET_FRAME : null} contentStyle={{ paddingTop: 2, paddingBottom: Math.max(insets.bottom, 12) }}>
+        {/* A torn strip of map slid up from the bottom; in a browser it is a note laid in the middle of the window. */}
+        <Paper torn={IS_WEB ? 'both' : 'top'} style={IS_WEB ? { ...SHEET_FRAME, maxWidth: 380, marginVertical: 30 } : null} contentStyle={{ paddingTop: 2, paddingBottom: Math.max(insets.bottom, 12) }}>
           {actions.map((a) => (
             <Pressable
               key={a.id}
@@ -59,7 +59,7 @@ export function MessageActionSheet({ message, isMine, colors, onSelect, onClose 
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(51,38,27,0.55)', justifyContent: 'flex-end' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(51,38,27,0.55)', justifyContent: IS_WEB ? 'center' : 'flex-end' },
   item: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 14 },
   label: { fontSize: 20, lineHeight: 24 },
 });

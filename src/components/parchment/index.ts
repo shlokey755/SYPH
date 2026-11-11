@@ -22,7 +22,18 @@ export { Paper, TEAR_HEIGHT, toneLook } from './Paper';
 export type { PaperProps, PaperTone, ToneLook } from './Paper';
 export { Tack, WaxSeal } from './Pins';
 export type { TackProps, WaxSealProps } from './Pins';
-export { IS_WEB, NATIVE_DRIVER, POINTER, SHEET_FRAME, isHovered, paperShadow, useReduceMotion } from './platform';
+export {
+  DIALOG_FRAME,
+  InShellContext,
+  IS_WEB,
+  NATIVE_DRIVER,
+  POINTER,
+  SHEET_FRAME,
+  isHovered,
+  paperShadow,
+  useDesktopLayout,
+  useReduceMotion,
+} from './platform';
 export { CountSeal, Stamp } from './Stamp';
 export type { CountSealProps, StampProps } from './Stamp';
 export { Text, TextInput } from './Text';
@@ -31,4 +42,3 @@ export { TrailLine } from './Trail';
 export type { TrailLineProps } from './Trail';
 export { Unfurl } from './Unfurl';
 export type { UnfurlProps } from './Unfurl';
-export { WebFrame } from './WebFrame';
