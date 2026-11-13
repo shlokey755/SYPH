@@ -8,8 +8,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Text } from '../parchment';
+import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { ThemeColors } from '../../hooks/themeContext';
 import {
   buildPlayerHtml,
@@ -133,10 +132,10 @@ export function VideoPlayerModal({ link, title, colors, onClose }: Props) {
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center' },
-  dialog: { borderRadius: 16, borderWidth: 1, padding: 12, gap: 10, alignItems: 'center', maxWidth: '100%' },
+  dialog: { borderWidth: 1, padding: 12, gap: 10, alignItems: 'center', maxWidth: '100%' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { flex: 1, fontSize: 14, fontWeight: '600' },
-  screen: { backgroundColor: '#000000', borderRadius: 10, overflow: 'hidden' },
+  screen: { backgroundColor: '#000000', overflow: 'hidden' },
   web: { flex: 1, backgroundColor: '#000000' },
   overlay: {
     position: 'absolute',
@@ -158,7 +157,6 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     borderWidth: 1,
-    borderRadius: 10,
   },
   openText: { fontSize: 14, fontWeight: '600' },
 });

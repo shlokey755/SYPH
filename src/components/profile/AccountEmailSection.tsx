@@ -8,8 +8,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Field, MapButton, Text } from '../parchment';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
 import { refreshAccountEmail, requestEmailChange, sendVerificationEmail } from '../../services/accountService';
@@ -78,23 +77,27 @@ export function AccountEmailSection() {
     }
   };
 
+  const inputStyle = [
+    styles.input,
+    { backgroundColor: themeColors.inputBg, color: themeColors.text, borderColor: themeColors.border },
+  ];
 
   return (
     <View style={styles.section}>
-      <Text kind="label" style={[styles.title, { color: themeColors.stamp }]}>Account email</Text>
+      <Text style={[styles.title, { color: themeColors.subText }]}>Account email</Text>
 
-      <View style={[styles.card, { backgroundColor: themeColors.paper, borderColor: themeColors.trail }]}>
+      <View style={[styles.card, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.border }]}>
         {hasRealEmail ? (
           <>
             <Text style={[styles.email, { color: themeColors.text }]} numberOfLines={1}>
               {account.email}
             </Text>
-            <Text style={{ color: account.verified ? themeColors.accent : themeColors.subText, fontSize: 15 }}>
+            <Text style={{ color: account.verified ? themeColors.accent : themeColors.subText, fontSize: 13 }}>
               {account.verified ? 'Verified' : 'Not verified yet'}
             </Text>
           </>
         ) : (
-          <Text style={{ color: themeColors.subText, fontSize: 15, lineHeight: 21 }}>
+          <Text style={{ color: themeColors.subText, fontSize: 13, lineHeight: 18 }}>
             No email on this account. You sign in with your username, and a forgotten password cannot be reset. Add an
             email to fix that.
           </Text>
@@ -104,17 +107,18 @@ export function AccountEmailSection() {
       {hasRealEmail && !account.verified && (
         <View style={styles.row}>
           <TouchableOpacity onPress={resend} disabled={busy}>
-            <Text kind="hand" style={[styles.link, { color: themeColors.accent }]}>Resend verification email</Text>
+            <Text style={[styles.link, { color: themeColors.accent }]}>Resend verification email</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={refresh} disabled={busy}>
-            <Text kind="hand" style={[styles.link, { color: themeColors.accent }]}>Check again</Text>
+            <Text style={[styles.link, { color: themeColors.accent }]}>Check again</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      <Field
-        boxStyle={styles.fieldBox}
+      <TextInput
+        style={inputStyle}
         placeholder={hasRealEmail ? 'New email' : 'Email to add'}
+        placeholderTextColor={themeColors.subText}
         value={newEmail}
         onChangeText={setNewEmail}
         autoCapitalize="none"
@@ -122,9 +126,10 @@ export function AccountEmailSection() {
         keyboardType="email-address"
         editable={!busy}
       />
-      <Field
-        boxStyle={styles.fieldBox}
+      <TextInput
+        style={inputStyle}
         placeholder="Current password"
+        placeholderTextColor={themeColors.subText}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -135,23 +140,28 @@ export function AccountEmailSection() {
         We email a confirmation link to the new address. Once you open it, sign in with that email instead of your
         username.
       </Text>
-      <MapButton
-        title={hasRealEmail ? 'Change email' : 'Add email'}
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: themeColors.accent }, (busy || !newEmail.trim()) && { opacity: 0.6 }]}
         onPress={submit}
-        loading={busy}
         disabled={busy || !newEmail.trim()}
-      />
+      >
+        <Text style={[styles.buttonText, { color: themeColors.buttonText }]}>
+          {busy ? 'Working...' : hasRealEmail ? 'Change email' : 'Add email'}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   section: { paddingHorizontal: 15, marginBottom: 25 },
-  title: { fontSize: 17, letterSpacing: 1, marginBottom: 10 },
-  card: { padding: 14, borderRadius: 4, borderWidth: 1.5, borderStyle: 'dashed', marginBottom: 12, gap: 4 },
-  email: { fontSize: 18, fontWeight: '600' },
+  title: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase' },
+  card: { padding: 14, borderWidth: 1, marginBottom: 12, gap: 4 },
+  email: { fontSize: 16, fontWeight: '600' },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  link: { fontSize: 16, fontWeight: '600' },
-  fieldBox: { marginBottom: 10 },
-  hint: { fontSize: 15, lineHeight: 20, marginBottom: 10 },
+  link: { fontSize: 14, fontWeight: '600' },
+  input: { padding: 14, borderWidth: 1, fontSize: 16, marginBottom: 10 },
+  hint: { fontSize: 12, lineHeight: 17, marginBottom: 10 },
+  button: { padding: 14, alignItems: 'center' },
+  buttonText: { fontSize: 15, fontWeight: '600' },
 });

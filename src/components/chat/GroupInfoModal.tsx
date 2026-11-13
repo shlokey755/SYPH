@@ -12,9 +12,10 @@ import {
   Modal,
   Pressable,
   StyleSheet,
+  Text,
+  TextInput,
   View,
 } from 'react-native';
-import { IS_WEB, PageTexture, DIALOG_FRAME, Text, TextInput } from '../parchment';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
@@ -120,15 +121,8 @@ export function GroupInfoModal({ visible, conversation, myUid, colors, onClose, 
     ]);
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={IS_WEB} onRequestClose={onClose}>
-      <>
-      {IS_WEB ? (
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(51, 38, 27, 0.55)' }]} />
-      ) : null}
-      <View
-        style={[styles.container, IS_WEB ? DIALOG_FRAME : null, { backgroundColor: colors.background, paddingTop: insets.top }]}
-      >
-        <PageTexture variant="plain" force />
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Close">
             <Ionicons name="close" size={26} color={colors.text} />
@@ -235,7 +229,6 @@ export function GroupInfoModal({ visible, conversation, myUid, colors, onClose, 
           }
         />
       </View>
-    </>
     </Modal>
   );
 }
@@ -248,12 +241,12 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', marginBottom: 8 },
   membersTitle: { paddingHorizontal: 16, paddingTop: 20 },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  input: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15 },
-  button: { paddingHorizontal: 16, paddingVertical: 11, borderRadius: 10 },
+  input: { flex: 1, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15 },
+  button: { paddingHorizontal: 16, paddingVertical: 11 },
   member: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-  avatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   memberName: { flex: 1, fontSize: 16 },
-  badge: { fontSize: 11, borderWidth: 1, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
+  badge: { fontSize: 11, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 1 },
   note: { fontSize: 13, textAlign: 'center', padding: 20 },
-  leave: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, margin: 20, padding: 14, borderWidth: 1, borderRadius: 12 },
+  leave: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, margin: 20, padding: 14, borderWidth: 1 },
 });

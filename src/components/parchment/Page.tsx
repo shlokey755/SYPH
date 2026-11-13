@@ -12,7 +12,7 @@
  */
 import React, { useContext } from 'react';
 import { Image, StyleProp, StyleSheet, View, ViewStyle, useWindowDimensions } from 'react-native';
-import { useTheme } from '../../hooks/themeContext';
+import { useTheme } from '../../theme/mapTheme';
 import { ART } from './art';
 import { InShellContext, IS_WEB } from './platform';
 import { WIDE_ART } from './wideArt';

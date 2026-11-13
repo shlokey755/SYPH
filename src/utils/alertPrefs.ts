@@ -7,8 +7,9 @@
  *   - an incoming call that rings while SYPH is open
  *   - the message alert while SYPH is open
  *   - small taps and buzzes in the app
- * Alerts while SYPH is closed are drawn by Android from the notification channels (services/pushService.ts), and follow
- * the phone's own notification settings.
+ * While SYPH is closed, Android plays the alert from the notification channel. A build that can ring natively (API.md 1.16.1)
+ * saves these choices on the account and the sender's phone picks the channel that matches (utils/push.ts), so they apply
+ * closed as well; an older build follows the phone's own notification settings.
  */
 
 export type RingtoneId = 'syph' | 'phone';

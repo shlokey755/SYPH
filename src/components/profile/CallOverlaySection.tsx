@@ -9,8 +9,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { AppState, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../parchment';
+import { AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../../hooks/themeContext';
 import {
   canDrawOverApps,
@@ -18,6 +17,7 @@ import {
   isOverlayAvailable,
   openFullScreenSettings,
   openOverlaySettings,
+  supportsClosedAlerts,
 } from '../../services/callOverlay';
 import { OverlayAccess, overlayStatus, PermissionStatus } from '../../utils/callOverlay';
 
@@ -94,9 +94,11 @@ export function CallOverlaySection() {
         )}
         <View style={styles.note}>
           <Text style={[styles.hint, { color: themeColors.subText }]}>
-            This works while SYPH is running in the background. If Android has already closed SYPH, a call arrives as a
-            notification, as before. Some phones (Xiaomi, Oppo, Vivo, Huawei) also have a switch for pop-up windows while an app
-            is in the background, under the phone's permission settings for SYPH.
+            {supportsClosedAlerts()
+              ? 'This works whether SYPH is open, in the background or closed. A phone you force-stopped in Android Settings cannot be reached until SYPH is opened once. '
+              : 'This works while SYPH is running in the background. If Android has already closed SYPH, a call arrives as a notification (the newest version of the app fixes that). '}
+            Some phones (Xiaomi, Oppo, Vivo, Huawei) also have a switch for pop-up windows while an app is in the background,
+            under the phone's permission settings for SYPH.
           </Text>
         </View>
       </View>
@@ -107,7 +109,7 @@ export function CallOverlaySection() {
 const styles = StyleSheet.create({
   section: { paddingHorizontal: 15, marginBottom: 25 },
   title: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase' },
-  card: { borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
+  card: { borderWidth: 1, overflow: 'hidden' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -120,7 +122,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 16, fontWeight: '600' },
   hint: { fontSize: 12 },
   state: { fontSize: 12, fontWeight: '600', marginTop: 2 },
-  button: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  button: { borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
   buttonText: { fontSize: 13, fontWeight: '600' },
   note: { padding: 14 },
 });

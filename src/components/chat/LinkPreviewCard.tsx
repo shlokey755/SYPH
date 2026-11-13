@@ -9,8 +9,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { memo, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../parchment';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ThemeColors } from '../../hooks/themeContext';
 import { useLinkPreview } from '../../hooks/useLinkPreview';
 import { extractYouTube, YouTubeLink } from '../../utils/linkPreview';
@@ -66,7 +65,7 @@ function LinkPreviewCardBase({ text, isMine, colors, onLongPress }: Props) {
 
   const textColor = isMine ? colors.buttonText : colors.text;
   const subColor = isMine ? colors.buttonText : colors.subText;
-  const background = isMine ? 'rgba(0,0,0,0.15)' : colors.paperAlt;
+  const background = isMine ? 'rgba(0,0,0,0.15)' : colors.inputBg;
   const openYouTube = () => {
     Linking.openURL(link.openUrl).catch(() => {});
   };
@@ -179,7 +178,7 @@ function LinkPreviewCardBase({ text, isMine, colors, onLongPress }: Props) {
 export const LinkPreviewCard = memo(LinkPreviewCardBase);
 
 const styles = StyleSheet.create({
-  card: { width: CARD_WIDTH, borderRadius: 12, overflow: 'hidden', marginTop: 6 },
+  card: { width: CARD_WIDTH, overflow: 'hidden', marginTop: 6 },
   gone: { opacity: 0.75 },
   thumb: { width: CARD_WIDTH, height: THUMB_HEIGHT, backgroundColor: 'rgba(0,0,0,0.35)' },
   thumbLoading: { alignItems: 'center', justifyContent: 'center' },
@@ -190,7 +189,6 @@ const styles = StyleSheet.create({
     left: CARD_WIDTH / 2 - 20,
     width: 40,
     height: 40,
-    borderRadius: 20,
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -204,23 +202,21 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   info: { paddingHorizontal: 10, paddingVertical: 8, gap: 4 },
-  title: { fontSize: 16, lineHeight: 20, fontWeight: '600' },
-  author: { fontSize: 14 },
-  bar: { height: 10, borderRadius: 5, opacity: 0.25 },
+  title: { fontSize: 14, lineHeight: 18, fontWeight: '600' },
+  author: { fontSize: 12 },
+  bar: { height: 10, opacity: 0.25 },
   note: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10 },
   noteIcon: {
     width: 44,
     height: 44,
-    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.2)',
   },
   noteText: { flex: 1, gap: 2 },
-  noteTitle: { fontSize: 16, fontWeight: '600' },
+  noteTitle: { fontSize: 14, fontWeight: '600' },
 });

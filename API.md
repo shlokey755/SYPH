@@ -158,8 +158,8 @@ In-app toasts and unread badges work everywhere, including Expo Go. Alerts while
 **Limits of the free approach (accepted trade-offs)**
 - The *sender's* phone must be online at the moment of sending. A message written offline is pushed when it finally uploads.
 - Any signed-in user can read another user's device tokens (one document at a time, never a list). That is what lets a phone notify another phone without a server. A malicious signed-in user could spam someone's notifications. Fine for friends and family, not for a public app.
-- Calls ring as a notification with the ringtone and vibration of the "Calls" channel, not as a full-screen ringing screen. Tapping it opens the chat, and the Accept / Decline screen appears if the call is still ringing (30 seconds).
-- A caller who hangs up leaves the ring notification in the tray until it is dismissed. A second notification, "Missed voice call" or "Missed video call", follows from the caller's phone (1.7).
+- On a build older than the one in 1.16.1, calls ring as a notification with the ringtone and vibration of the "Calls" channel, not as a full-screen ringing screen. Tapping it opens the chat, and the Accept / Decline screen appears if the call is still ringing (30 seconds). The newest build rings and shows the full-screen call screen even when SYPH is closed (1.16.1).
+- On an older build, a caller who hangs up leaves the ring notification in the tray until it is dismissed. A second notification, "Missed voice call" or "Missed video call", follows from the caller's phone (1.7).
 - Group changes (added, renamed, removed, left) do not push in this mode. New group *messages* do.
 - Notification text includes the message preview. There is no hide-preview switch in this mode.
 - Not yet tested on a real phone: Expo's push endpoint could not be reached from the build environment, so the first real test is yours (send a message to a second phone with the app swiped away).
@@ -472,7 +472,7 @@ The Me tab has a new **Sounds & vibration** card: vibration on or off, touch fee
 
 **An older APK that receives the update** keeps working: calls ring with the phone's own ringtone and new messages only buzz, and the card says so. Nothing crashes, because `expo-audio` is loaded only when its native part is in the build (`services/alertSounds.ts`).
 
-**While SYPH is closed** nothing changed: Android plays the notification sound itself, from the **Messages** and **Calls** notification categories (Android Settings > Apps > SYPH > Notifications). A phone that rings with the full-screen call screen while SYPH is closed is the separate "calls over other apps" work.
+**While SYPH is closed:** on the newest build the same choices apply (see 1.16.1). On an older build nothing changed: Android plays the notification sound itself, from the **Messages** and **Calls** notification categories (Android Settings > Apps > SYPH > Notifications).
 
 **Sounds and licensing:** every sound is synthesised from sine waves by `scripts/generate-sounds.py` (plain Python, nothing to download, nothing to license). Change a tone, run `python3 scripts/generate-sounds.py`, and rebuild. To use your own, replace a file in `assets/sounds/` with another `.wav` of the same name.
 
@@ -511,7 +511,7 @@ Two things, both while SYPH is **in the background but still running** (Home pre
 | Some phones (Xiaomi, Oppo, Vivo, Huawei) | Also switch on "Display pop-up windows while running in the background" in the phone's permission page for SYPH. SYPH cannot open that page for you | Free |
 
 **What it cannot do (on purpose or by Android's rules)**
-- SYPH keeps nothing running while it is idle (that needs a permanent notification and costs battery). If Android has already closed SYPH, a call arrives as the ordinary push notification, as before. Giving a closed app a full-screen call screen needs a native push handler, which is a bigger separate job.
+- SYPH keeps nothing running while it is idle (that needs a permanent notification and costs battery). If Android has already closed SYPH, the call is rung by a small native push handler instead: see 1.16.1 (needs the newest APK; older ones get the ordinary push notification).
 - Without "Display over other apps": a locked phone still gets the full-screen screen (if the full-screen switch allows it), a phone in use gets a banner with Accept and Decline instead, and there is no bubble.
 - Accepting from the lock screen: Android asks to unlock before showing the call.
 - An older APK that receives this update behaves as before; the Me tab card says "Comes with the newest version of the app".
@@ -532,13 +532,176 @@ Two things, both while SYPH is **in the background but still running** (Home pre
 | 9 | End the call from either side | The bubble disappears |
 | 10 | Force-stop SYPH on B (Android Settings > Apps > SYPH > Force stop), A calls | Only the usual push notification (the known limit above) |
 
+### 1.16.1 Alerts that do not depend on SYPH being open (needs a new APK and a rules re-publish)
+
+Goal: a message tone, a buzz, a ringtone and the full-screen call screen behave the same whether SYPH is open, in the background or closed.
+
+| What | How it works |
+|---|---|
+| Message tone and buzz | Android plays a notification's sound itself, from its channel, and a channel's sound cannot be changed once created. So the new build creates 8 message channels (4 tones x with / without vibration, `messages_<tone>_<buzz or quiet>`). Your choices are saved on your account (`alerts` in your private settings and in `userPush/{uid}`), and the *sender's* phone puts the push on the channel that matches them. |
+| Ringing and full-screen call screen when SYPH is closed | A small native push handler (`SyphMessagingService` in `modules/syph-call-service`) sees the call push first. If SYPH is not running it posts the call notification on a channel that carries your ringtone, repeating until answered, declined, ended or 45 seconds; and opens the full-screen call screen (same one as 1.16). If SYPH is running it does nothing and the in-app ring is used, as before. Everything that is not a call push goes on to the normal handling untouched. |
+| Caller gives up | The caller's phone sends a silent "call ended" push; the closed phone stops ringing and closes the call screen. |
+| Accept from a closed app | Accept starts SYPH and the call connects once the app is up. |
+| Choices | Account-wide, not per phone: the last phone that changed them wins. The Me tab cards say so. |
+
+**Needs from you (in this order)**
+
+| # | Step | How | Cost |
+|---|------|-----|------|
+| 1 | Re-publish `firestore.rules` **first** | Adds `alerts` and `alertTokens` to `userPush`. Until it is published, the app falls back to the old mirror and everything works as before, but none of this does | Free |
+| 2 | Build a new APK | `eas build --profile preview --platform android`. New message-tone sounds in `app.json`, a new service in the native module and a new gradle dependency: this cannot ship as an update | Free tier |
+| 3 | Install it on both phones, open SYPH once | The phone registers as "able to ring while closed" and creates the channels. A phone that never opens the new build keeps getting the old pushes | Free |
+| 4 | Same permissions as 1.16 | "Display over other apps", and on Android 14+ full-screen call alerts | Free |
+
+No new key, no billing, no server. `server/` (the optional relay) was not changed: with it in use, only the old channels apply.
+
+**Limits**
+- A phone you force-stopped (Android Settings > Apps > SYPH > Force stop) receives nothing until SYPH is opened again. That is Android's rule for every app. Some makers (Xiaomi, Oppo, Vivo, Huawei) also kill closed apps; set SYPH to "Unrestricted" battery use and allow auto-start.
+- Declining from the call screen while SYPH is closed only dismisses it on that phone; the caller keeps ringing until the 30 second timeout (the app is not running to tell them). Group calls ring for 45 seconds and then stop by themselves.
+- A phone in Do Not Disturb or on silent follows its own rules, as for any app.
+- Old APKs keep working as before (old channels, ordinary call notification). Phones on the new APK get the new behaviour only after they have opened it once.
+- The Kotlin compiles against Android 34 stubs and a stand-in for the Expo classes, but has **never run on a device**. The first EAS build failed on the gradle line `implementation project(':expo-notifications')`: in SDK 57 Expo links expo-notifications as a prebuilt Maven package, so that project does not exist. `modules/syph-call-service/android/build.gradle` now takes whichever form Expo links (project or published package). Not yet confirmed by a successful build; the manifest priority over expo-notifications' own service is the next most likely thing to need a fix.
+
+**Test checklist (two phones, new APK on both, rules published)**
+
+| # | Do this | Expect |
+|---|---------|--------|
+| 1 | A: Me tab > Sounds & vibration > pick "Pop", vibration on. Swipe SYPH away. B messages A | Pop tone and a buzz, same as when SYPH is open |
+| 2 | A: pick "Silent". B messages A (SYPH closed) | The notification arrives with no sound |
+| 3 | A: vibration off. B messages A (SYPH closed) | Tone, no buzz |
+| 4 | A: ringtone "SYPH". Swipe SYPH away, lock the phone. B calls A | Screen lights up with the full-screen call, SYPH ringtone repeats |
+| 5 | A taps Accept | SYPH opens and the call connects |
+| 6 | Repeat 4, A taps Decline | The screen goes away; B keeps ringing until it times out |
+| 7 | Repeat 4, B hangs up first | The ring stops and the screen closes by itself within a few seconds |
+| 8 | A: ringtone "Phone". Repeat 4 | Phone's own ringtone |
+| 9 | Group call to A (SYPH closed) | Same, ends by itself after about 45 seconds if nobody joins |
+| 10 | Repeat 4 with SYPH open | The usual in-app ring only: no second ringtone, no duplicate notification |
+| 11 | Old APK on A, B calls | The ordinary push notification, as before |
+
+### 1.17 Animated emoji (JavaScript only, nothing to set up)
+
+An emoji-only message plays Google's animated Noto emoji, as Google Messages does. Free, no key, nothing to install. It needs the phone to be online the first time each emoji is shown (after that it is cached).
+
+| Where it comes from | Detail |
+|---------------------|--------|
+| Animation files | `https://fonts.gstatic.com/s/e/notoemoji/latest/<code points>/512.webp` (GIF as the fallback), Google's font CDN |
+| Which emoji have one | `https://googlefonts.github.io/noto-emoji-animation/data/api.json`, fetched once and kept for a week |
+| Licence | CC BY 4.0, credited at the bottom of the Me tab. Keep that line |
+
+**Not verified from the build environment** (it cannot reach either address), so the layout above comes from Google's published documentation and scripts. If an emoji does not animate, the app shows it big and still, so nothing breaks. To check one by hand, open this in a phone browser: `https://fonts.gstatic.com/s/e/notoemoji/latest/1f98d/512.webp` (the gorilla). It should move. If it shows an error, the address has changed and `NOTO_ANIMATION_BASE` in `src/utils/animatedEmoji.ts` is the one line to fix.
+
+| Test | Expect |
+|------|--------|
+| Send only 🦍 | A big gorilla that stands up and beats its chest, looping |
+| Send 😀 or ❤️ or 🔥 | The animated version of each |
+| Send 😀🎉🔥 | Three smaller animated emoji in one bubble |
+| Send 😀😀😀😀 (four) | Big still emoji with one bounce, no animation |
+| Send 👍🏽 (skin tone) | Big still emoji with one bounce |
+| Send "hi 😀" | Normal small text, no animation |
+| Send 🦍 in airplane mode the first time | Big still gorilla with one bounce, then animates once back online |
+| Turn on the phone's "remove animations" setting, send 🦍 | Still, no animation |
+| Long-press an animated emoji | The usual message menu opens |
+
+### 1.17.1 Long-press menu on the SYPH icon: your three recent chats (needs a new APK)
+
+Long-pressing the SYPH icon on the Android home screen or app drawer shows your **three most recent chats** (the other person's name for a 1-on-1 chat, the group's name for a group; an icon with their initial on your theme colour). Tap one to open that chat. It follows the signed-in account: it changes as chats get new messages, and it is emptied at sign-out, so the next person on the phone never sees your chats. With no chats it shows nothing. Holding an entry and dragging it out puts it on the home screen as its own icon (Android does this for every app).
+
+This replaces the first version of the menu (fixed entries New chat / Chats / Me), whose taps did nothing on a phone. Most likely cause: Android opens a fixed ("static") shortcut with intent flags that include "clear the app's task", which restarts SYPH's screen and loses the link, and a fixed shortcut cannot change those flags. The new entries are built from code, with their own flags, so a running SYPH just receives the link and a closed one starts with it. Not confirmed on a phone: if a tap still does nothing, tell me whether SYPH opens at all and on which screen.
+
+**Needs from you:** build a new APK (`eas build --profile preview --platform android`). Native code, so an `eas update` cannot add it. No key, no Firestore rules, no billing, no new package. Open SYPH once after installing; the menu fills as soon as your chats have loaded.
+
+**How it works (for whoever changes it):** `components/ChatShortcutsBridge.tsx` (mounted in the root layout) takes the newest three conversations of the signed-in user from `useConversations`, builds the entries with `utils/shortcuts.ts` and hands them, as JSON, to `services/chatShortcuts.ts`, which calls the native module `modules/syph-call-service` (`ChatShortcuts.kt`: Android `ShortcutManager.setDynamicShortcuts`; it is in that module only because it is SYPH's one native module). Entries open `syph://shortcut/chat?id=<conversation id>`; `src/app/shortcut/[action].tsx` waits for sign-in, then shows the chat list with the chat on top. It updates 0.6 s after a change, again each time SYPH comes to the front (Android can drop entries when the app icon is switched, and refuses updates made while SYPH is in the background), and is cleared when the signed-in user becomes none. The old fixed-menu plugin (`plugins/withAppShortcuts.js`, `assets/shortcuts`) was removed; the route still understands its `new-chat` / `chats` / `me` links, in case an older build is still installed.
+
+**Limits**
+- Android 7.1 and newer only. Older phones just show no menu. iOS is not built (needs a paid Apple developer account).
+- Chat names show in the menu on the home screen. The chats are the same list as the Chats tab: chats you deleted are not in it, muted chats are.
+- The launcher draws the menu: its icon shape follows the phone's launcher, and a few makers' launchers show fewer entries.
+- It updates while SYPH is running. A chat that gets a message while SYPH is fully closed moves up the next time SYPH opens.
+- Checked: unit tests for the ordering, names, labels, links and sign-out clearing; the Kotlin compiles against Android 34 stubs and a stand-in for the Expo classes. **Not run on a phone.**
+
+**Test checklist (new APK, signed in, at least 3 chats)**
+
+| # | Do this | Expect |
+|---|---------|--------|
+| 1 | Open SYPH, wait a few seconds, press Home, long-press the icon | Your 3 newest chats, newest first, each with an initial |
+| 2 | Tap one with SYPH closed (swipe it away first) | SYPH starts and opens that chat; Back goes to the chat list |
+| 3 | Open a different chat, press Home, long-press the icon, tap another chat | That chat opens (not the old one); Back goes to the chat list |
+| 4 | Have someone message your 4th chat, then reopen SYPH and long-press the icon | That chat is now in the menu |
+| 5 | On a live call, press Home, long-press the icon, tap a chat | The chat opens; the call bubble and call keep running |
+| 6 | Me tab > pick another app icon, long-press the new icon | Same menu |
+| 7 | Sign out, press Home, long-press the icon | No chat entries |
+| 8 | Sign in as someone else | Only their chats |
+
+### 1.18 Read receipts: hollow bubble, avatar queue, "Read by" (JavaScript only, nothing to set up)
+
+Implements the design in `DOC-20261107-WA0000`. No new rules to publish: the existing rule already lets a member change their own `readState` entry, and the read log lives inside it. No new package, so `eas update --channel preview` is enough.
+
+| State of a message you sent | Bubble | Shown with it |
+|-----------------------------|--------|---------------|
+| Sending (offline or not yet confirmed) | Filled | Clock |
+| Sent | Filled | One tick |
+| Delivered (every member's phone has it) | Filled | Two faint ticks |
+| Some of a group have seen it | Filled | Avatar queue only (up to 3, then "+N"), no ticks. Shown **only under the newest message you sent**; when you send another, it fades off the older one |
+| 1-to-1: read. Group: everyone has seen it | **Hollow** (2 px accent outline, same readable text, no dashes) | Nothing |
+| Server refused it (text messages) | Filled | Red alert beside it; tap for Try again or Delete |
+
+Notes:
+- The avatar queue is only on your newest sent message (one still sending, one that failed and one deleted for everyone do not count). Older messages that only some have seen show no queue, so their "Read by" list is not reachable.
+- The hollow bubble keeps the theme's text colour so it reads on the chat background; the fill fades out over 0.25 s when the last person sees it.
+- "Read by" lists only people who have seen it, newest first, each with their username (and display name under it when set) and the time they read it. Today shows the time; earlier days add the day.
+- Read times come from each person's last 20 reads (`conversations/{id}.readState.<uid>.log`: `{ at, upTo }` in milliseconds). A message older than that log, or read before this update, shows that person's latest read time instead.
+- A member who joined after a message was sent counts as not having seen it until they open the chat.
+- There is no setting to turn read receipts off for a person, so nobody is left out of the list.
+
+| Test (needs a group of at least three, and a second phone for each) | Expect |
+|------|--------|
+| Send in a 1-to-1 chat with the other phone off | Clock, then one tick when it reaches the server |
+| Other phone comes online (app open, chat closed) | Two faint ticks |
+| Other person opens the chat | The bubble fades to hollow, ticks gone |
+| Send in a group; phone A opens the chat | Ticks replaced by A's avatar under the bubble |
+| Phone B opens the chat | A and B overlap; tap them: "Read by" lists both with times, newest first |
+| Phone C opens the chat (last one) | Avatars shrink away and the bubble goes hollow |
+| In "Read by": tap X, tap outside, drag down | Each closes it |
+| Add a fourth reader, then a fifth | Three avatars and then "+1", "+2" |
+| Have another phone remove you from a group while this phone still has the chat open, then send a text | Red alert beside the bubble (the server refuses non-members); tap it for Try again / Delete |
+| Light theme (Monochrome), dark theme (Cyber) | Outline and text readable on the background in both |
+
+### 1.19 Faster GIF picker (JavaScript only, nothing to set up)
+
+The picker used to ask Giphy for trending only after you opened it, then download 30 full-size GIFs at once. Now:
+
+| What | How it helps |
+|------|--------------|
+| Trending is loaded when a chat opens, and the first 8 pictures are downloaded to the phone | The picker opens with GIFs already on screen. Done at most once every 10 minutes, however many chats you open |
+| Searches are remembered for 10 minutes (last 30 searches) | A search you did before shows instantly; an older one shows at once and refreshes quietly |
+| Smaller files: the 200 px wide WebP from Giphy (GIF only when Giphy has no WebP) | Smaller than the GIF (Giphy lists the size of each file), and still animated on both phones |
+| A tiny still of the first frame shows while the animation downloads | The grid fills in at once instead of showing blank boxes |
+| The GIF you send is the same file the picker showed | It is already on the phone, so your bubble appears without waiting |
+| Lighter grid (renders a few rows at a time) and one request when the same search is asked twice | Smoother scrolling, fewer Giphy calls |
+
+Notes:
+- No new package and no rules change: `eas update --channel preview` is enough. `expo-image` was already in the app.
+- A Giphy beta key allows **100 requests an hour**. The remembered results keep normal use far under that. If Giphy ever answers "busy" the picker says so and works again a few minutes later.
+- Costs a little mobile data when a chat opens (about 8 small GIFs, once every 10 minutes at most). To change it, edit `PRELOAD_COUNT` or `GIF_CACHE_TTL_MS` in `src/utils/gifs.ts`.
+- New GIF messages are stored as WebP links (`mimeType` `image/webp`). Old GIF messages, and phones that have not updated yet, show them fine.
+- Without a Giphy key nothing changes: the picker still says "GIF search is not set up", and no requests are made.
+
+| Test | Expect |
+|------|--------|
+| Open a chat, wait 2 seconds, tap GIF | The grid is already full and animating |
+| Close the picker, open it again | Same GIFs at once, no spinner |
+| Search "cat", clear it, search "cat" again | The second time is instant |
+| Open the picker with mobile data off, then turn it on, close and reopen the picker | The picker shows an error first, then GIFs once online |
+| Pick a GIF | The bubble appears already animating |
+| Another phone on the old build receives it | The GIF shows and animates |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
 |------|---------|
 | `users/{uid}` | Public profile: `username`, `usernameLowercase`, `displayName` (optional), `theme`. Old `profileImageUrl` / `status` fields may still exist on accounts and are ignored |
 | `users/{uid}/private/settings` | Owner-only: `mutedChats[]`, `notificationsEnabled`, `expoPushTokens[]` |
-| `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `groupActivity` (latest rename / removal / leave, read by the push relay), `hiddenBy[]`, `readState{uid:{deliveredAt,readAt}}`, `unread{uid:n}` |
+| `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `groupActivity` (latest rename / removal / leave, read by the push relay), `hiddenBy[]`, `readState{uid:{deliveredAt,readAt,log[{at,upTo}]}}`, `unread{uid:n}` |
 | `usernames/{lowercase name}` | Claim registry: `uid`, `createdAt`. One document per name, create-once, so two accounts cannot take the same name. Readable one at a time, never listed |
 | `appConfig/latest` | Newest APK for the Update button: `latestBuild` (number), `apkUrl` (https), `notes`. Signed-in users read it, nobody writes it from the app; you edit it in the Console (1.12) |
 | `pushTokens/{token}` | Which account is signed in on a device (`uid`, `platform`, `updatedAt`). A sender checks it before using a token; readable one at a time, never listed |
@@ -604,3 +767,24 @@ Phone test (about 3 minutes):
 | 13 | Play a video whose owner turned embedding off (many music videos) | The pop-up says the owner does not allow it, with "Open in YouTube". If it says "YouTube would not start the player here" for a normal video, tell me: that is the referrer problem |
 
 Not built: in-app reels (SYPH has no reels feature), Instagram and other site previews (other sites need a server to read their pages; Instagram was parked), a card for every link in a message.
+
+## 5. Sharp-cornered look (Nov 8)
+
+Every rounded shape in the app is now square. Avatars, message bubbles, text fields, every button (Me tab, Add tab, sheets, call screens), chips, badges, cards, pop-ups, toasts, dots and GIF corners have sharp corners. The code has no corner radius left in `src/` (a search for `Radius` finds only shadow blur settings).
+
+| Part | How it reaches phones |
+|------|-----------------------|
+| All app screens (JavaScript) | `eas update --channel preview`. No new APK |
+| The full-screen incoming call over other apps, and the floating "return to call" bubble (native Kotlin in `modules/syph-call-service`) | Square only after a **new APK** (`eas build --profile preview --platform android`). On an old APK they stay round; nothing breaks |
+
+Not drawn by SYPH, so Android decides the shape: the system notification, the permission pop-ups, the on/off switches, the keyboard. The blue position dot on the location map comes from the map library and stays round.
+
+Rule for new screens: no `borderRadius`. Use a border or a fill colour to mark a shape.
+
+| Test | Expect |
+|------|--------|
+| Chat list, chat, Me tab, Add tab | Square avatars, square fields and buttons everywhere |
+| Send a message and receive one | Both bubbles are plain rectangles, no tail corner |
+| Open the GIF picker, a link preview, the action sheet, the Read by sheet | Square corners, nothing clipped or cut |
+| Call screens | Square buttons and avatar |
+| New APK: ring a phone with SYPH closed | Square buttons and avatar on the incoming call screen; the bubble over other apps is square |

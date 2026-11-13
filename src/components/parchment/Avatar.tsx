@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Image, StyleProp, View, ViewStyle } from 'react-native';
-import { useTheme } from '../../hooks/themeContext';
+import { useTheme } from '../../theme/mapTheme';
 import { initialOf, mixColors, pick } from '../../theme/parchment';
 import { paperShadow } from './platform';
 import { Text } from './Text';

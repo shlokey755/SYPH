@@ -12,7 +12,7 @@
 
 import React from 'react';
 import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import { useTheme } from '../../hooks/themeContext';
+import { useTheme } from '../../theme/mapTheme';
 import { ThemeColors } from '../../theme/colors';
 import { Lift, mixColors, tilt, withAlpha } from '../../theme/parchment';
 import { ART } from './art';

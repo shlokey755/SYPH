@@ -15,8 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../../components/parchment';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AddPeopleSheet } from '../../components/call/AddPeopleSheet';
 import { ControlButton } from '../../components/call/ControlButton';
@@ -374,19 +373,17 @@ const styles = StyleSheet.create({
   avatar: {
     width: 112,
     height: 112,
-    borderRadius: 56,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Small muted-microphone badge on the lower edge of the profile circle.
+  // Small muted-microphone badge on the lower edge of the profile picture.
   avatarBadge: {
     position: 'absolute',
     right: 0,
     bottom: 0,
     width: 34,
     height: 34,
-    borderRadius: 17,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -397,7 +394,6 @@ const styles = StyleSheet.create({
     left: 16,
     width: 34,
     height: 34,
-    borderRadius: 17,
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -412,7 +408,6 @@ const styles = StyleSheet.create({
     right: 16,
     width: 108,
     height: 152,
-    borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -429,10 +424,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   // Five buttons (mute, speaker, camera, switch camera, hang up) must fit a 360dp-wide screen: 5 x 56 + 4 x 10 = 320.
-  round: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  round: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
   // The phone glyph points up-right; turned over it reads as "hang up".
   hangUpIcon: { transform: [{ rotate: '135deg' }] },
-  pill: { paddingHorizontal: 36, paddingVertical: 14, borderRadius: 28 },
+  pill: { paddingHorizontal: 36, paddingVertical: 14 },
   pillText: { fontSize: 16, fontWeight: '600' },
   addPill: {
     flexDirection: 'row',
@@ -442,7 +437,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: 8,
     borderWidth: 1,
-    borderRadius: 20,
   },
   addText: { fontSize: 14, fontWeight: '600' },
   cameraOffRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },

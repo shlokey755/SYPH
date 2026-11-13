@@ -6,8 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../parchment';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Message } from '../../types';
 import { bubbleStatus, pinPosition } from '../../utils/location';
 
@@ -63,7 +62,7 @@ export function LocationBubble({ message, textColor, onOpen, onLongPress }: Prop
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 200 },
-  icon: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  icon: { width: 40, height: 40, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   texts: { flexShrink: 1, gap: 2 },
   title: { fontSize: 15, fontWeight: '600' },
   hint: { fontSize: 12, opacity: 0.8 },

@@ -12,7 +12,8 @@ import { isRunningInExpoGo } from 'expo';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { CALLS_CHANNEL_ID, MESSAGES_CHANNEL_ID } from '../utils/push';
+import { CALLS_CHANNEL_ID, MESSAGES_CHANNEL_ID, MESSAGE_CHANNEL_SPECS } from '../utils/push';
+import { supportsClosedAlerts } from './callOverlay';
 import { addPushToken, removePushToken } from './userService';
 
 type NotificationsModule = typeof import('expo-notifications');
@@ -80,11 +81,13 @@ async function ensurePermission(Notifications: NotificationsModule): Promise<boo
  */
 export async function registerForPush(
   uid: string,
-  knownTokens: readonly string[] = []
+  knownTokens: readonly string[] = [],
+  knownClosedAlertTokens: readonly string[] = []
 ): Promise<PushRegistration> {
   const Notifications = getNotifications();
   if (!Notifications) return { status: 'unsupported' };
 
+  const closedAlerts = Platform.OS === 'android' && supportsClosedAlerts();
   try {
     // Android 13+ only shows the permission prompt once a channel exists.
     if (Platform.OS === 'android') {
@@ -99,6 +102,20 @@ export async function registerForPush(
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 600, 300, 600, 300, 600],
       });
+      // A build that can show the person's alert choices while SYPH is closed (the native push handler is in it) also has one
+      // message channel per tone and vibration choice. The sender's phone picks the channel that matches the recipient's
+      // choice (utils/push.ts), and Android plays that channel's sound, with SYPH open or not.
+      if (closedAlerts) {
+        for (const spec of MESSAGE_CHANNEL_SPECS) {
+          await Notifications.setNotificationChannelAsync(spec.id, {
+            name: spec.name,
+            importance: Notifications.AndroidImportance.HIGH,
+            sound: spec.sound,
+            enableVibrate: spec.vibrate,
+            vibrationPattern: spec.vibrate ? [0, 200, 100, 200] : undefined,
+          });
+        }
+      }
     }
 
     if (!(await ensurePermission(Notifications))) return { status: 'denied' };
@@ -108,7 +125,10 @@ export async function registerForPush(
 
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
     registeredToken = token;
-    if (!knownTokens.includes(token)) await addPushToken(uid, token, Platform.OS);
+    // Written when the device is new, or when it newly says it can show closed-app alerts (a build that was just updated).
+    if (!knownTokens.includes(token) || (closedAlerts && !knownClosedAlertTokens.includes(token))) {
+      await addPushToken(uid, token, Platform.OS, closedAlerts);
+    }
     return { status: 'registered', token };
   } catch (error) {
     return { status: 'error', message: error instanceof Error ? error.message : String(error) };

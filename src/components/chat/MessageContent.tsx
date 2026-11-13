@@ -8,8 +8,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Text } from '../parchment';
+import { StyleSheet, Text, View } from 'react-native';
 import { Message, MessageMedia } from '../../types';
 import { emojiOnly } from '../../utils/emoji';
 import { isLegacyMediaType, legacyMediaLabel } from '../../utils/messageType';
@@ -53,7 +52,7 @@ export function MessageContent({ message, textColor, onOpenLocation, onLongPress
       return (
         <Image
           source={{ uri: media.url }}
-          style={{ width: MEDIA_WIDTH, height: gifHeight(media), borderRadius: 12 }}
+          style={{ width: MEDIA_WIDTH, height: gifHeight(media) }}
           contentFit="cover"
           transition={150}
         />
@@ -66,7 +65,7 @@ export function MessageContent({ message, textColor, onOpenLocation, onLongPress
 }
 
 const styles = StyleSheet.create({
-  text: { fontSize: 18, lineHeight: 23 },
+  text: { fontSize: 15, lineHeight: 20 },
   legacy: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legacyText: { fontStyle: 'italic', opacity: 0.8 },
 });

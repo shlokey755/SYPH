@@ -7,8 +7,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../parchment';
+import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
 import { LiveShare, PositionFailure, readCurrentPosition } from '../../services/liveLocationManager';
@@ -243,24 +242,24 @@ function Sheet({
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, padding: 16, gap: 12 },
+  sheet: { borderWidth: 1, padding: 16, gap: 12 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 18, fontWeight: '700' },
-  map: { height: 170, borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  map: { height: 170, borderWidth: 1, overflow: 'hidden' },
   web: { flex: 1, backgroundColor: 'transparent' },
   mapMessage: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16 },
-  smallButton: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6, marginTop: 2 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, padding: 12 },
-  rowIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  smallButton: { borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6, marginTop: 2 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, padding: 12 },
+  rowIcon: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   rowText: { flex: 1, gap: 2 },
   rowTitle: { fontSize: 16, fontWeight: '600' },
   rowSub: { fontSize: 12 },
-  liveBox: { borderWidth: 1, borderRadius: 14, padding: 12, gap: 10 },
+  liveBox: { borderWidth: 1, padding: 12, gap: 10 },
   liveHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   chips: { flexDirection: 'row', gap: 10 },
-  chip: { flex: 1, borderWidth: 1.5, borderRadius: 20, paddingVertical: 9, alignItems: 'center' },
+  chip: { flex: 1, borderWidth: 1.5, paddingVertical: 9, alignItems: 'center' },
   chipText: { fontSize: 14, fontWeight: '700' },
-  stop: { borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  stop: { paddingVertical: 12, alignItems: 'center' },
   stopText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
   bgRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   bgText: { flex: 1, fontSize: 12, lineHeight: 17 },

@@ -2,7 +2,24 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { vintage } from '../../src/theme/colors.ts';
 import { mixColors } from '../../src/theme/parchment.ts';
-import { contrastRatio, parseHex } from '../../src/utils/bubbleColors.ts';
+import { parseHex } from '../../src/utils/color.ts';
+
+/** WCAG relative luminance of a #rrggbb colour. */
+function luminance(hex: string): number {
+  const rgb = parseHex(hex);
+  if (!rgb) throw new Error(`not a hex colour: ${hex}`);
+  const [r, g, b] = rgb.map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG contrast ratio of two colours, 1 to 21. */
+function contrastRatio(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
 
 const HEX_TOKENS = [
   'background',

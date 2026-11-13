@@ -1,23 +1,25 @@
 /**
  * DateSeparator.tsx
- * The day label of a chat: "Today", "Yesterday", "Saturday, 31 Oct", drawn as a ribbon pinned across the page.
- * `DayChip` is the ribbon itself; it is used above the first message of each day (`DateSeparator`) and as the floating
- * label that follows you while you scroll.
+ * The day label of a chat: "Today", "Yesterday", "Saturday, 31 Oct". `DayChip` is the small label itself, a squared-off box
+ * (sharp corners, like every shape in the app) in the same small capitals as the section titles on the Me tab; it is used
+ * above the first message of each day (`DateSeparator`) and as the floating label that follows you while you scroll.
  */
 
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { ThemeColors } from '../../hooks/themeContext';
-import { Banner } from '../parchment';
 
-// `colors` is still passed by the callers; the ribbon takes its colours from the theme itself.
-export function DayChip({ label }: { label: string; colors?: ThemeColors }) {
-  return <Banner tone="paper">{label}</Banner>;
+export function DayChip({ label, colors }: { label: string; colors: ThemeColors }) {
+  return (
+    <View style={[styles.chip, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+      <Text style={[styles.label, { color: colors.subText }]}>{label.toUpperCase()}</Text>
+    </View>
+  );
 }
 
-export function DateSeparator({ label, colors }: { label: string; colors?: ThemeColors }) {
+export function DateSeparator({ label, colors }: { label: string; colors: ThemeColors }) {
   return (
-    <View style={styles.row}>
+    <View style={styles.row} accessibilityRole="header">
       <DayChip label={label} colors={colors} />
     </View>
   );
@@ -25,4 +27,7 @@ export function DateSeparator({ label, colors }: { label: string; colors?: Theme
 
 const styles = StyleSheet.create({
   row: { alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
+  // Sharp corners, like every other shape in the app.
+  chip: { borderWidth: 1, paddingHorizontal: 12, paddingVertical: 5 },
+  label: { fontSize: 11, fontWeight: '700', letterSpacing: 0.8 },
 });

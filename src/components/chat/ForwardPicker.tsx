@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
-import { IS_WEB, PageTexture, DIALOG_FRAME, Text } from '../parchment';
+import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../hooks/themeContext';
 import { useProfiles } from '../../hooks/useProfiles';
@@ -26,15 +25,8 @@ export function ForwardPicker({ visible, conversations, myUid, colors, onPick, o
   const { nameOf } = useProfiles(otherUids);
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={IS_WEB} onRequestClose={onClose}>
-      <>
-      {IS_WEB ? (
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(51, 38, 27, 0.55)' }]} />
-      ) : null}
-      <View
-        style={[styles.container, IS_WEB ? DIALOG_FRAME : null, { backgroundColor: colors.background, paddingTop: insets.top }]}
-      >
-        <PageTexture variant="plain" force />
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Pressable onPress={onClose} hitSlop={10}>
             <Ionicons name="close" size={26} color={colors.text} />
@@ -74,7 +66,6 @@ export function ForwardPicker({ visible, conversations, myUid, colors, onPick, o
           }}
         />
       </View>
-    </>
     </Modal>
   );
 }
@@ -84,7 +75,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, borderBottomWidth: 1 },
   title: { fontSize: 18, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontWeight: '700', fontSize: 16 },
   name: { flex: 1, fontSize: 16 },
   empty: { textAlign: 'center', marginTop: 40 },

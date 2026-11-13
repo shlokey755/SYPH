@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { dayHeaders, dayLabel, dayLabelsEach, floatingDayLabel } from '../../src/utils/dateLabels.ts';
+import { dayHeaders, dayLabel, dayLabelsEach, floatingDayLabel, timeWithDay } from '../../src/utils/dateLabels.ts';
 
 // Wednesday 4 November 2026, 3 pm, in whatever time zone the test runs in (dates are built from local parts).
 const NOW = new Date(2026, 10, 4, 15, 0).getTime();
@@ -98,5 +98,21 @@ describe('floating day chip', () => {
 
   it('ignores indexes that are not in the list', () => {
     assert.equal(floatingDayLabel([1, 99, -1, NaN], labels), 'Today');
+  });
+});
+
+describe('time with the day', () => {
+  const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  it('is just the time for today', () => {
+    const ms = at(2026, 11, 4, 9);
+    assert.equal(timeWithDay(ms, NOW), clock(ms));
+  });
+
+  it('adds the day for earlier days', () => {
+    const yesterday = at(2026, 11, 3, 21);
+    assert.equal(timeWithDay(yesterday, NOW), `Yesterday, ${clock(yesterday)}`);
+    const older = at(2026, 10, 31, 8);
+    assert.equal(timeWithDay(older, NOW), `Saturday, 31 Oct, ${clock(older)}`);
   });
 });

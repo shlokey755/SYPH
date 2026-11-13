@@ -20,8 +20,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
-import { NATIVE_DRIVER, Paper, POINTER, Text } from '../components/parchment';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from './themeContext';
 
@@ -124,9 +123,7 @@ function ToastHost({
   return (
     <View pointerEvents="box-none" style={[styles.host, { top: insets.top + 8 }]}>
       {toasts.map((t) => (
-        <View key={t.id} style={styles.slot}>
-          <ToastView toast={t} onDismiss={onDismiss} />
-        </View>
+        <ToastView key={t.id} toast={t} onDismiss={onDismiss} />
       ))}
     </View>
   );
@@ -137,7 +134,7 @@ function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: str
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(anim, { toValue: 1, duration: 220, useNativeDriver: NATIVE_DRIVER }).start();
+    Animated.timing(anim, { toValue: 1, duration: 220, useNativeDriver: true }).start();
   }, [anim]);
 
   const duration =
@@ -159,37 +156,41 @@ function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: str
         transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
       }}
     >
-      {/* A note pinned to the top of the map; a failure gets a blob of red wax on it. */}
-      <Paper trail lift={2} seed={toast.id} maxTilt={0.6} pin={toast.type === 'error' ? 'seal' : 'none'}>
-        <Pressable
-          accessibilityRole="alert"
-          onPress={() => {
-            toast.onPress?.();
-            onDismiss(toast.id);
-          }}
-          style={[styles.toast, POINTER]}
-        >
-          <Ionicons name={ICONS[toast.type]} size={24} color={color} />
-          <View style={styles.body}>
-            <Text kind="label" style={[styles.title, { color: themeColors.ink }]} numberOfLines={1}>
-              {toast.title}
+      <Pressable
+        accessibilityRole="alert"
+        onPress={() => {
+          toast.onPress?.();
+          onDismiss(toast.id);
+        }}
+        style={[
+          styles.toast,
+          {
+            backgroundColor: themeColors.cardBackground,
+            borderColor: themeColors.border,
+            borderLeftColor: color,
+          },
+        ]}
+      >
+        <Ionicons name={ICONS[toast.type]} size={22} color={color} />
+        <View style={styles.body}>
+          <Text style={[styles.title, { color: themeColors.text }]} numberOfLines={1}>
+            {toast.title}
+          </Text>
+          {toast.message ? (
+            <Text style={[styles.message, { color: themeColors.subText }]} numberOfLines={2}>
+              {toast.message}
             </Text>
-            {toast.message ? (
-              <Text style={[styles.message, { color: themeColors.inkSoft }]} numberOfLines={2}>
-                {toast.message}
-              </Text>
-            ) : null}
-            {toast.type === 'progress' ? (
-              <View style={[styles.track, { backgroundColor: themeColors.paperAlt }]}>
-                <View style={[styles.fill, { backgroundColor: color, width: `${pct * 100}%` }]} />
-              </View>
-            ) : null}
-          </View>
-          <Pressable onPress={() => onDismiss(toast.id)} hitSlop={10} style={POINTER} accessibilityLabel="Dismiss">
-            <Ionicons name="close" size={18} color={themeColors.inkSoft} />
-          </Pressable>
+          ) : null}
+          {toast.type === 'progress' ? (
+            <View style={[styles.track, { backgroundColor: themeColors.border }]}>
+              <View style={[styles.fill, { backgroundColor: color, width: `${pct * 100}%` }]} />
+            </View>
+          ) : null}
+        </View>
+        <Pressable onPress={() => onDismiss(toast.id)} hitSlop={10}>
+          <Ionicons name="close" size={18} color={themeColors.subText} />
         </Pressable>
-      </Paper>
+      </Pressable>
     </Animated.View>
   );
 }
@@ -203,14 +204,18 @@ const styles = StyleSheet.create({
     elevation: 9999,
     paddingHorizontal: 12,
     gap: 8,
-    alignItems: 'center',
   },
-  // On a wide window a toast is a note, not a banner across the whole window.
-  slot: { width: '100%', maxWidth: 440 },
-  toast: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 15, paddingHorizontal: 18 },
+  toast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+  },
   body: { flex: 1 },
-  title: { fontSize: 16, lineHeight: 19, letterSpacing: 0.5 },
-  message: { fontSize: 16, lineHeight: 19, marginTop: 2 },
-  track: { height: 5, borderRadius: 3, marginTop: 8, overflow: 'hidden' },
-  fill: { height: 5, borderRadius: 3 },
+  title: { fontSize: 14, fontWeight: '600' },
+  message: { fontSize: 12, marginTop: 2 },
+  track: { height: 4, marginTop: 8, overflow: 'hidden' },
+  fill: { height: 4 },
 });

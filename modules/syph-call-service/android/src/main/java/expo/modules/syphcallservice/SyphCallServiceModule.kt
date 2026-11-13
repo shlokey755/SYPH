@@ -24,6 +24,10 @@ import expo.modules.kotlin.modules.ModuleDefinition
  *   hideBubble()                                 remove it
  *   canDrawOverApps(), openOverlaySettings()     the "Display over other apps" permission and its settings page
  *   canUseFullScreen(), openFullScreenSettings() the full-screen call alert permission (Android 14+) and its page
+ *
+ * Long-press menu on the SYPH icon (the module holds it because it is SYPH's one native Android module):
+ *   setChatShortcuts(json)                       replace the menu with the person's recent chats (see ChatShortcuts.kt)
+ *   clearChatShortcuts()                         empty the menu (sign-out)
  */
 class SyphCallServiceModule : Module() {
   override fun definition() = ModuleDefinition {
@@ -69,6 +73,21 @@ class SyphCallServiceModule : Module() {
       val context = appContext.reactContext ?: return@Function false
       IncomingCallNotifier.hide(context)
       true
+    }
+
+    // True in a build that has the native push handler: it can ring and show the call screen while SYPH is closed.
+    Function("supportsClosedAlerts") {
+      true
+    }
+
+    Function("setChatShortcuts") { json: String ->
+      val context = appContext.reactContext ?: return@Function false
+      ChatShortcuts.publish(context, json)
+    }
+
+    Function("clearChatShortcuts") {
+      val context = appContext.reactContext ?: return@Function false
+      ChatShortcuts.clear(context)
     }
 
     Function("consumeIncomingAction") {

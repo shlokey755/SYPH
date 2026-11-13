@@ -25,7 +25,7 @@ import {
   TextInput,
   TrailLine,
 } from '../parchment';
-import { useTheme } from '../../hooks/themeContext';
+import { useTheme } from '../../theme/mapTheme';
 import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';

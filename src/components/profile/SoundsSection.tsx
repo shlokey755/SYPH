@@ -3,18 +3,19 @@
  * "Sounds & vibration" in the Me tab: vibration on or off, touch feedback on or off, the ringtone for incoming calls and the
  * tone for new messages. Choosing a ringtone or tone plays it once, so it can be heard before it is kept.
  *
- * The choices live on this phone (services/alertPrefsStore.ts) and apply while SYPH is open. While SYPH is closed Android
- * plays the alerts itself, from the phone's own notification settings for SYPH.
+ * The choices live on this phone (services/alertPrefsStore.ts) and apply while SYPH is open. A build that can show them while
+ * SYPH is closed (supportsClosedAlerts) also copies them to the account, so the notification that wakes the phone uses the
+ * same tone, ringtone and vibration; an older build lets Android play its own notification sound then.
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
-import { Text } from '../parchment';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useTheme } from '../../hooks/themeContext';
 import { buzz, hasBundledSounds, playTone } from '../../services/alertSounds';
 import { setAlertPrefs, useAlertPrefs } from '../../services/alertPrefsStore';
 import { getActiveCall } from '../../services/activeCallStore';
+import { supportsClosedAlerts } from '../../services/callOverlay';
 import { startRinging, stopRinging } from '../../services/callAudio';
 import {
   MESSAGE_BUZZ_PATTERN,
@@ -60,8 +61,8 @@ export function SoundsSection() {
 
   return (
     <View style={styles.section}>
-      <Text kind="label" style={[styles.title, { color: themeColors.stamp }]}>Sounds & vibration</Text>
-      <View style={[styles.card, { backgroundColor: themeColors.paper, borderColor: themeColors.trail }]}>
+      <Text style={[styles.title, { color: themeColors.subText }]}>Sounds & vibration</Text>
+      <View style={[styles.card, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.border }]}>
         <View style={row}>
           <View style={styles.grow}>
             <Text style={[styles.label, { color: themeColors.text }]}>Vibration</Text>
@@ -73,8 +74,7 @@ export function SoundsSection() {
               setAlertPrefs({ vibrate });
               if (vibrate) buzz([...MESSAGE_BUZZ_PATTERN]);
             }}
-            trackColor={{ true: themeColors.accent, false: themeColors.paperAlt }}
-            thumbColor={themeColors.paper}
+            trackColor={{ true: themeColors.accent, false: themeColors.border }}
           />
         </View>
 
@@ -91,8 +91,7 @@ export function SoundsSection() {
               setAlertPrefs({ touchFeedback });
               if (touchFeedback) buzz(TOUCH_TICK_MS);
             }}
-            trackColor={{ true: themeColors.accent, false: themeColors.paperAlt }}
-            thumbColor={themeColors.paper}
+            trackColor={{ true: themeColors.accent, false: themeColors.border }}
           />
         </View>
 
@@ -141,8 +140,9 @@ export function SoundsSection() {
             </Text>
           )}
           <Text style={[styles.hint, { color: themeColors.subText }]}>
-            These apply while SYPH is open. While it is closed, Android plays the alerts itself: change them under the phone's
-            notification settings for SYPH.
+            {supportsClosedAlerts()
+              ? 'These apply whether SYPH is open or closed. Other people\'s phones send the notification with your tone, so a message sounds the same either way.'
+              : 'These apply while SYPH is open. While it is closed, Android plays the alerts itself: change them under the phone\'s notification settings for SYPH. The newest version of the app makes them apply then too.'}
           </Text>
         </View>
       </View>
@@ -152,8 +152,8 @@ export function SoundsSection() {
 
 const styles = StyleSheet.create({
   section: { paddingHorizontal: 15, marginBottom: 25 },
-  title: { fontSize: 17, letterSpacing: 1, marginBottom: 10 },
-  card: { borderRadius: 4, borderWidth: 1.5, borderStyle: 'dashed', overflow: 'hidden' },
+  title: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase' },
+  card: { borderWidth: 1, overflow: 'hidden' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -164,8 +164,8 @@ const styles = StyleSheet.create({
   group: { padding: 14, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   last: { borderBottomWidth: 0 },
   grow: { flex: 1 },
-  label: { fontSize: 18, fontWeight: '600' },
-  optionLabel: { fontSize: 17 },
+  label: { fontSize: 16, fontWeight: '600' },
+  optionLabel: { fontSize: 15 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
-  hint: { fontSize: 15 },
+  hint: { fontSize: 12 },
 });

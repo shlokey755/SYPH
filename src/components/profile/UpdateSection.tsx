@@ -5,8 +5,7 @@
  */
 
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { MapButton, Text } from '../parchment';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../../hooks/themeContext';
 import { useAppUpdate } from '../../hooks/useAppUpdate';
 import { isActionable } from '../../utils/appUpdate';
@@ -59,8 +58,8 @@ export function UpdateSection() {
 
   return (
     <View style={styles.section}>
-      <Text kind="label" style={[styles.title, { color: themeColors.stamp }]}>App update</Text>
-      <View style={[styles.card, { backgroundColor: themeColors.paper, borderColor: themeColors.trail }]}>
+      <Text style={[styles.title, { color: themeColors.subText }]}>App update</Text>
+      <View style={[styles.card, { backgroundColor: themeColors.cardBackground, borderColor: themeColors.border }]}>
         <Text style={[styles.version, { color: themeColors.text }]}>
           Version {update.installedVersion ?? 'unknown'}
           {update.runningUpdate ? ` · update ${update.runningUpdate}` : ''}
@@ -68,17 +67,29 @@ export function UpdateSection() {
         {status && <Text style={[styles.hint, { color: themeColors.subText }]}>{status}</Text>}
         {update.actionError && <Text style={[styles.hint, { color: themeColors.danger }]}>{update.actionError}</Text>}
 
-        <MapButton
-          title={label}
+        <Pressable
           onPress={update.apply}
           disabled={!actionable}
-          loading={update.busy || kind === 'checking' || kind === 'downloading'}
-          variant={actionable ? 'plank' : 'ghost'}
-        />
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !actionable, busy: update.busy || kind === 'downloading' }}
+          style={[
+            styles.button,
+            actionable
+              ? { backgroundColor: themeColors.accent }
+              : { backgroundColor: themeColors.inputBg, borderColor: themeColors.border, borderWidth: 1 },
+          ]}
+        >
+          {(update.busy || kind === 'checking' || kind === 'downloading') && (
+            <ActivityIndicator size="small" color={actionable ? themeColors.buttonText : themeColors.subText} />
+          )}
+          <Text style={[styles.buttonText, { color: actionable ? themeColors.buttonText : themeColors.subText }]}>
+            {label}
+          </Text>
+        </Pressable>
 
         {showCheck && (
           <Pressable onPress={update.check} hitSlop={8} accessibilityRole="button">
-            <Text kind="hand" style={[styles.link, { color: themeColors.accent }]}>Check for updates</Text>
+            <Text style={[styles.link, { color: themeColors.accent }]}>Check for updates</Text>
           </Pressable>
         )}
       </View>
@@ -88,9 +99,11 @@ export function UpdateSection() {
 
 const styles = StyleSheet.create({
   section: { paddingHorizontal: 15, marginBottom: 25 },
-  title: { fontSize: 17, letterSpacing: 1, marginBottom: 10 },
-  card: { padding: 14, borderRadius: 4, borderWidth: 1.5, borderStyle: 'dashed', gap: 8 },
-  version: { fontSize: 18, fontWeight: '600' },
-  hint: { fontSize: 15, lineHeight: 20 },
-  link: { fontSize: 16, fontWeight: '600', textAlign: 'center' },
+  title: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase' },
+  card: { padding: 14, borderWidth: 1, gap: 8 },
+  version: { fontSize: 16, fontWeight: '600' },
+  hint: { fontSize: 12, lineHeight: 17 },
+  button: { padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  buttonText: { fontSize: 15, fontWeight: '600' },
+  link: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
 });

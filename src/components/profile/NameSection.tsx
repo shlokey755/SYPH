@@ -5,8 +5,7 @@
  */
 
 import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Field, MapButton, Text } from '../parchment';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { setCachedProfile } from '../../hooks/useProfiles';
 import { useTheme } from '../../hooks/themeContext';
 import { useToast } from '../../hooks/toastNotifications';
@@ -48,10 +47,11 @@ export function NameSection({ uid, username, savedName, onSaved }: Props) {
 
   return (
     <View style={styles.section}>
-      <Text kind="label" style={[styles.title, { color: themeColors.stamp }]}>Name</Text>
-      <Field
-        boxStyle={styles.fieldBox}
+      <Text style={[styles.title, { color: themeColors.subText }]}>Name</Text>
+      <TextInput
+        style={[styles.input, { backgroundColor: themeColors.inputBg, color: themeColors.text, borderColor: themeColors.border }]}
         placeholder={username}
+        placeholderTextColor={themeColors.subText}
         value={value}
         onChangeText={setText}
         maxLength={DISPLAY_NAME_MAX}
@@ -60,14 +60,22 @@ export function NameSection({ uid, username, savedName, onSaved }: Props) {
       <Text style={[styles.hint, { color: themeColors.subText }]}>
         Shown to your contacts instead of @{username}. Leave empty to show your username.
       </Text>
-      <MapButton title="Save name" onPress={save} loading={saving} disabled={saving || unchanged} />
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: themeColors.accent }, (saving || unchanged) && { opacity: 0.6 }]}
+        onPress={save}
+        disabled={saving || unchanged}
+      >
+        <Text style={[styles.buttonText, { color: themeColors.buttonText }]}>{saving ? 'Saving...' : 'Save Name'}</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   section: { paddingHorizontal: 15, marginBottom: 25 },
-  title: { fontSize: 17, letterSpacing: 1, marginBottom: 10 },
-  fieldBox: { marginBottom: 8 },
-  hint: { fontSize: 15, lineHeight: 20, marginBottom: 10 },
+  title: { fontSize: 12, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase' },
+  input: { padding: 14, borderWidth: 1, fontSize: 16, marginBottom: 8 },
+  hint: { fontSize: 12, lineHeight: 17, marginBottom: 10 },
+  button: { padding: 14, alignItems: 'center' },
+  buttonText: { fontSize: 15, fontWeight: '600' },
 });

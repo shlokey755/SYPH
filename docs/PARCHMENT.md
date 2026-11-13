@@ -1,18 +1,39 @@
-# The pirate's torn map
+# The pirate's torn map (the web version)
 
-SYPH has one look: a pirate's torn map. Aged parchment with burnt edges and fold creases, sepia ink, deep sea blue, brass and
-wax red. Chats are dispatches pinned to the map, buttons are ship's planking and wax, loading is a turning compass, and on a
-desktop browser window the app is a plank rail, a list of dispatches and one wide sheet of the map.
+The browser version of SYPH is drawn as a pirate's torn map: aged parchment with burnt edges and fold creases, sepia ink,
+deep sea blue, brass and wax red. Chats are dispatches pinned to the map, buttons are ship's planking and wax, loading is a
+turning compass, and on a desktop browser window the app is a plank rail, a list of dispatches and one wide sheet of the map.
 
-There is no theme picker and no choice of app icon. One look, on the phone and on the web, from one set of pieces.
+**The phone app is not touched.** Its screens, themes and app icon are exactly as they are in `main`. The map lives in files
+that only a browser loads, so the two versions share one codebase without sharing a line of screen code. How is described
+under [Beside the phone app](#beside-the-phone-app).
 
-Everything is JavaScript and bundled assets, so a new look reaches installed apps through an over-the-air update. The few
-things that are not covered are listed under [Not covered by an update](#not-covered-by-an-update).
+## Beside the phone app
+
+| | Phone (Android, iOS) | Browser |
+|---|---|---|
+| Screens and components | `Foo.tsx` | `Foo.web.tsx`, next to it |
+| Colours | `hooks/themeContext.tsx` (the themes) | `theme/mapTheme.ts`: `useTheme()` returns the one palette |
+| Root layout | `app/_layout.tsx` | `app/_layout.web.tsx`: desktop shell, map typefaces, browser dialogs |
+
+- Metro picks `Foo.web.tsx` over `Foo.tsx` in a browser and never loads it on a phone. Expo Router does the same for routes
+  ([platform-specific extensions](https://docs.expo.dev/router/advanced/platform-specific-modules/)), which is why every
+  `.web` file needs its phone file beside it.
+- Everything that is only the map is imported by `.web` files alone: `components/parchment`, `components/desktop`,
+  `components/chat/ChatListView.tsx`, `theme/colors`, `theme/parchment`, `theme/fonts`, `theme/web`, `theme/mapTheme`,
+  `utils/browserAlert`, `assets/parchment`, `assets/fonts`. No phone file imports them, so a phone bundle never contains them.
+- Of the files that were already in the repo, only `app.json` changes, and only inside its `web` block.
+- When a phone screen changes in a way that is not just looks, make the same change in its `.web` twin. A change to
+  `_layout.tsx` (a new provider, a new screen) goes into `_layout.web.tsx` too.
+- `npx tsc --noEmit` checks the phone build. `npx tsc -p tsconfig.web.json --noEmit` checks the browser build: it resolves
+  `.web` files first and leaves out the phone files they replace. `tests/unit/webVariants.test.ts` fails when a `.web` file has
+  no phone file, or is missing from `tsconfig.web.json`.
 
 ## The pieces
 
 Import from one place: `import { Page, Paper, Text } from '../../components/parchment';` (the code is in
-`src/components/parchment/`). Colours come from `const { themeColors } = useTheme()` (`src/theme/colors.ts`).
+`src/components/parchment/`). Colours come from `const { themeColors } = useTheme()` of `src/theme/mapTheme.ts` (the palette is `src/theme/colors.ts`), never from
+`hooks/themeContext`, which belongs to the phone.
 
 | Piece | What it is | Use it for |
 | --- | --- | --- |
@@ -84,7 +105,7 @@ a button, loading labels. Meaning always stays obvious. Never rename something a
 
 ## Rules
 
-1. Every screen is a `Page`. Rows, cards, sheets and inputs are `Paper`. All text is the parchment `Text` or `TextInput`.
+1. Every web screen is a `Page`. Rows, cards, sheets and inputs are `Paper`. All text is the parchment `Text` or `TextInput`.
 2. Turn only things that are looked at: list rows, empty-state cards, avatars. Never turn a `TextInput`, a scrolling list, a
    video, a map or anything a finger drags. A message slip may lean by at most half a degree (`maxTilt={0.5}`).
 3. `trail` (the dashed line inside a Paper) is for panels and inputs, not for every row of a long list.
@@ -93,7 +114,7 @@ a button, loading labels. Meaning always stays obvious. Never rename something a
    does nothing in a browser.
 6. Icons are Ionicons. The glyph name must exist in the Ionicons set.
 7. Tilt, tear and shadow are for display. Do not put a `Paper` with `angle` or `seed` around something the person types into.
-8. Keep the behaviour of every screen exactly as it was. This is a re-skin: no changes to data, navigation, permissions, text a
+8. Keep the behaviour of every screen exactly as its phone twin has it. This is a re-skin: no changes to data, navigation, permissions, text a
    test depends on, or accessibility roles.
 
 ## On the web
@@ -138,26 +159,19 @@ colour or a drawing; the random seed is fixed so the output only changes when th
 Typefaces, in `assets/fonts/` with their licences in `assets/fonts/licenses/` (all SIL Open Font License): Pirata One, Crimson
 Text, IM Fell English SC, IM Fell English. They are subset to Latin, Latin Extended, punctuation, arrows and the rupee sign.
 
-## Not covered by an update
-
-These are part of the installed app, so they change only with a new build:
-
-- The launcher icon, adaptive icon and splash image (still black with the old logo): `app.json` and `assets/images`.
-- The colour of the Android notification accent and the location-service notification.
-- The status bar and navigation bar tints the system draws before the first screen.
-
-Everything on screen after the first frame, and everything in the browser, follows the map.
-
 ## Where things are
 
 ```
-src/theme/colors.ts        the palette (one look)
+src/theme/colors.ts        the palette
+src/theme/mapTheme.ts      useTheme() for the .web files: returns the one palette
 src/theme/parchment.ts     fonts, tilt, shadows, colour helpers (tested)
 src/theme/fonts.ts         the font files and loading them
 src/theme/web.ts           how the app sits in a browser window (tested)
 src/components/parchment/  the pieces above
-src/hooks/themeContext.tsx useTheme(): returns the one palette
+src/components/desktop/    the rail, list and map page around the screens on a wide window
+src/app/**/*.web.tsx       the browser's screens, each beside the phone's
 src/app/+html.tsx          the page around the app on the web
 scripts/make-parchment-art.py
-tests/unit/colors.test.ts, parchment.test.ts, web.test.ts
+tsconfig.web.json          type-check of the browser build
+tests/unit/colors.test.ts, parchment.test.ts, web.test.ts, browserAlert.test.ts, webVariants.test.ts
 ```

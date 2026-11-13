@@ -16,8 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../../components/parchment';
+import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ControlButton } from '../../components/call/ControlButton';
 import { ParticipantTile } from '../../components/call/ParticipantTile';
@@ -269,9 +268,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
   },
-  round: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  round: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
   // The phone glyph points up-right; turned over it reads as "hang up".
   hangUpIcon: { transform: [{ rotate: '135deg' }] },
-  pill: { paddingHorizontal: 36, paddingVertical: 14, borderRadius: 28 },
+  pill: { paddingHorizontal: 36, paddingVertical: 14 },
   pillText: { fontSize: 16, fontWeight: '600' },
 });

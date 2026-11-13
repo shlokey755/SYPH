@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useGlobalSearchParams, useRouter, useSegments } from 'expo-router';
 import React, { ReactNode } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
-import { useTheme } from '../../hooks/themeContext';
+import { useTheme } from '../../theme/mapTheme';
 import { useConversations } from '../../hooks/useConversations';
 import { ChatListView } from '../chat/ChatListView';
 import {

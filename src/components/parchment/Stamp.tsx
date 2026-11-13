@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { StyleProp, View, ViewStyle } from 'react-native';
-import { useTheme } from '../../hooks/themeContext';
+import { useTheme } from '../../theme/mapTheme';
 import { withAlpha } from '../../theme/parchment';
 import { WaxSeal } from './Pins';
 import { Text } from './Text';

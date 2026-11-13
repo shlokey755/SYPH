@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { StyleProp, TextStyle, View, ViewStyle } from 'react-native';
-import { useTheme } from '../../hooks/themeContext';
+import { useTheme } from '../../theme/mapTheme';
 import { Text } from './Text';
 import { TrailLine } from './Trail';
 

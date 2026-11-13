@@ -5,7 +5,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, ImageStyle, StyleProp, View, ViewStyle } from 'react-native';
-import { useTheme } from '../../hooks/themeContext';
+import { useTheme } from '../../theme/mapTheme';
 import { ART } from './art';
 import { NATIVE_DRIVER } from './platform';
 import { Text } from './Text';

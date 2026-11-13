@@ -22,6 +22,8 @@ interface OverlayModule {
   showIncomingCall(key: string, title: string, text: string, isVideo: boolean): boolean;
   hideIncomingCall(): boolean;
   consumeIncomingAction(): string;
+  /** Missing in a build from before closed-app alerts. */
+  supportsClosedAlerts?: () => boolean;
   showBubble(startedAt: number, route: string, accent: string): boolean;
   hideBubble(): boolean;
   canDrawOverApps(): boolean;
@@ -57,6 +59,13 @@ function attempt<T>(what: string, fallback: T, action: (module: OverlayModule) =
 
 /** True when this build can show calls over other apps. */
 export const isOverlayAvailable = (): boolean => getModule() !== null;
+
+/**
+ * True when this build can ring and show the call screen by itself while SYPH is closed, and play the person's message tone
+ * from the notification channels (it has the native push handler). A build from before that has to be updated first.
+ */
+export const supportsClosedAlerts = (): boolean =>
+  attempt('closed alerts', false, (module) => typeof module.supportsClosedAlerts === 'function' && module.supportsClosedAlerts() === true);
 
 export interface IncomingScreenInfo {
   key: string;

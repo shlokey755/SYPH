@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   mutedChats: [],
   notificationsEnabled: true,
   expoPushTokens: [],
+  closedAlertTokens: [],
 };
 
 interface SettingsContextType {

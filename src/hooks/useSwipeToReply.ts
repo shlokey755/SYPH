@@ -10,7 +10,6 @@
 
 import { useRef } from 'react';
 import { Animated, PanResponder } from 'react-native';
-import { NATIVE_DRIVER } from '../components/parchment/platform';
 import {
   shouldCaptureSwipe,
   SWIPE_ICON_FULL_AT,
@@ -29,7 +28,7 @@ export function useSwipeToReply(onReply: () => void, enabled: boolean) {
   const responder = useRef(
     (() => {
       const settle = () =>
-        Animated.spring(offset, { toValue: 0, friction: 8, tension: 140, useNativeDriver: NATIVE_DRIVER }).start();
+        Animated.spring(offset, { toValue: 0, friction: 8, tension: 140, useNativeDriver: true }).start();
       return PanResponder.create({
         onStartShouldSetPanResponder: () => false,
         // Capture phase: claim a clear sideways swipe before the bubble's own touch handling does.

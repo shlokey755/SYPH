@@ -13,3 +13,25 @@ android {
     versionName "1.0.0"
   }
 }
+
+dependencies {
+  // SyphMessagingService extends expo-notifications' push service, so it needs that module on its compile classpath.
+  // Expo links a module either as a Gradle project (built from source) or, in SDK 57 by default, as a prebuilt Maven package
+  // from the module's local-maven-repo, in which case there is no project(':expo-notifications') at all (that was the first
+  // build failure: "Project with path ':expo-notifications' could not be found"). Take whichever Expo itself links, by asking
+  // the same autolinking configuration the `expo` project uses (expo.modules.plugin.ExpoGradleExtension, "expoGradle").
+  def notificationsProject = project.findProject(':expo-notifications')
+  if (notificationsProject != null) {
+    implementation project(notificationsProject.path)
+  } else {
+    def notifications = gradle.extensions.getByName('expoGradle').config.allProjects.find { it.name == 'expo-notifications' }
+    def publication = notifications?.publication
+    if (publication == null) {
+      throw new GradleException('syph-call-service: expo-notifications is neither a Gradle project nor a published module; is it installed and autolinked?')
+    }
+    implementation "${publication.groupId}:${publication.artifactId}:${publication.version}"
+  }
+  // The Firebase library its signature uses. Same version as expo-notifications declares
+  // (node_modules/expo-notifications/android/build.gradle).
+  implementation 'com.google.firebase:firebase-messaging:25.0.1'
+}

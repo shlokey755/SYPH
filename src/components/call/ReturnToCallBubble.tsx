@@ -8,8 +8,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useSegments } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Text } from '../parchment';
+import { PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../hooks/themeContext';
 import { useActiveCall, useDirectSession, useGroupSession } from '../../services/activeCallStore';
@@ -90,7 +89,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: BUBBLE.width,
     height: BUBBLE.height,
-    borderRadius: 28,
     elevation: 8,
     shadowColor: '#000000',
     shadowOpacity: 0.3,

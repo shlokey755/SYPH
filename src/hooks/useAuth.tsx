@@ -72,6 +72,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         username: userData.username || 'Anonymous',
         usernameLowercase: userData.usernameLowercase || (userData.username ? userData.username.toLowerCase() : 'anonymous'),
         displayName: userData.displayName || userData.username || 'Anonymous',
+        theme: userData.theme,
         createdAt: new Date(),
       };
       void writeCachedProfile(profile);

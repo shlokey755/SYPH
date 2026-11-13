@@ -6,8 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../parchment';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ThemeColors } from '../../hooks/themeContext';
 import { CallType } from '../../types';
 import { participantCountLabel } from '../../utils/groupCall';
@@ -46,6 +45,6 @@ const styles = StyleSheet.create({
   text: { flex: 1 },
   title: { fontSize: 14, fontWeight: '600' },
   sub: { fontSize: 12 },
-  join: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 18 },
+  join: { paddingHorizontal: 18, paddingVertical: 8 },
   joinText: { fontSize: 14, fontWeight: '700' },
 });

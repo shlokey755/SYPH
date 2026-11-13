@@ -115,9 +115,9 @@ class IncomingCallActivity : Activity() {
   private fun dp(value: Int): Int =
     TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics).toInt()
 
-  private fun circle(color: Int): GradientDrawable =
+  private fun square(color: Int): GradientDrawable =
     GradientDrawable().apply {
-      shape = GradientDrawable.OVAL
+      shape = GradientDrawable.RECTANGLE
       setColor(color)
     }
 
@@ -137,7 +137,7 @@ class IncomingCallActivity : Activity() {
       rotation = turn
       contentDescription = description
       setPadding(dp(20), dp(20), dp(20), dp(20))
-      background = circle(color)
+      background = square(color)
       setOnClickListener { onPress() }
     }
     image.layoutParams = LinearLayout.LayoutParams(dp(72), dp(72))
@@ -154,7 +154,7 @@ class IncomingCallActivity : Activity() {
 
     val initial = (title.trim().firstOrNull() ?: '?').uppercaseChar().toString()
     val avatar = label(initial, 52f, Color.WHITE, bold = true).apply {
-      background = circle(AVATAR)
+      background = square(AVATAR)
       layoutParams = LinearLayout.LayoutParams(dp(128), dp(128)).apply { bottomMargin = dp(24) }
     }
     root.addView(avatar)

@@ -7,7 +7,7 @@
 
 import React, { forwardRef, useState } from 'react';
 import { StyleProp, TextInput as RNTextInput, View, ViewStyle } from 'react-native';
-import { useTheme } from '../../hooks/themeContext';
+import { useTheme } from '../../theme/mapTheme';
 import { withAlpha } from '../../theme/parchment';
 import { IS_WEB } from './platform';
 import { MapTextInputProps, TextInput } from './Text';

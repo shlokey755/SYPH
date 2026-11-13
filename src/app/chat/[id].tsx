@@ -10,7 +10,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Image,
+  ActivityIndicator,
   Alert,
   Animated,
   AppState,
@@ -19,11 +19,11 @@ import {
   Linking,
   Pressable,
   StyleSheet,
+  Text,
+  TextInput,
   View,
   ViewToken,
 } from 'react-native';
-import { ART, Loading, NATIVE_DRIVER, PageTexture, POINTER, Text, TextInput, useDesktopLayout } from '../../components/parchment';
-import { READING_WIDTH } from '../../theme/web';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ForwardPicker } from '../../components/chat/ForwardPicker';
@@ -44,10 +44,12 @@ import { useActiveGroupCall } from '../../hooks/useActiveGroupCall';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
 import { useGifSender } from '../../hooks/useGifSender';
+import { warmGifs } from '../../services/gifService';
 import { useLiveShareIn } from '../../hooks/useLiveShares';
 import { useTypingPeers, useTypingReporter } from '../../hooks/useTyping';
 import { useMessages } from '../../hooks/useMessages';
 import { useProfiles } from '../../hooks/useProfiles';
+import { ReaderName, ReadBySheet } from '../../components/chat/ReadBySheet';
 import { useIsOffline } from '../../hooks/useOnlineStatus';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import { tickOnSend } from '../../services/alertSounds';
@@ -60,6 +62,7 @@ import {
   stopLiveShare,
 } from '../../services/liveLocationManager';
 import { isCallingSupported } from '../../services/webrtc';
+import { Timestamp } from 'firebase/firestore';
 import { CallType, Conversation, Message, ReplyPreview } from '../../types';
 import {
   getConversationSubtitle,
@@ -69,10 +72,30 @@ import {
 } from '../../utils/conversation';
 import { dayHeaders, dayLabelsEach, floatingDayLabel } from '../../utils/dateLabels';
 import { searchMessages } from '../../utils/messages';
-import { getMessageStatus } from '../../utils/messageStatus';
+import { latestSentId, MessageReceipts, Reader, receiptsFor } from '../../utils/receipts';
 import { typingLabel } from '../../utils/typing';
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong');
+
+/** A text message the server refused, kept on this phone so it can be shown with a red alert and tried again. */
+interface FailedSend {
+  message: Message;
+  reply: ReplyPreview | null;
+}
+
+const failedMessage = (me: { uid: string; username: string }, text: string, reply: ReplyPreview | null): Message => ({
+  id: `failed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  type: 'text',
+  text: text.trim(),
+  senderId: me.uid,
+  senderUsername: me.username,
+  replyTo: reply ?? undefined,
+  deletedFor: [],
+  deletedForEveryone: false,
+  createdAt: Timestamp.now(),
+  pending: false,
+  failed: true,
+});
 
 const toReplyPreview = (m: Message): ReplyPreview => ({
   messageId: m.id,
@@ -97,8 +120,6 @@ const BACKGROUND_ASKED_KEY = 'syph.hint.backgroundLocationAsked';
 export default function ChatScreen() {
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  // In a desktop browser window the list of chats is beside this page, so there is nothing to go back to.
-  const { desktop } = useDesktopLayout();
   const insets = useSafeAreaInsets();
   const { themeColors } = useTheme();
   const { currentUser } = useAuth();
@@ -126,6 +147,9 @@ export default function ChatScreen() {
   const [shareBusy, setShareBusy] = useState<'none' | 'pin' | 'live'>('none');
   const [backgroundOn, setBackgroundOn] = useState(false);
   const [viewerMessage, setViewerMessage] = useState<Message | null>(null);
+  // "Read by" list (the people who have seen a message you sent), and messages the server refused.
+  const [readersSheet, setReadersSheet] = useState<Reader[] | null>(null);
+  const [failedSends, setFailedSends] = useState<FailedSend[]>([]);
 
   const me = useMemo(
     () => (currentUser ? { uid: currentUser.uid, username: currentUser.username } : null),
@@ -138,6 +162,12 @@ export default function ChatScreen() {
     replyTo,
     onReplyConsumed: () => setReplyTo(null),
   });
+
+  // Get the GIF picker ready while the chat opens: trending and its first pictures are downloaded now, so the picker has
+  // GIFs on screen the moment it is opened. Once per ten minutes at most (services/gifService.ts).
+  useEffect(() => {
+    warmGifs();
+  }, []);
 
   // Tell the conversations provider which chat is open (suppresses its toasts).
   useFocusEffect(
@@ -164,9 +194,11 @@ export default function ChatScreen() {
     const key = `${conversation.id}:${newestMs}:${unread}`;
     if (readKeyRef.current === key) return;
     readKeyRef.current = key;
-    chat.markRead(conversation.id, myUid).catch(() => {
-      readKeyRef.current = null;
-    });
+    chat
+      .markRead(conversation.id, myUid, { previousLog: conversation.readState?.[myUid]?.log, upTo: newestMs })
+      .catch(() => {
+        readKeyRef.current = null;
+      });
   }, [messages, conversation, myUid, focused, appActive]);
 
   // ----- derived data -----
@@ -195,9 +227,13 @@ export default function ChatScreen() {
 
   // While searching, only the matching messages are listed. They are grouped by day exactly like the full chat (a day chip
   // above the first match of each day, and the floating day chip while scrolling), because both read this same list.
+  const allMessages = useMemo(
+    () => (failedSends.length ? [...failedSends.map((f) => f.message).reverse(), ...messages] : messages),
+    [failedSends, messages]
+  );
   const visibleMessages = useMemo(
-    () => (searchOpen ? searchMessages(messages, searchText) : messages),
-    [messages, searchOpen, searchText]
+    () => (searchOpen ? searchMessages(allMessages, searchText) : allMessages),
+    [allMessages, searchOpen, searchText]
   );
 
   // "Today" / "Yesterday" / "Saturday, 31 Oct" above the first message of each day. Drawn by the message itself, not as
@@ -231,12 +267,12 @@ export default function ChatScreen() {
       if (event.nativeEvent.contentOffset.y < 24) return;
       if (!chipShown.current) {
         chipShown.current = true;
-        Animated.timing(chipOpacity, { toValue: 1, duration: 120, useNativeDriver: NATIVE_DRIVER }).start();
+        Animated.timing(chipOpacity, { toValue: 1, duration: 120, useNativeDriver: true }).start();
       }
       if (chipTimer.current) clearTimeout(chipTimer.current);
       chipTimer.current = setTimeout(() => {
         chipShown.current = false;
-        Animated.timing(chipOpacity, { toValue: 0, duration: 300, useNativeDriver: NATIVE_DRIVER }).start();
+        Animated.timing(chipOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start();
       }, 1400);
     },
     [chipOpacity]
@@ -257,18 +293,44 @@ export default function ChatScreen() {
   // Swiping a message to the right replies to it, the same as "Reply" in the long-press menu.
   const handleSwipeReply = useCallback((message: Message) => setReplyTo(toReplyPreview(message)), []);
 
+  // Not awaited: while offline the write stays queued and the bubble shows as pending (NFR-07). If the server refuses it, the
+  // message stays on screen with a red alert instead of vanishing, and can be tried again or deleted.
+  const sendText = useCallback(
+    (text: string, reply: ReplyPreview | null) => {
+      if (!conversation || !me) return;
+      chat.sendMessage(conversation, me, { type: 'text', text, replyTo: reply ?? undefined }).catch((e) => {
+        setFailedSends((list) => [...list, { message: failedMessage(me, text, reply), reply }]);
+        toast.error('Message not sent', errorText(e));
+      });
+    },
+    [conversation, me, toast]
+  );
   const handleSend = (text: string) => {
     if (!conversation || !me) return;
     typingReporter.stop();
     const reply = replyTo;
     setReplyTo(null);
     tickOnSend();
-    // Not awaited: while offline the write stays queued and the bubble shows as pending (NFR-07).
-    chat
-      .sendMessage(conversation, me, { type: 'text', text, replyTo: reply ?? undefined })
-      .catch((e) => toast.error('Message not sent', errorText(e)));
+    sendText(text, reply);
   };
-
+  const handleFailedPress = useCallback(
+    (message: Message) => {
+      const entry = failedSends.find((f) => f.message.id === message.id);
+      const remove = () => setFailedSends((list) => list.filter((f) => f.message.id !== message.id));
+      Alert.alert('Message not sent', 'The message could not be sent.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: remove },
+        {
+          text: 'Try again',
+          onPress: () => {
+            remove();
+            sendText(message.text, entry?.reply ?? null);
+          },
+        },
+      ]);
+    },
+    [failedSends, sendText]
+  );
   const handleAction = async (action: MessageAction, message: Message) => {
     setActionMessage(null);
     if (!conversationId || !myUid) return;
@@ -373,6 +435,7 @@ export default function ChatScreen() {
         toast.error('Could not share', message === 'timeout' ? 'The connection is too slow. Try again.' : message ?? 'Try again');
     }
   };
+
 
   const handleSendCurrent = async () => {
     if (!conversation || !me) return;
@@ -501,6 +564,49 @@ export default function ChatScreen() {
     [visibleMessages, toast]
   );
 
+  // What happened to each message you sent (utils/receipts.ts). Equal results are reused as the same object so that a
+  // receipt for one message does not redraw every other bubble.
+  const receiptCache = useRef(new Map<string, MessageReceipts>());
+  const receiptsOf = useCallback(
+    (message: Message): MessageReceipts => {
+      const next = receiptsFor(message, conversation?.participantIds, conversation?.readState);
+      const key = `${next.state}|${next.recipients}|${next.readers.map((r) => `${r.uid}:${r.at}`).join(',')}`;
+      const cache = receiptCache.current;
+      const hit = cache.get(key);
+      if (hit) return hit;
+      if (cache.size > 300) cache.clear();
+      cache.set(key, next);
+      return next;
+    },
+    [conversation?.participantIds, conversation?.readState]
+  );
+
+  // Members' usernames (as saved in the chat) for the letters in the avatar queue.
+  const members = conversation ? (conversation.isGroup ? conversation.participants ?? [] : [conversation.participant1, conversation.participant2]) : [];
+  const memberKey = members.map((p) => `${p?.uid}:${p?.username}`).join('|');
+  const memberNames = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const p of members) if (p) out[p.uid] = p.username;
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memberKey]);
+
+  // The "Read by" list shows live usernames (and a display name when they have one), fetched only when it is opened.
+  const readerUids = useMemo(() => readersSheet?.map((r) => r.uid) ?? [], [readersSheet]);
+  const { usernameOf, displayNameOf } = useProfiles(readerUids);
+  const readerName = useCallback(
+    (uid: string): ReaderName => {
+      const username = usernameOf(uid) ?? memberNames[uid] ?? 'Someone';
+      const display = displayNameOf(uid);
+      return { username, displayName: display && display !== username ? display : undefined };
+    },
+    [usernameOf, displayNameOf, memberNames]
+  );
+  const openReaders = useCallback((_message: Message, readers: Reader[]) => setReadersSheet(readers), []);
+
+  // Only the newest message you sent shows the avatar queue. It is taken from the whole chat, not the search results.
+  const latestSentMessageId = useMemo(() => latestSentId(allMessages, myUid), [allMessages, myUid]);
+
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
       const mine = item.senderId === myUid;
@@ -511,109 +617,94 @@ export default function ChatScreen() {
           <MessageBubble
             message={item}
             isMine={mine}
-            status={mine ? getMessageStatus(item, conversation) : undefined}
+            receipts={mine ? receiptsOf(item) : undefined}
+            names={memberNames}
             showSender={!!conversation?.isGroup}
             colors={themeColors}
             onLongPress={setActionMessage}
             onReplyPress={scrollToMessage}
             onSwipeReply={handleSwipeReply}
             onOpenLocation={setViewerMessage}
+            latestSent={item.id === latestSentMessageId}
+            onOpenReaders={openReaders}
+            onRetry={handleFailedPress}
           />
         </View>
       );
     },
-    [myUid, conversation, themeColors, scrollToMessage, handleSwipeReply, dayLabels]
+    [myUid, conversation, themeColors, scrollToMessage, handleSwipeReply, dayLabels, receiptsOf, memberNames, latestSentMessageId, openReaders, handleFailedPress]
   );
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: desktop ? 'transparent' : themeColors.background }]}
+      style={[styles.container, { backgroundColor: themeColors.background, paddingTop: insets.top }]}
       behavior="padding"
     >
-      <PageTexture variant="plain" />
-      {/* Header: a strip of ship's planking with a brass rail along its edge */}
-      <View style={[styles.headerWrap, { backgroundColor: themeColors.wood, paddingTop: insets.top }]}>
-        <Image source={ART.wood} resizeMode="cover" style={StyleSheet.absoluteFill} />
-        <View style={styles.header}>
-          {desktop ? null : (
-            <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back" style={POINTER}>
-              <Ionicons name="arrow-back" size={24} color={themeColors.buttonText} />
-            </Pressable>
-          )}
-          <Pressable
-            style={[styles.headerInfo, conversation?.isGroup ? POINTER : null]}
-            disabled={!conversation?.isGroup}
-            onPress={() => setGroupInfoOpen(true)}
-            accessibilityLabel={conversation?.isGroup ? 'Group info' : undefined}
-          >
-            <Text kind="display" style={[styles.headerTitle, { color: themeColors.gilt }]} numberOfLines={1}>
-              {title}
+      {/* Header */}
+      <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back">
+          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
+        </Pressable>
+        <Pressable
+          style={styles.headerInfo}
+          disabled={!conversation?.isGroup}
+          onPress={() => setGroupInfoOpen(true)}
+          accessibilityLabel={conversation?.isGroup ? 'Group info' : undefined}
+        >
+          <Text style={[styles.headerTitle, { color: themeColors.text }]} numberOfLines={1}>
+            {title}
+          </Text>
+          {typingText ? (
+            <Text
+              style={[styles.headerSubtitle, { color: themeColors.accent }]}
+              numberOfLines={1}
+              accessibilityLiveRegion="polite"
+            >
+              {typingText}
             </Text>
-            {typingText ? (
-              <Text
-                kind="hand"
-                style={[styles.headerSubtitle, { color: themeColors.gilt }]}
-                numberOfLines={1}
-                accessibilityLiveRegion="polite"
-              >
-                {typingText}
-              </Text>
-            ) : subtitle ? (
-              <Text kind="hand" style={[styles.headerSubtitle, { color: themeColors.buttonText }]}>
-                {subtitle} - tap for info
-              </Text>
-            ) : null}
-          </Pressable>
-          {callee && (
-            <>
-              <Pressable onPress={() => startCall('audio')} hitSlop={10} accessibilityLabel="Voice call" style={POINTER}>
-                <Ionicons name="call-outline" size={22} color={themeColors.buttonText} />
-              </Pressable>
-              <Pressable onPress={() => startCall('video')} hitSlop={10} accessibilityLabel="Video call" style={POINTER}>
-                <Ionicons name="videocam-outline" size={24} color={themeColors.buttonText} />
-              </Pressable>
-            </>
-          )}
-          {conversation?.isGroup && (
-            <>
-              <Pressable
-                onPress={() => startOrJoinGroupCall('audio')}
-                hitSlop={10}
-                accessibilityLabel="Group voice call"
-                style={POINTER}
-              >
-                <Ionicons name="call-outline" size={22} color={themeColors.buttonText} />
-              </Pressable>
-              <Pressable
-                onPress={() => startOrJoinGroupCall('video')}
-                hitSlop={10}
-                accessibilityLabel="Group video call"
-                style={POINTER}
-              >
-                <Ionicons name="videocam-outline" size={24} color={themeColors.buttonText} />
-              </Pressable>
-            </>
-          )}
-          <Pressable
-            onPress={() => {
-              setSearchOpen((open) => !open);
-              setSearchText('');
-            }}
-            hitSlop={10}
-            accessibilityLabel="Search in chat"
-            style={POINTER}
-          >
-            <Ionicons name={searchOpen ? 'close' : 'search'} size={22} color={themeColors.buttonText} />
-          </Pressable>
-          <Pressable onPress={handleToggleMute} hitSlop={10} accessibilityLabel="Mute notifications" style={POINTER}>
-            <Ionicons
-              name={muted ? 'notifications-off' : 'notifications-outline'}
-              size={22}
-              color={muted ? themeColors.gilt : themeColors.buttonText}
-            />
-          </Pressable>
-        </View>
-        <View style={[styles.rail, { backgroundColor: themeColors.brass }]} />
+          ) : subtitle ? (
+            <Text style={[styles.headerSubtitle, { color: themeColors.subText }]}>
+              {subtitle} - tap for info
+            </Text>
+          ) : null}
+        </Pressable>
+        {callee && (
+          <>
+            <Pressable onPress={() => startCall('audio')} hitSlop={10} accessibilityLabel="Voice call">
+              <Ionicons name="call-outline" size={22} color={themeColors.text} />
+            </Pressable>
+            <Pressable onPress={() => startCall('video')} hitSlop={10} accessibilityLabel="Video call">
+              <Ionicons name="videocam-outline" size={24} color={themeColors.text} />
+            </Pressable>
+          </>
+        )}
+        {conversation?.isGroup && (
+          <>
+            <Pressable onPress={() => startOrJoinGroupCall('audio')} hitSlop={10} accessibilityLabel="Group voice call">
+              <Ionicons name="call-outline" size={22} color={themeColors.text} />
+            </Pressable>
+            <Pressable onPress={() => startOrJoinGroupCall('video')} hitSlop={10} accessibilityLabel="Group video call">
+              <Ionicons name="videocam-outline" size={24} color={themeColors.text} />
+            </Pressable>
+          </>
+        )}
+        <Pressable
+          onPress={() => {
+            setSearchOpen((open) => !open);
+            setSearchText('');
+          }}
+          hitSlop={10}
+          accessibilityLabel="Search in chat"
+        >
+          <Ionicons name={searchOpen ? 'close' : 'search'} size={22} color={themeColors.text} />
+        </Pressable>
+        <Pressable onPress={handleToggleMute} hitSlop={10} accessibilityLabel="Mute notifications">
+          <Ionicons
+            name={muted ? 'notifications-off' : 'notifications-outline'}
+            size={22}
+            color={muted ? themeColors.accent : themeColors.text}
+          />
+        </Pressable>
       </View>
 
       <OfflineBanner message="You're offline. Messages you send now are sent when you reconnect." />
@@ -662,7 +753,7 @@ export default function ChatScreen() {
       {/* Messages */}
       {isLoading && messages.length === 0 ? (
         <View style={styles.center}>
-          <Loading label="Hauling in the messages..." />
+          <ActivityIndicator size="large" color={themeColors.accent} />
         </View>
       ) : (
         <View style={styles.listArea}>
@@ -684,7 +775,7 @@ export default function ChatScreen() {
             onScrollToIndexFailed={() => toast.info('Original message is not loaded')}
             ListEmptyComponent={
               <View style={[styles.center, styles.flipped]}>
-                <Text kind="hand" style={{ color: themeColors.subText, fontSize: 21, lineHeight: 26 }}>
+                <Text style={{ color: themeColors.subText }}>
                   {searchOpen && searchText ? 'No matching messages' : 'No messages yet. Say hello!'}
                 </Text>
               </View>
@@ -711,10 +802,11 @@ export default function ChatScreen() {
         />
       ) : (
         <View style={[styles.connecting, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <Loading size={28} />
+          <ActivityIndicator color={themeColors.accent} />
         </View>
       )}
 
+      <ReadBySheet readers={readersSheet} nameOf={readerName} colors={themeColors} onClose={() => setReadersSheet(null)} />
       <MessageActionSheet
         message={actionMessage}
         isMine={actionMessage?.senderId === myUid}
@@ -778,27 +870,25 @@ export default function ChatScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  headerWrap: { overflow: 'hidden' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
   },
-  rail: { height: 3 },
   headerInfo: { flex: 1 },
-  headerTitle: { fontSize: 24, lineHeight: 28 },
-  headerSubtitle: { fontSize: 16, lineHeight: 18 },
+  headerTitle: { fontSize: 18, fontWeight: '700' },
+  headerSubtitle: { fontSize: 12, marginTop: 1 },
   searchBar: { padding: 8, borderBottomWidth: 1 },
   shareBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8 },
   shareBannerText: { flex: 1, fontSize: 14, fontWeight: '600' },
   shareBannerStop: { fontSize: 14, fontWeight: '800', textDecorationLine: 'underline' },
-  searchInput: { borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6, fontSize: 14 },
+  searchInput: { borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6, fontSize: 14 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   flipped: { transform: [{ scaleY: -1 }] },
-  // Lines of text stay a readable length on a wide window: the column of messages is centred and never wider than this.
-  list: { paddingVertical: 8, width: '100%', maxWidth: READING_WIDTH, alignSelf: 'center' },
+  list: { paddingVertical: 8 },
   listArea: { flex: 1 },
   floatingDay: { position: 'absolute', top: 8, left: 0, right: 0, alignItems: 'center' },
   connecting: { alignItems: 'center', paddingTop: 12 },

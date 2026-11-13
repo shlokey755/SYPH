@@ -1,9 +1,15 @@
 // src/app/(auth)/login.tsx
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Field, HeroTitle, MapButton, Page, Paper, POINTER, Text } from '../../components/parchment';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+} from 'react-native';
 import { useTheme } from '../../hooks/themeContext';
 import { useAuth } from '../../hooks/useAuth';
 import { looksLikeEmail } from '../../utils/auth';
@@ -16,7 +22,6 @@ export default function LoginScreen() {
   const { login, resetPassword } = useAuth();
   const { themeColors } = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const handleLogin = async () => {
     if (!username.trim() || !password) {
@@ -59,79 +64,124 @@ export default function LoginScreen() {
   };
 
   return (
-    <Page variant="map" style={{ paddingTop: insets.top }}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-        <HeroTitle title="SYPH" size={68} note="Chart your course" />
+    <ScrollView
+      style={[styles.container, { backgroundColor: themeColors.background }]}
+      contentContainerStyle={styles.content}
+    >
+      <Text style={[styles.title, { color: themeColors.text }]}>SYPH</Text>
+      <Text style={[styles.subtitle, { color: themeColors.subText }]}>
+        Welcome Back
+      </Text>
 
-        <Paper torn="both" contentStyle={styles.panel}>
-          <Text kind="display" style={[styles.heading, { color: themeColors.ink }]}>
-            Welcome Back
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor: themeColors.inputBg,
+            color: themeColors.text,
+            borderColor: themeColors.border,
+          },
+        ]}
+        placeholder="Username or email"
+        placeholderTextColor={themeColors.subText}
+        value={username}
+        onChangeText={setUsername}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        editable={!isLoading}
+      />
+
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor: themeColors.inputBg,
+            color: themeColors.text,
+            borderColor: themeColors.border,
+          },
+        ]}
+        placeholder="Enter Password"
+        placeholderTextColor={themeColors.subText}
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+        autoCapitalize="none"
+        editable={!isLoading}
+      />
+
+      <TouchableOpacity
+        style={[
+          styles.button,
+          { backgroundColor: themeColors.accent },
+          isLoading && { opacity: 0.6 },
+        ]}
+        onPress={handleLogin}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color={themeColors.buttonText} />
+        ) : (
+          <Text style={[styles.buttonText, { color: themeColors.buttonText }]}>
+            Login
           </Text>
+        )}
+      </TouchableOpacity>
 
-          <Field
-            placeholder="Username or email"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            editable={!isLoading}
-          />
+      <TouchableOpacity onPress={handleForgotPassword} disabled={isLoading}>
+        <Text style={[styles.toggleText, { color: themeColors.subText }]}>Forgot password?</Text>
+      </TouchableOpacity>
 
-          <Field
-            placeholder="Enter Password"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            autoCapitalize="none"
-            editable={!isLoading}
-            returnKeyType="go"
-            onSubmitEditing={handleLogin}
-          />
-
-          <MapButton title="Login" onPress={handleLogin} loading={isLoading} style={styles.cta} />
-
-          <Pressable
-            onPress={handleForgotPassword}
-            disabled={isLoading}
-            accessibilityRole="button"
-            style={[POINTER, styles.link]}
-          >
-            <Text kind="hand" style={[styles.linkText, { color: themeColors.inkSoft }]}>
-              Forgot password?
-            </Text>
-          </Pressable>
-        </Paper>
-
-        <Pressable
-          onPress={() => router.push('/(auth)/register')}
-          disabled={isLoading}
-          accessibilityRole="link"
-          style={[POINTER, styles.link]}
-        >
-          <Text kind="hand" style={[styles.linkText, { color: themeColors.accent }]}>
-            Don't have an account? Register
-          </Text>
-        </Pressable>
-      </ScrollView>
-    </Page>
+      <TouchableOpacity
+        onPress={() => router.push('/(auth)/register')}
+        disabled={isLoading}
+      >
+        <Text style={[styles.toggleText, { color: themeColors.accent }]}>
+          Don't have an account? Register
+        </Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   content: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 24,
-    gap: 14,
-    width: '100%',
-    maxWidth: 520,
-    alignSelf: 'center',
+    paddingHorizontal: 20,
   },
-  panel: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12, gap: 14 },
-  heading: { fontSize: 30, lineHeight: 36, textAlign: 'center' },
-  cta: { marginTop: 4 },
-  link: { alignItems: 'center', paddingVertical: 6 },
-  linkText: { fontSize: 19, lineHeight: 24, textAlign: 'center' },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 40,
+  },
+  input: {
+    padding: 15,
+    marginBottom: 15,
+    fontSize: 16,
+    borderWidth: 1,
+  },
+  button: {
+    padding: 15,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  toggleText: {
+    textAlign: 'center',
+    marginTop: 20,
+    fontSize: 14,
+  },
 });

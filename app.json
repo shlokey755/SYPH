@@ -68,7 +68,12 @@
           "icon": "./assets/images/notification-icon.png",
           "color": "#000000",
           "defaultChannel": "messages",
-          "sounds": ["./assets/sounds/incallmanager_ringtone.wav"]
+          "sounds": [
+            "./assets/sounds/incallmanager_ringtone.wav",
+            "./assets/sounds/syph_message.wav",
+            "./assets/sounds/msg_pop.wav",
+            "./assets/sounds/msg_drop.wav"
+          ]
         }
       ],
       [
@@ -89,7 +94,30 @@
         }
       ],
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      [
+        "@variant-systems/expo-dynamic-app-icon",
+        {
+          "cyber": {
+            "image": "./assets/images/Cyber.png"
+          },
+          "monochrome": {
+            "image": "./assets/images/Monochrome.png"
+          },
+          "candy": {
+            "image": "./assets/images/Candy.png"
+          },
+          "ocean": {
+            "image": "./assets/images/Ocean.png"
+          },
+          "forest": {
+            "image": "./assets/images/Forest.png"
+          },
+          "sunset": {
+            "image": "./assets/images/Sunset.png"
+          }
+        }
+      ]
     ],
     "extra": {
       "router": {},

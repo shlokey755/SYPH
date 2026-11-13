@@ -21,8 +21,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Modal, Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../components/parchment';
+import { AppState, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { buzz, hasBundledSounds, stopBuzz } from '../services/alertSounds';
 import { getAlertPrefs } from '../services/alertPrefsStore';
@@ -310,14 +309,24 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     pressRef.current = { ringKey, accept, decline };
   });
+  // A press whose call is not ringing here (yet). When SYPH was closed, the call screen came from the push and the person
+  // pressed Accept before SYPH had even started; the call only appears in `ring` once Firestore has delivered it, so the
+  // press waits for it. A press about a call that never appears here is harmless: keys are never reused.
+  const waitingPressRef = useRef<IncomingPress | null>(null);
   useEffect(() => {
     const handle = (press: IncomingPress) => {
       const current = pressRef.current;
-      if (press.key !== current.ringKey) return; // about a call that is no longer ringing here
+      if (press.key !== current.ringKey) {
+        waitingPressRef.current = press;
+        return;
+      }
       if (press.action === 'accept') current.accept();
       else current.decline();
     };
     const stop = onIncomingPress(handle);
+    // Also when SYPH starts: the press that opened it is already waiting.
+    const waiting = consumeIncomingPress();
+    if (waiting) handle(waiting);
     const subscription = AppState.addEventListener('change', (state) => {
       if (state !== 'active') return;
       const missed = consumeIncomingPress();
@@ -328,6 +337,13 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
       subscription.remove();
     };
   }, []);
+  useEffect(() => {
+    const waiting = waitingPressRef.current;
+    if (!waiting || ringKey === null || waiting.key !== ringKey) return;
+    waitingPressRef.current = null;
+    if (waiting.action === 'accept') pressRef.current.accept();
+    else pressRef.current.decline();
+  }, [ringKey]);
 
   const value = useMemo(() => ({ setOnCall, expectGroupCall }), [setOnCall, expectGroupCall]);
 
@@ -418,7 +434,6 @@ const styles = StyleSheet.create({
   avatar: {
     width: 128,
     height: 128,
-    borderRadius: 64,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -429,7 +444,7 @@ const styles = StyleSheet.create({
   kind: { fontSize: 16 },
   actions: { flexDirection: 'row', justifyContent: 'space-around', alignSelf: 'stretch' },
   action: { alignItems: 'center', gap: 10 },
-  round: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
+  round: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center' },
   // The phone glyph points up-right; turned over it reads as "hang up".
   hangUpIcon: { transform: [{ rotate: '135deg' }] },
   label: { fontSize: 14 },
