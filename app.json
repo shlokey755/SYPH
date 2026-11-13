@@ -40,7 +40,13 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon5.png"
+      "favicon": "./assets/images/favicon-compass.png",
+      "name": "SYPH",
+      "shortName": "SYPH",
+      "lang": "en",
+      "description": "Chats and calls, drawn on a pirate's map.",
+      "themeColor": "#14232E",
+      "backgroundColor": "#14232E"
     },
     "plugins": [
       "expo-router",

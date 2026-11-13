@@ -1,0 +1,44 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "moduleSuffixes": [
+      ".web",
+      ""
+    ]
+  },
+  "exclude": [
+    "node_modules",
+    "android",
+    "syph.backup",
+    "components",
+    "hooks",
+    "constants",
+    "scripts",
+    "src/app/(auth)/login.tsx",
+    "src/app/(auth)/register.tsx",
+    "src/app/(tabs)/_layout.tsx",
+    "src/app/(tabs)/add.tsx",
+    "src/app/(tabs)/index.tsx",
+    "src/app/(tabs)/me.tsx",
+    "src/app/_layout.tsx",
+    "src/app/chat/[id].tsx",
+    "src/app/index.tsx",
+    "src/app/onboarding.tsx",
+    "src/components/OfflineBanner.tsx",
+    "src/components/chat/DateSeparator.tsx",
+    "src/components/chat/ForwardPicker.tsx",
+    "src/components/chat/GifPicker.tsx",
+    "src/components/chat/GroupInfoModal.tsx",
+    "src/components/chat/LinkPreviewCard.tsx",
+    "src/components/chat/MessageActionSheet.tsx",
+    "src/components/chat/MessageBubble.tsx",
+    "src/components/chat/MessageContent.tsx",
+    "src/components/chat/MessageInput.tsx",
+    "src/components/parchment/wideArt.ts",
+    "src/components/profile/AccountEmailSection.tsx",
+    "src/components/profile/NameSection.tsx",
+    "src/components/profile/SoundsSection.tsx",
+    "src/components/profile/UpdateSection.tsx",
+    "src/hooks/toastNotifications.tsx"
+  ]
+}
