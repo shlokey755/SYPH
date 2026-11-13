@@ -11,13 +11,13 @@
  */
 
 import React from 'react';
-import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Image, StyleProp, View, ViewStyle } from 'react-native';
 import { useTheme } from '../../theme/mapTheme';
 import { ThemeColors } from '../../theme/colors';
 import { Lift, mixColors, tilt, withAlpha } from '../../theme/parchment';
 import { ART } from './art';
 import { Tack, WaxSeal } from './Pins';
-import { paperShadow } from './platform';
+import { FILL_IMAGE, paperShadow } from './platform';
 
 /** `paper` fresh parchment, `alt` tea-stained, `accent` sea-blue (your own message slips), `night` for use over the night sea. */
 export type PaperTone = 'paper' | 'alt' | 'accent' | 'night';
@@ -76,13 +76,15 @@ function TearEdge({ color, shadow, flipped }: { color: string; shadow: string; f
       <Image
         source={ART.tear}
         resizeMode="stretch"
-        style={{ ...StyleSheet.absoluteFill, tintColor: shadow, transform: [{ translateY: flipped ? -2 : 2 }] }}
+        tintColor={shadow}
+        style={[FILL_IMAGE, { transform: [{ translateY: flipped ? -2 : 2 }] }]}
       />
-      <Image source={ART.tear} resizeMode="stretch" style={{ ...StyleSheet.absoluteFill, tintColor: color }} />
+      <Image source={ART.tear} resizeMode="stretch" tintColor={color} style={FILL_IMAGE} />
       <Image
         source={ART.tearRim}
         resizeMode="stretch"
-        style={{ ...StyleSheet.absoluteFill, tintColor: mixColors(color, '#FFFFFF', 0.6), opacity: 0.8 }}
+        tintColor={mixColors(color, '#FFFFFF', 0.6)}
+        style={[FILL_IMAGE, { opacity: 0.8 }]}
       />
     </View>
   );

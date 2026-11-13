@@ -38,7 +38,8 @@ export function Compass({ size = 40, color, spin = false, style }: CompassProps)
     <Animated.Image
       source={ART.compass}
       resizeMode="contain"
-      style={[{ width: size, height: size, tintColor: color ?? c.ink, transform: [{ rotate }] }, style]}
+      tintColor={color ?? c.ink}
+      style={[{ width: size, height: size, transform: [{ rotate }] }, style]}
     />
   );
 }

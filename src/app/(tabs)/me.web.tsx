@@ -6,7 +6,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -33,12 +34,61 @@ import { CallOverlaySection } from '../../components/profile/CallOverlaySection'
 import { SoundsSection } from '../../components/profile/SoundsSection';
 import { UpdateSection } from '../../components/profile/UpdateSection';
 import { NameSection } from '../../components/profile/NameSection';
+import { db } from '../../firebaseConfig';
 import { isPushSupported, registerForPush } from '../../services/pushService';
 
-export default function MeTab() {
+/** How long the profile may take before the page says so, instead of turning the compass for ever. */
+const PROFILE_PATIENCE_MS = 12000;
+
+/** Shown when the profile does not arrive: asks the server what is wrong, and offers to try again or to sign out. */
+function ProfileTrouble({ uid, onRetry, onLogout }: { uid: string | undefined; onRetry: () => void; onLogout: () => void }) {
+  const { themeColors: c } = useTheme();
+  const [reason, setReason] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!uid) {
+      setReason('You are not signed in.');
+      return;
+    }
+    let live = true;
+    getDoc(doc(db, 'users', uid)).then(
+      (snap) => live && setReason(snap.exists() ? 'It was slow to arrive.' : 'Your profile page is missing on the server.'),
+      (e: unknown) => live && setReason(e instanceof Error ? e.message : String(e))
+    );
+    return () => {
+      live = false;
+    };
+  }, [uid]);
+
+  return (
+    <Page variant="map" style={styles.center}>
+      <Paper pin="tack" seed="profile-trouble" contentStyle={styles.troubleCard}>
+        <Ionicons name="alert-circle" size={38} color={c.stamp} />
+        <Text kind="display" style={[styles.troubleTitle, { color: c.ink }]}>
+          Could not unroll your page
+        </Text>
+        <Text kind="hand" style={[styles.troubleHint, { color: c.inkSoft }]}>
+          {reason ?? 'Asking the server why...'}
+        </Text>
+        <MapButton title="Try again" onPress={onRetry} />
+        <MapButton variant="ghost" title="Log out" onPress={onLogout} />
+      </Paper>
+    </Page>
+  );
+}
+
+function MeScreen({ onRetry }: { onRetry: () => void }) {
   const { currentUser, logout, refreshCurrentUser } = useAuth();
-  const { profile, canChangeUsername, timeUntilCanChange, updateUsername, patchProfile } =
+  const { profile, isLoading, canChangeUsername, timeUntilCanChange, updateUsername, patchProfile } =
     useUserProfile(currentUser?.uid);
+
+  // The profile is read once, when the screen opens (hooks/useUserProfile.ts). If it never comes, say so.
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    if (profile) return;
+    const timer = setTimeout(() => setGaveUp(true), PROFILE_PATIENCE_MS);
+    return () => clearTimeout(timer);
+  }, [profile]);
 
   const { themeColors } = useTheme();
   const router = useRouter();
@@ -111,11 +161,14 @@ export default function MeTab() {
   };
 
   if (!profile) {
-    return (
-      <Page variant="map" style={styles.center}>
-        <Loading label="Unrolling your page..." />
-      </Page>
-    );
+    if (isLoading && !gaveUp) {
+      return (
+        <Page variant="map" style={styles.center}>
+          <Loading label="Unrolling your page..." />
+        </Page>
+      );
+    }
+    return <ProfileTrouble uid={currentUser?.uid} onRetry={onRetry} onLogout={handleLogout} />;
   }
 
   return (
@@ -267,4 +320,13 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   switchLabel: { fontSize: 19, lineHeight: 23, fontWeight: '600' },
   credit: { fontSize: 13, lineHeight: 17, textAlign: 'center', paddingHorizontal: 15 },
+  troubleCard: { alignItems: 'center', gap: 10, padding: 24, maxWidth: 420 },
+  troubleTitle: { fontSize: 28, lineHeight: 34, textAlign: 'center' },
+  troubleHint: { fontSize: 19, lineHeight: 24, textAlign: 'center' },
 });
+
+export default function MeTab() {
+  // "Try again" mounts the screen afresh, which reads the profile again.
+  const [attempt, setAttempt] = useState(0);
+  return <MeScreen key={attempt} onRetry={() => setAttempt((n) => n + 1)} />;
+}

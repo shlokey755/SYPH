@@ -16,6 +16,7 @@ import { ChatListView } from '../chat/ChatListView';
 import {
   ART,
   CountSeal,
+  FILL_IMAGE,
   InShellContext,
   IS_WEB,
   Paper,
@@ -50,7 +51,7 @@ function Rail({ width, place }: { width: number; place: Place | null }) {
   const { unreadTotal } = useConversations();
   return (
     <View style={[styles.rail, { width, backgroundColor: c.wood }]}>
-      <Image source={ART.wood} resizeMode="cover" style={StyleSheet.absoluteFill} />
+      <Image source={ART.wood} resizeMode="cover" style={FILL_IMAGE} />
       <View style={[styles.railEdge, { backgroundColor: c.brass }]} />
       <Text kind="display" style={[styles.logo, { color: c.gilt }]}>
         SYPH
@@ -103,12 +104,12 @@ function WebShell({ children }: { children: ReactNode }) {
         {inApp ? <Rail width={railWidth} place={place} /> : null}
         {inApp ? (
           <View style={[styles.list, { width: listWidth, borderRightColor: c.brass }]}>
-            <Image source={ART.map} resizeMode="cover" style={StyleSheet.absoluteFill} />
+            <Image source={ART.map} resizeMode="cover" style={FILL_IMAGE} />
             <ChatListView activeId={activeId} />
           </View>
         ) : null}
         <View style={styles.main}>
-          {inApp ? <Image source={page} resizeMode="cover" style={StyleSheet.absoluteFill} /> : null}
+          {inApp ? <Image source={page} resizeMode="cover" style={FILL_IMAGE} /> : null}
           {children}
         </View>
       </View>

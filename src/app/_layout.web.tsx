@@ -4,7 +4,7 @@
 // dialogs, and the stack sits inside the desktop shell (rail, chat list and wide map page on a wide window).
 // A phone never loads this file. When _layout.tsx gains a provider or a screen, add it here too (docs/PARCHMENT.md).
 import '../services/liveLocationTask';
-import { Stack } from 'expo-router';
+import { DefaultTheme, Stack, ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Alert } from 'react-native';
 import { ActiveCallProvider } from '../components/call/ActiveCallHost';
@@ -33,19 +33,26 @@ if (typeof window !== 'undefined') {
     showBrowserAlert({ alert: (t) => window.alert(t), confirm: (t) => window.confirm(t) }, title, message, buttons);
 }
 
-// Transparent on a wide window, so the shell's map page shows behind the screens; on a narrow one every screen paints its
-// own parchment.
+// Every navigator paints its screens with the navigation theme's background, a pale grey by default, which would hide the map the
+// shell paints behind the pages. Transparent on a wide window; on a narrow one every screen paints its own parchment, and the
+// parchment colour keeps a screen from flashing grey as it comes in.
+const navigationTheme = (background: string) => ({ ...DefaultTheme, colors: { ...DefaultTheme.colors, background } });
+const DESKTOP_THEME = navigationTheme('transparent');
+const NARROW_THEME = navigationTheme(vintage.background);
+
 function WebStack({ children }: { children: React.ReactNode }) {
   const { desktop } = useDesktopLayout();
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: desktop ? 'transparent' : vintage.background },
-      }}
-    >
-      {children}
-    </Stack>
+    <NavigationThemeProvider value={desktop ? DESKTOP_THEME : NARROW_THEME}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: desktop ? 'transparent' : vintage.background },
+        }}
+      >
+        {children}
+      </Stack>
+    </NavigationThemeProvider>
   );
 }
 
