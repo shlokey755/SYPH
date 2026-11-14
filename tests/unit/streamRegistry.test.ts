@@ -38,6 +38,14 @@ describe('webrtc.web.ts', () => {
       .map((match) => match[1])
       .sort();
 
+  // `expo export` renders every screen in Node, where the browser's WebRTC classes do not exist. A class that extends one at the
+  // left margin of webrtcBrowser.tsx runs the moment the file is imported and stops the export with a ReferenceError.
+  it('webrtcBrowser.tsx builds no class on a browser global while it is imported', () => {
+    const source = readFileSync('src/services/webrtcBrowser.tsx', 'utf8');
+    assert.doesNotMatch(source, /^(?:export )?class [^\n]*\bextends\s+(?:RTCPeerConnection|MediaStream|MediaStreamTrack)\b/m);
+    assert.match(source, /\bextends RTCPeerConnection\b/); // the class is still there, built inside a function
+  });
+
   it('exports what webrtc.ts exports', () => {
     const phone = exportsOf('src/services/webrtc.ts');
     assert.ok(phone.length > 0);
