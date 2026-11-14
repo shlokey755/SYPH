@@ -34,25 +34,36 @@ function stopHearing(id: string): void {
   voices.delete(id);
 }
 
-/** A browser peer connection that also plays the sound it receives, and stops when the connection is closed. */
-class BrowserPeerConnection extends RTCPeerConnection {
-  private readonly heard = new Set<string>();
+let PeerConnection: typeof RTCPeerConnection | undefined;
 
-  constructor(configuration?: RTCConfiguration) {
-    super(configuration);
-    this.addEventListener('track', (event) => {
-      if (event.track.kind !== 'audio') return;
-      const stream = event.streams[0] ?? new MediaStream([event.track]);
-      this.heard.add(stream.id);
-      hear(stream);
-    });
-  }
+/**
+ * A browser peer connection that also plays the sound it receives, and stops when the connection is closed. The class is built
+ * on first use and not at the top of this file: static export loads every screen in Node, where RTCPeerConnection does not
+ * exist, and a class that extends it there fails with "ReferenceError: RTCPeerConnection is not defined".
+ */
+function browserPeerConnection(): typeof RTCPeerConnection {
+  if (!PeerConnection) {
+    PeerConnection = class BrowserPeerConnection extends RTCPeerConnection {
+      private readonly heard = new Set<string>();
 
-  override close(): void {
-    this.heard.forEach(stopHearing);
-    this.heard.clear();
-    super.close();
+      constructor(configuration?: RTCConfiguration) {
+        super(configuration);
+        this.addEventListener('track', (event) => {
+          if (event.track.kind !== 'audio') return;
+          const stream = event.streams[0] ?? new MediaStream([event.track]);
+          this.heard.add(stream.id);
+          hear(stream);
+        });
+      }
+
+      override close(): void {
+        this.heard.forEach(stopHearing);
+        this.heard.clear();
+        super.close();
+      }
+    };
   }
+  return PeerConnection;
 }
 
 interface RTCViewProps {
@@ -131,7 +142,7 @@ export function browserWebRTC() {
   if (typeof RTCPeerConnection === 'undefined' || !navigator.mediaDevices?.getUserMedia) return null;
   bridge();
   return {
-    RTCPeerConnection: BrowserPeerConnection,
+    RTCPeerConnection: browserPeerConnection(),
     RTCIceCandidate,
     RTCSessionDescription,
     MediaStream,
