@@ -53,7 +53,7 @@ Import from one place: `import { Page, Paper, Text } from '../../components/parc
 | `Banner` | A ribbon with a word on it. `tone` `wax`/`sea`/`brass`/`paper`. | Date separators, section headings. |
 | `Loading`, `Compass` | A turning compass. `Loading` has an optional `label`. | Everywhere a spinner would go. Do not use `ActivityIndicator`. |
 | `Unfurl` | Rolls its content open like a scroll (`from="top"` or `"bottom"`), once, when it first shows. Does nothing under "reduce motion". | Toasts, sheets, panels that arrive on top of a screen. |
-| `DesktopShell`, `DesktopEmpty` (in `components/desktop`) | The desktop layout: plank rail, list of chats, open page. Already used in `app/_layout.tsx`; `DesktopEmpty` is what the Chat tab shows beside the list. | Nothing else needs them. |
+| `DesktopShell`, `DesktopEmpty`, `Focused` (in `components/desktop`) | The desktop layout: plank rail, list of chats, open page. Already used in `app/_layout.web.tsx`; `DesktopEmpty` is what the Chat tab shows beside the list. `Focused` wraps a tab's page and hides it while another tab is open: on a wide window the pages are transparent, so a hidden tab would show through the open one. | Nothing else needs them. |
 | `paperShadow(color, lift)`, `POINTER`, `SHEET_FRAME`, `DIALOG_FRAME`, `useDesktopLayout`, `InShellContext`, `IS_WEB`, `isHovered`, `NATIVE_DRIVER`, `useReduceMotion` | Platform helpers, see [On the web](#on-the-web). | Anything custom that needs a shadow, a hand cursor or an Animated driver. |
 | `ART` | The pictures (`wood`, `tear`, `compass`, ...). | `ART.wood` for a plank background. |
 
@@ -128,7 +128,7 @@ The web build is the same screens and the same pieces. What differs, and where:
 
 | What | Where |
 | --- | --- |
-| From a window 900 points wide the app is the desktop layout: an 84 point plank rail (Chats, Add, Me; it replaces the tab bar), the list of chats (360 points, 320 on a window under 1100) and the open page on a landscape sheet of the map (`parchment-map-wide.jpg`, `parchment-plain-wide.jpg`, web build only). Narrower, it is the phone layout filling the window. | `DesktopShell` in `components/desktop`, rules in `theme/web.ts`, used by `app/_layout.tsx` and `app/(tabs)/_layout.tsx` |
+| From a window 900 points wide the app is the desktop layout: an 84 point plank rail (Chats, Add, Me; it replaces the tab bar), the list of chats (360 points, 320 on a window under 1100) and the open page. The empty Chats page lies on a landscape sheet of the map (`parchment-map-wide.jpg`); an open chat, Add and Me lie on the plain one (`parchment-plain-wide.jpg`), so a form is never drawn over coastlines and trails (both pictures are web build only). Narrower, it is the phone layout filling the window. | `DesktopShell` in `components/desktop`, rules in `theme/web.ts`, used by `app/_layout.web.tsx` and `app/(tabs)/_layout.web.tsx` |
 | Inside the shell a `Page` is transparent and draws no picture of its own (the shell painted one for the whole pane); a modal that needs its own picture passes `force` to `PageTexture` | `InShellContext`, `Page` |
 | Lines of text never stretch across a monitor: a conversation is at most 820 points wide, Add and Me 640, sign-in 520, a toast 440 | `READING_WIDTH`, `FORM_WIDTH` in `theme/web.ts` |
 | No back button in a conversation (the list is right there); choosing another chat swaps the open one instead of stacking screens | `useDesktopLayout` in `app/chat/[id].tsx`, `ChatListView` |
