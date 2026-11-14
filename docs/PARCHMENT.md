@@ -53,7 +53,7 @@ Import from one place: `import { Page, Paper, Text } from '../../components/parc
 | `Banner` | A ribbon with a word on it. `tone` `wax`/`sea`/`brass`/`paper`. | Date separators, section headings. |
 | `Loading`, `Compass` | A turning compass. `Loading` has an optional `label`. | Everywhere a spinner would go. Do not use `ActivityIndicator`. |
 | `Unfurl` | Rolls its content open like a scroll (`from="top"` or `"bottom"`), once, when it first shows. Does nothing under "reduce motion". | Toasts, sheets, panels that arrive on top of a screen. |
-| `DesktopShell`, `DesktopEmpty` (in `components/desktop`) | The desktop layout: plank rail, list of chats, open page. Already used in `app/_layout.tsx`; `DesktopEmpty` is what the Chat tab shows beside the list. | Nothing else needs them. |
+| `DesktopShell`, `DesktopEmpty`, `Focused` (in `components/desktop`) | The desktop layout: plank rail, list of chats, open page. Already used in `app/_layout.web.tsx`; `DesktopEmpty` is what the Chat tab shows beside the list. `Focused` wraps a tab's page and hides it while another tab is open: on a wide window the pages are transparent, so a hidden tab would show through the open one. | Nothing else needs them. |
 | `paperShadow(color, lift)`, `POINTER`, `SHEET_FRAME`, `DIALOG_FRAME`, `useDesktopLayout`, `InShellContext`, `IS_WEB`, `isHovered`, `NATIVE_DRIVER`, `useReduceMotion` | Platform helpers, see [On the web](#on-the-web). | Anything custom that needs a shadow, a hand cursor or an Animated driver. |
 | `ART` | The pictures (`wood`, `tear`, `compass`, ...). | `ART.wood` for a plank background. |
 
@@ -128,7 +128,7 @@ The web build is the same screens and the same pieces. What differs, and where:
 
 | What | Where |
 | --- | --- |
-| From a window 900 points wide the app is the desktop layout: an 84 point plank rail (Chats, Add, Me; it replaces the tab bar), the list of chats (360 points, 320 on a window under 1100) and the open page on a landscape sheet of the map (`parchment-map-wide.jpg`, `parchment-plain-wide.jpg`, web build only). Narrower, it is the phone layout filling the window. | `DesktopShell` in `components/desktop`, rules in `theme/web.ts`, used by `app/_layout.tsx` and `app/(tabs)/_layout.tsx` |
+| From a window 900 points wide the app is the desktop layout: an 84 point plank rail (Chats, Add, Me; it replaces the tab bar), the list of chats (360 points, 320 on a window under 1100) and the open page. The empty Chats page lies on a landscape sheet of the map (`parchment-map-wide.jpg`); an open chat, Add and Me lie on the plain one (`parchment-plain-wide.jpg`), so a form is never drawn over coastlines and trails (both pictures are web build only). Narrower, it is the phone layout filling the window. | `DesktopShell` in `components/desktop`, rules in `theme/web.ts`, used by `app/_layout.web.tsx` and `app/(tabs)/_layout.web.tsx` |
 | Inside the shell a `Page` is transparent and draws no picture of its own (the shell painted one for the whole pane); a modal that needs its own picture passes `force` to `PageTexture` | `InShellContext`, `Page` |
 | Lines of text never stretch across a monitor: a conversation is at most 820 points wide, Add and Me 640, sign-in 520, a toast 440 | `READING_WIDTH`, `FORM_WIDTH` in `theme/web.ts` |
 | No back button in a conversation (the list is right there); choosing another chat swaps the open one instead of stacking screens | `useDesktopLayout` in `app/chat/[id].tsx`, `ChatListView` |
@@ -137,12 +137,19 @@ The web build is the same screens and the same pieces. What differs, and where:
 | Hand cursor and hover brightening on buttons | `POINTER`, `isHovered` |
 | A `Modal` is drawn over the whole browser window, so a sheet or panel inside one is given `SHEET_FRAME` (full width up to 560 points, centred); a full-height picker (forward, GIFs, group info) is given `DIALOG_FRAME`, a card with margins and a shadow over a dimmed window; the message menu is a torn note in the middle of the window | `SHEET_FRAME`, `DIALOG_FRAME` |
 | No native animation engine in a browser, so Animated must not ask for one | `NATIVE_DRIVER` |
-| `Alert.alert` does nothing in React Native Web, so `app/_layout.tsx` points it at the browser's own `alert` / `confirm` (the logic is `utils/browserAlert.ts`: a destructive button is what `confirm` runs on OK) | `utils/browserAlert.ts` |
+| `Alert.alert` does nothing in React Native Web, so `app/_layout.web.tsx` points it at the browser's own `alert` / `confirm` (the logic is `utils/browserAlert.ts`: a destructive button is what `confirm` runs on OK) | `utils/browserAlert.ts` |
 | A text box is `Field`: a dashed, hand-drawn box around a `TextInput`, which turns brass-red while it has focus. Enter sends a message in a browser, Shift+Enter adds a line | `Field`, `components/chat/MessageInput.tsx` |
 | Tab icon and name, and the colour of the browser's address bar on phones | `web` in `app.json`, `assets/images/favicon-compass.png` |
 
-Calls, push notifications and live location sharing are not available in a browser; their screens look the same but the
-features check for the platform as before.
+Push notifications and live location sharing are not available in a browser; their screens look the same but the features
+check for the platform as before.
+
+Calls run on the browser's own WebRTC. `services/webrtc.web.ts` hands the call code the browser's peer connection and media
+devices in the shape of react-native-webrtc's (`services/webrtcBrowser.tsx`): `RTCView` becomes a `<video>`, the other person's
+voice plays through a hidden `<audio>`, and `stream.toURL()` is an address that `utils/streamRegistry.ts` turns back into the
+stream. A browser allows the microphone and camera only on an https:// page or on localhost; anywhere else `getWebRTC()` is null
+and the chat screen says so. When `webrtc.ts` changes (the ICE server list, say), change `webrtc.web.ts` too:
+`tests/unit/streamRegistry.test.ts` checks that their exports match. The call screens are still the phone's, unstyled for the map.
 
 To try it: `npm run web`, or `npx expo export --platform web` and serve the `dist` folder.
 

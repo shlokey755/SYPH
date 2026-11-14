@@ -1,7 +1,7 @@
-// app/(tabs)/_layout.tsx
+// app/(tabs)/_layout.web.tsx: the tabs in a browser (the phone's twin is _layout.tsx, which a browser never loads).
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { Image, StyleSheet, View } from 'react-native';
+import { ColorValue, Image, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PushNotificationsBridge } from '../../components/PushNotificationsBridge';
@@ -31,7 +31,8 @@ function TabGlyph({
 }: {
   name: keyof typeof Ionicons.glyphMap;
   focused: boolean;
-  color: string;
+  /** What the tab bar passes to a tab's icon: any colour value, not only a string. */
+  color: ColorValue;
   size: number;
 }) {
   const { themeColors } = useTheme();

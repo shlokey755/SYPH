@@ -96,8 +96,10 @@ function WebShell({ children }: { children: ReactNode }) {
   const onChat = segments[0] === 'chat';
   const rawId = params.id as string | string[] | undefined;
   const activeId = onChat ? ((Array.isArray(rawId) ? rawId[0] : rawId) ?? null) : null;
-  // A conversation is read on clean parchment; every other page gets the full map.
-  const page = WIDE_ART ? (onChat ? WIDE_ART.plain : WIDE_ART.map) : onChat ? ART.plain : ART.map;
+  // The full map (coastlines, trails, an X) is for the empty page. Whatever is read or filled in (a conversation, Add, Me) sits on
+  // clean parchment, where text and fields stay legible.
+  const empty = place === 'chats' && !onChat;
+  const page = WIDE_ART ? (empty ? WIDE_ART.map : WIDE_ART.plain) : empty ? ART.map : ART.plain;
   return (
     <InShellContext.Provider value={inApp}>
       <View style={[styles.outer, inApp && { backgroundColor: c.burn }]}>

@@ -8,6 +8,7 @@
 
 
 
+import { Focused } from '../../components/desktop/Focused';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRouter } from 'expo-router';
@@ -49,7 +50,7 @@ import { SearchResult, useUserSearch } from '../../hooks/useUserSearch';
 
 
 
-export default function AddTab() {
+function AddScreen() {
 
   const { currentUser } = useAuth();
 
@@ -997,3 +998,10 @@ const styles = StyleSheet.create({
 
 });
 
+export default function AddTab() {
+  return (
+    <Focused>
+      <AddScreen />
+    </Focused>
+  );
+}

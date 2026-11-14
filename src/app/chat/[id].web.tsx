@@ -502,10 +502,19 @@ export default function ChatScreen() {
   // 1-on-1 chats call the other person (below); group chats use startOrJoinGroupCall.
   const callee = conversation && !conversation.isGroup ? getOtherParticipant(conversation, myUid) : undefined;
 
+  /** A browser hands out the microphone and camera only to https:// pages and to localhost, and only where WebRTC is built in. */
+  const callsUnavailable = () =>
+    toast.info(
+      'Calls are not available here',
+      window.isSecureContext === false
+        ? 'A browser only allows the microphone and camera on an https:// page or on localhost.'
+        : 'This browser has no WebRTC.'
+    );
+
   const startCall = (type: CallType) => {
     if (!conversation || !callee) return;
     if (!isCallingSupported()) {
-      toast.info('Calls need an installed build', 'They do not work in Expo Go. See API.md for the development build.');
+      callsUnavailable();
       return;
     }
     if (offline) {
@@ -528,7 +537,7 @@ export default function ChatScreen() {
   const startOrJoinGroupCall = (type: CallType) => {
     if (!conversation?.isGroup) return;
     if (!isCallingSupported()) {
-      toast.info('Calls need an installed build', 'They do not work in Expo Go. See API.md for the development build.');
+      callsUnavailable();
       return;
     }
     if (offline) {

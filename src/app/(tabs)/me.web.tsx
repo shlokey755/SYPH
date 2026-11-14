@@ -6,8 +6,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -23,6 +23,7 @@ import {
   Text,
   TrailLine,
 } from '../../components/parchment';
+import { Focused } from '../../components/desktop/Focused';
 import { FORM_WIDTH } from '../../theme/web';
 import { useTheme } from '../../theme/mapTheme';
 import { useToast } from '../../hooks/toastNotifications';
@@ -36,6 +37,7 @@ import { UpdateSection } from '../../components/profile/UpdateSection';
 import { NameSection } from '../../components/profile/NameSection';
 import { db } from '../../firebaseConfig';
 import { isPushSupported, registerForPush } from '../../services/pushService';
+import { normalizeUsername } from '../../utils/auth';
 
 /** How long the full profile may take before the page opens with the one the app already holds. */
 const PROFILE_PATIENCE_MS = 5000;
@@ -44,13 +46,14 @@ const DIAGNOSIS_TIMEOUT_MS = 8000;
 
 /**
  * Shown above the page while only the profile the app already holds (hooks/useAuth.tsx) is on screen, because the full one
- * has not come: asks the server why, and offers to try again.
+ * has not come: says why (the error it was given, or else the server's own answer), and offers to try again.
  */
-function ProfileNotice({ uid, onRetry }: { uid: string; onRetry: () => void }) {
+function ProfileNotice({ uid, error, onRetry }: { uid: string; error: string | null; onRetry: () => void }) {
   const { themeColors: c } = useTheme();
   const [reason, setReason] = useState<string | null>(null);
 
   useEffect(() => {
+    if (error) return;
     let live = true;
     const timer = setTimeout(() => live && setReason((r) => r ?? 'The server did not answer in time.'), DIAGNOSIS_TIMEOUT_MS);
     getDoc(doc(db, 'users', uid)).then(
@@ -61,7 +64,7 @@ function ProfileNotice({ uid, onRetry }: { uid: string; onRetry: () => void }) {
       live = false;
       clearTimeout(timer);
     };
-  }, [uid]);
+  }, [uid, error]);
 
   return (
     <Paper tone="alt" lift={0} contentStyle={styles.warn}>
@@ -71,7 +74,7 @@ function ProfileNotice({ uid, onRetry }: { uid: string; onRetry: () => void }) {
           Showing the copy kept on this device
         </Text>
         <Text kind="hand" style={[styles.hint, { color: c.inkSoft }]}>
-          {reason ?? 'Asking the server why...'}
+          {error ?? reason ?? 'Asking the server why...'}
         </Text>
         <MapButton small variant="ghost" title="Try again" onPress={onRetry} />
       </View>
@@ -79,7 +82,7 @@ function ProfileNotice({ uid, onRetry }: { uid: string; onRetry: () => void }) {
   );
 }
 
-function MeScreen({ onRetry }: { onRetry: () => void }) {
+function MeScreen({ attempt, onRetry }: { attempt: number; onRetry: () => void }) {
   const { currentUser, logout, refreshCurrentUser } = useAuth();
   const { profile: loaded, isLoading, canChangeUsername, timeUntilCanChange, updateUsername, patchProfile } =
     useUserProfile(currentUser?.uid);
@@ -93,6 +96,29 @@ function MeScreen({ onRetry }: { onRetry: () => void }) {
     return () => clearTimeout(timer);
   }, [loaded]);
   const profile = loaded ?? (gaveUp || !isLoading ? currentUser : null);
+
+  // The read worked and found no profile page: an account made before profile pages existed, or whose page was never saved. The first
+  // time, the page is made now with the fields sign-up writes (hooks/useAuth.tsx), so search, the name and the username work for this
+  // account; the profile is then read again. Whatever stops it is shown in the notice.
+  const missing = !loaded && !isLoading;
+  const [repairError, setRepairError] = useState<string | null>(null);
+  const repairStarted = useRef(false);
+  useEffect(() => {
+    if (!missing || attempt > 0 || !currentUser || repairStarted.current) return;
+    repairStarted.current = true;
+    setDoc(
+      doc(db, 'users', currentUser.uid),
+      {
+        uid: currentUser.uid,
+        username: currentUser.username,
+        usernameLowercase: currentUser.usernameLowercase || normalizeUsername(currentUser.username),
+        lastUsernameChange: null,
+        createdAt: serverTimestamp(),
+      },
+      { merge: true }
+    ).then(onRetry, (e: unknown) => setRepairError(e instanceof Error ? e.message : String(e)));
+  }, [missing, attempt, currentUser, onRetry]);
+  const mending = missing && attempt === 0 && repairError === null;
 
   const { themeColors } = useTheme();
   const router = useRouter();
@@ -180,9 +206,9 @@ function MeScreen({ onRetry }: { onRetry: () => void }) {
           <TrailLine x style={styles.trail} />
         </View>
 
-        {!loaded && (
+        {!loaded && !mending && (
           <View style={styles.section}>
-            <ProfileNotice uid={profile.uid} onRetry={onRetry} />
+            <ProfileNotice uid={profile.uid} error={repairError} onRetry={onRetry} />
           </View>
         )}
 
@@ -339,5 +365,9 @@ const styles = StyleSheet.create({
 export default function MeTab() {
   // "Try again" mounts the screen afresh, which reads the profile again.
   const [attempt, setAttempt] = useState(0);
-  return <MeScreen key={attempt} onRetry={() => setAttempt((n) => n + 1)} />;
+  return (
+    <Focused>
+      <MeScreen key={attempt} attempt={attempt} onRetry={() => setAttempt((n) => n + 1)} />
+    </Focused>
+  );
 }
