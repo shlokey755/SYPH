@@ -1,59 +1,32 @@
 /**
  * alertPrefs.ts
- * Pure rules for SYPH's sounds and vibration: the person's choices, what a ringing call does, and what a new message does.
+ * Pure rules for SYPH's vibration and sounds: the person's choices, what a ringing call does, and what a new message does.
  * No React, no native code, no storage: keep it dependency-free so it can be unit tested with plain Node.
  *
- * Where the choices apply (they live on this phone only, see services/alertPrefsStore.ts):
- *   - an incoming call that rings while SYPH is open
- *   - the message alert while SYPH is open
- *   - small taps and buzzes in the app
- * While SYPH is closed, Android plays the alert from the notification channel. A build that can ring natively (API.md 1.16.1)
- * saves these choices on the account and the sender's phone picks the channel that matches (utils/push.ts), so they apply
- * closed as well; an older build follows the phone's own notification settings.
+ * SYPH has no sounds of its own. A ringing call uses the phone's ringtone and a new message the phone's notification sound,
+ * whatever the person picked in Android's settings; the only choices kept here are the two kinds of buzz (they live on this
+ * phone only, see services/alertPrefsStore.ts). They apply while SYPH is open. While it is closed Android makes the alert from
+ * the notification channel, so the person changes it in the phone's notification settings for SYPH.
  */
-
-export type RingtoneId = 'syph' | 'phone';
-export type MessageToneId = 'syph' | 'pop' | 'drop' | 'off';
 
 export interface AlertPrefs {
   /** Buzzing for ringing calls and new messages. */
   vibrate: boolean;
   /** The small tick when pressing send, and the pulses when a call connects or ends. */
   touchFeedback: boolean;
-  ringtone: RingtoneId;
-  messageTone: MessageToneId;
 }
 
 export const DEFAULT_ALERT_PREFS: AlertPrefs = {
   vibrate: true,
   touchFeedback: true,
-  ringtone: 'syph',
-  messageTone: 'syph',
 };
 
-export const RINGTONES: readonly { id: RingtoneId; label: string; hint: string }[] = [
-  { id: 'syph', label: 'SYPH', hint: 'The SYPH ringtone' },
-  { id: 'phone', label: 'Phone ringtone', hint: 'Whatever your phone rings with' },
-];
-
-export const MESSAGE_TONES: readonly { id: MessageToneId; label: string }[] = [
-  { id: 'syph', label: 'SYPH' },
-  { id: 'pop', label: 'Pop' },
-  { id: 'drop', label: 'Drop' },
-  { id: 'off', label: 'Silent' },
-];
-
-const isRingtone = (value: unknown): value is RingtoneId => RINGTONES.some((tone) => tone.id === value);
-const isMessageTone = (value: unknown): value is MessageToneId => MESSAGE_TONES.some((tone) => tone.id === value);
-
-/** Reads saved choices, ignoring anything that is missing or not understood (an older or damaged save). */
+/** Reads saved choices, ignoring anything that is missing or not understood (an older or damaged save, or the retired tone keys). */
 export function normalizeAlertPrefs(raw: unknown): AlertPrefs {
   const data = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
   return {
     vibrate: typeof data.vibrate === 'boolean' ? data.vibrate : DEFAULT_ALERT_PREFS.vibrate,
     touchFeedback: typeof data.touchFeedback === 'boolean' ? data.touchFeedback : DEFAULT_ALERT_PREFS.touchFeedback,
-    ringtone: isRingtone(data.ringtone) ? data.ringtone : DEFAULT_ALERT_PREFS.ringtone,
-    messageTone: isMessageTone(data.messageTone) ? data.messageTone : DEFAULT_ALERT_PREFS.messageTone,
   };
 }
 
@@ -62,7 +35,7 @@ export function normalizeAlertPrefs(raw: unknown): AlertPrefs {
 /** Longest a call rings (the caller gives up after 45 s, see RING_TIMEOUT_MS in utils/call.ts), plus a little slack. */
 export const MAX_RING_MS = 50_000;
 
-/** One round of the buzz: two pulses, then a rest. Its length matches the bundled ringtone (about 3.1 s). */
+/** One round of the buzz: two pulses, then a rest (about 3.1 s, the usual rhythm of a phone ringing). */
 const BUZZ_CYCLE = [400, 150, 400, 2130];
 
 /**
@@ -82,21 +55,13 @@ export function ringVibrationPattern(durationMs: number = MAX_RING_MS): number[]
   return pattern;
 }
 
-/** Names the two ringtones react-native-incall-manager understands: its bundled file, or the phone's own ringtone. */
-export type RingtoneSource = '_BUNDLE_' | '_DEFAULT_';
-
 export interface RingPlan {
-  source: RingtoneSource;
   /** Null when vibration is off. */
   pattern: number[] | null;
 }
 
-/**
- * What a ringing call does. The SYPH ringtone is a file inside the app, so it exists only in a build made after it was
- * added (`hasBundledSounds`); an older build rings with the phone's own ringtone instead of staying silent.
- */
-export const ringPlan = (prefs: AlertPrefs, hasBundledSounds: boolean): RingPlan => ({
-  source: prefs.ringtone === 'phone' || !hasBundledSounds ? '_DEFAULT_' : '_BUNDLE_',
+/** What a ringing call does: the phone's ringtone (always), and the buzz when the person has vibration on. */
+export const ringPlan = (prefs: AlertPrefs): RingPlan => ({
   pattern: prefs.vibrate ? ringVibrationPattern() : null,
 });
 
@@ -109,9 +74,7 @@ export const touchTickMs = (prefs: AlertPrefs): number | null => (prefs.touchFee
 export type MessageBuzz = 'buzz' | 'tick' | null;
 
 export interface MessageAlertPlan {
-  /** The tone to play, or null for none. */
-  tone: Exclude<MessageToneId, 'off'> | null;
-  /** 0 to 1. */
+  /** 0 to 1: how loud the phone's notification sound is played. */
   volume: number;
   /** `buzz` is a short double pulse for a message in another chat; `tick` a light touch for the chat being read. */
   buzz: MessageBuzz;
@@ -120,7 +83,6 @@ export interface MessageAlertPlan {
 /** The chat being read gets a quieter, gentler alert than one that arrives while the person is somewhere else. */
 export function messageAlertPlan(prefs: AlertPrefs, chatIsOpen: boolean): MessageAlertPlan {
   return {
-    tone: prefs.messageTone === 'off' ? null : prefs.messageTone,
     volume: chatIsOpen ? 0.45 : 1,
     buzz: !prefs.vibrate ? null : chatIsOpen ? 'tick' : 'buzz',
   };

@@ -1,62 +1,56 @@
 /**
  * SoundsSection.tsx
- * "Sounds & vibration" in the Me tab: vibration on or off, touch feedback on or off, the ringtone for incoming calls and the
- * tone for new messages. Choosing a ringtone or tone plays it once, so it can be heard before it is kept.
+ * "Sounds & vibration" in the Me tab: vibration on or off, touch feedback on or off, and the phone's own call ringtone and
+ * notification sound with a button to hear each.
  *
- * The choices live on this phone (services/alertPrefsStore.ts) and apply while SYPH is open. A build that can show them while
- * SYPH is closed (supportsClosedAlerts) also copies them to the account, so the notification that wakes the phone uses the
- * same tone, ringtone and vibration; an older build lets Android play its own notification sound then.
+ * SYPH has no sounds of its own. Calls ring with the ringtone chosen in the phone's settings, and new messages use the phone's
+ * notification sound, the same whether SYPH is open or closed. To change either, use the phone's sound settings (the button
+ * opens them). The two switches live on this phone (services/alertPrefsStore.ts) and apply while SYPH is open; while it is
+ * closed Android decides the buzz from the notification settings for SYPH.
  */
 
-import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useTheme } from '../../hooks/themeContext';
-import { buzz, hasBundledSounds, playTone } from '../../services/alertSounds';
+import { buzz } from '../../services/alertSounds';
 import { setAlertPrefs, useAlertPrefs } from '../../services/alertPrefsStore';
 import { getActiveCall } from '../../services/activeCallStore';
-import { supportsClosedAlerts } from '../../services/callOverlay';
 import { startRinging, stopRinging } from '../../services/callAudio';
-import {
-  MESSAGE_BUZZ_PATTERN,
-  MESSAGE_TONES,
-  MessageToneId,
-  RINGTONES,
-  RingtoneId,
-  ringPlan,
-  TOUCH_TICK_MS,
-} from '../../utils/alertPrefs';
+import { playPhoneMessageSound } from '../../services/callOverlay';
+import { MESSAGE_BUZZ_PATTERN, ringPlan, TOUCH_TICK_MS } from '../../utils/alertPrefs';
 
-/** How long a ringtone preview plays. */
+/** How long the ringtone test plays. */
 const PREVIEW_SECONDS = 3;
+
+/** Opens Android's own sound settings, where the ringtone and notification sound are chosen; SYPH's app settings if that fails. */
+function openPhoneSoundSettings() {
+  if (Platform.OS !== 'android') return void Linking.openSettings();
+  Linking.sendIntent('android.settings.SOUND_SETTINGS').catch(() => void Linking.openSettings());
+}
 
 export function SoundsSection() {
   const { themeColors } = useTheme();
   const prefs = useAlertPrefs();
-  const bundled = hasBundledSounds();
 
-  // Leaving the screen silences a preview that is still playing.
+  // Leaving the screen silences a test that is still playing.
   useEffect(() => () => void stopRinging(), []);
 
-  const chooseRingtone = (ringtone: RingtoneId) => {
-    setAlertPrefs({ ringtone });
+  const testRingtone = () => {
     if (getActiveCall()) return; // never ring into a call
     stopRinging();
-    startRinging(ringPlan({ ...prefs, ringtone }, bundled).source, null, PREVIEW_SECONDS);
-  };
-
-  const chooseMessageTone = (messageTone: MessageToneId) => {
-    setAlertPrefs({ messageTone });
-    if (messageTone !== 'off') playTone(messageTone);
+    startRinging(ringPlan({ ...prefs, vibrate: false }).pattern, PREVIEW_SECONDS);
   };
 
   const row = [styles.row, { borderColor: themeColors.border }];
-  const radio = (selected: boolean) => (
-    <Ionicons
-      name={selected ? 'radio-button-on' : 'radio-button-off'}
-      size={20}
-      color={selected ? themeColors.accent : themeColors.subText}
-    />
+  const testButton = (label: string, onPress: () => void) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={[styles.button, { borderColor: themeColors.accent }]}
+    >
+      <Text style={[styles.buttonText, { color: themeColors.accent }]}>Test</Text>
+    </Pressable>
   );
 
   return (
@@ -95,55 +89,35 @@ export function SoundsSection() {
           />
         </View>
 
-        <View style={[styles.group, { borderColor: themeColors.border }]}>
-          <Text style={[styles.label, { color: themeColors.text }]}>Call ringtone</Text>
-          {RINGTONES.map((tone) => (
-            <Pressable
-              key={tone.id}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: prefs.ringtone === tone.id }}
-              onPress={() => chooseRingtone(tone.id)}
-              style={styles.option}
-            >
-              {radio(prefs.ringtone === tone.id)}
-              <View style={styles.grow}>
-                <Text style={[styles.optionLabel, { color: themeColors.text }]}>{tone.label}</Text>
-                <Text style={[styles.hint, { color: themeColors.subText }]}>{tone.hint}</Text>
-              </View>
-            </Pressable>
-          ))}
-          {!bundled && (
-            <Text style={[styles.hint, { color: themeColors.subText }]}>
-              The SYPH ringtone comes with the newest version of the app. Until you install it, calls ring with your phone's own
-              ringtone.
-            </Text>
-          )}
+        <View style={row}>
+          <View style={styles.grow}>
+            <Text style={[styles.label, { color: themeColors.text }]}>Call ringtone</Text>
+            <Text style={[styles.hint, { color: themeColors.subText }]}>Your phone's own ringtone</Text>
+          </View>
+          {testButton('Test the call ringtone', testRingtone)}
         </View>
 
-        <View style={[styles.group, styles.last]}>
-          <Text style={[styles.label, { color: themeColors.text }]}>Message tone</Text>
-          {MESSAGE_TONES.map((tone) => (
-            <Pressable
-              key={tone.id}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: prefs.messageTone === tone.id }}
-              onPress={() => chooseMessageTone(tone.id)}
-              style={styles.option}
-            >
-              {radio(prefs.messageTone === tone.id)}
-              <Text style={[styles.optionLabel, { color: themeColors.text }]}>{tone.label}</Text>
-            </Pressable>
-          ))}
-          {!bundled && (
-            <Text style={[styles.hint, { color: themeColors.subText }]}>
-              Message tones come with the newest version of the app. Until you install it, new messages only buzz.
-            </Text>
-          )}
+        <View style={row}>
+          <View style={styles.grow}>
+            <Text style={[styles.label, { color: themeColors.text }]}>Message sound</Text>
+            <Text style={[styles.hint, { color: themeColors.subText }]}>Your phone's own notification sound</Text>
+          </View>
+          {testButton('Test the message sound', () => void playPhoneMessageSound(1))}
+        </View>
+
+        <View style={styles.note}>
           <Text style={[styles.hint, { color: themeColors.subText }]}>
-            {supportsClosedAlerts()
-              ? 'These apply whether SYPH is open or closed. Other people\'s phones send the notification with your tone, so a message sounds the same either way.'
-              : 'These apply while SYPH is open. While it is closed, Android plays the alerts itself: change them under the phone\'s notification settings for SYPH. The newest version of the app makes them apply then too.'}
+            SYPH uses the sounds you chose in your phone's settings, with SYPH open or closed. Change them there; the silent and
+            vibrate modes of the phone are respected.
           </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open the phone's sound settings"
+            onPress={openPhoneSoundSettings}
+            style={[styles.button, styles.settingsButton, { borderColor: themeColors.accent }]}
+          >
+            <Text style={[styles.buttonText, { color: themeColors.accent }]}>Open phone sound settings</Text>
+          </Pressable>
         </View>
       </View>
     </View>
@@ -161,11 +135,11 @@ const styles = StyleSheet.create({
     padding: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  group: { padding: 14, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth },
-  last: { borderBottomWidth: 0 },
   grow: { flex: 1 },
   label: { fontSize: 16, fontWeight: '600' },
-  optionLabel: { fontSize: 15 },
-  option: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
   hint: { fontSize: 12 },
+  button: { borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
+  buttonText: { fontSize: 13, fontWeight: '600' },
+  note: { padding: 14, gap: 10 },
+  settingsButton: { alignSelf: 'flex-start' },
 });

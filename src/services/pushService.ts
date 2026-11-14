@@ -12,7 +12,7 @@ import { isRunningInExpoGo } from 'expo';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { CALLS_CHANNEL_ID, MESSAGES_CHANNEL_ID, MESSAGE_CHANNEL_SPECS } from '../utils/push';
+import { CALLS_CHANNEL_ID, MESSAGES_CHANNEL_ID, OLD_MESSAGE_CHANNEL_IDS } from '../utils/push';
 import { supportsClosedAlerts } from './callOverlay';
 import { addPushToken, removePushToken } from './userService';
 
@@ -91,9 +91,11 @@ export async function registerForPush(
   try {
     // Android 13+ only shows the permission prompt once a channel exists.
     if (Platform.OS === 'android') {
+      // The sound is the phone's own notification sound; the person can change it in the phone's settings for SYPH.
       await Notifications.setNotificationChannelAsync(MESSAGES_CHANNEL_ID, {
         name: 'Messages',
         importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
         vibrationPattern: [0, 200, 100, 200],
       });
       // Incoming calls: loudest importance and a longer buzz, so a ringing phone is noticed.
@@ -102,19 +104,10 @@ export async function registerForPush(
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 600, 300, 600, 300, 600],
       });
-      // A build that can show the person's alert choices while SYPH is closed (the native push handler is in it) also has one
-      // message channel per tone and vibration choice. The sender's phone picks the channel that matches the recipient's
-      // choice (utils/push.ts), and Android plays that channel's sound, with SYPH open or not.
-      if (closedAlerts) {
-        for (const spec of MESSAGE_CHANNEL_SPECS) {
-          await Notifications.setNotificationChannelAsync(spec.id, {
-            name: spec.name,
-            importance: Notifications.AndroidImportance.HIGH,
-            sound: spec.sound,
-            enableVibrate: spec.vibrate,
-            vibrationPattern: spec.vibrate ? [0, 200, 100, 200] : undefined,
-          });
-        }
+      // Builds that had SYPH's own message tones made one channel per tone; they are not used any more, so they are removed
+      // (the phone's list of SYPH sounds would otherwise keep showing them).
+      for (const id of OLD_MESSAGE_CHANNEL_IDS) {
+        await Notifications.deleteNotificationChannelAsync(id).catch(() => {});
       }
     }
 
@@ -125,7 +118,7 @@ export async function registerForPush(
 
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
     registeredToken = token;
-    // Written when the device is new, or when it newly says it can show closed-app alerts (a build that was just updated).
+    // Written when the device is new, or when it newly says it can ring while SYPH is closed (a build that was just updated).
     if (!knownTokens.includes(token) || (closedAlerts && !knownClosedAlertTokens.includes(token))) {
       await addPushToken(uid, token, Platform.OS, closedAlerts);
     }

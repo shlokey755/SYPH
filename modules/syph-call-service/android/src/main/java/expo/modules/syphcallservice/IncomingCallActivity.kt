@@ -1,6 +1,7 @@
 package expo.modules.syphcallservice
 
 import android.app.Activity
+import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -79,7 +80,29 @@ class IncomingCallActivity : Activity() {
   private fun accept() {
     CallServiceEvents.incomingAction("accept", key)
     IncomingCallNotifier.cancel(this)
-    // Bring SYPH forward; JavaScript opens the call screen as soon as it hears about the press.
+    val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && keyguard != null && keyguard.isKeyguardLocked) {
+      // Answered from the lock screen: ask for the PIN / fingerprint first, because an app started from here stays hidden behind
+      // the lock screen. Whatever the person does with that prompt, the call is already accepted, so SYPH is opened after it.
+      try {
+        keyguard.requestDismissKeyguard(
+          this,
+          object : KeyguardManager.KeyguardDismissCallback() {
+            override fun onDismissSucceeded() = openApp()
+            override fun onDismissCancelled() = openApp()
+            override fun onDismissError() = openApp()
+          }
+        )
+        return
+      } catch (error: Exception) {
+        // fall through and open SYPH directly
+      }
+    }
+    openApp()
+  }
+
+  /** Brings SYPH forward; JavaScript opens the call screen as soon as it hears about the press. */
+  private fun openApp() {
     packageManager.getLaunchIntentForPackage(packageName)?.let {
       it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
       try {
@@ -130,11 +153,9 @@ class IncomingCallActivity : Activity() {
       if (bold) typeface = Typeface.DEFAULT_BOLD
     }
 
-  private fun roundButton(icon: Int, color: Int, description: String, turn: Float, onPress: () -> Unit): View {
+  private fun roundButton(icon: Int, color: Int, description: String, onPress: () -> Unit): View {
     val image = ImageView(this).apply {
       setImageResource(icon)
-      setColorFilter(Color.WHITE)
-      rotation = turn
       contentDescription = description
       setPadding(dp(20), dp(20), dp(20), dp(20))
       background = square(color)
@@ -175,19 +196,13 @@ class IncomingCallActivity : Activity() {
         addView(button)
         addView(label(caption, 14f, SUBTEXT).apply { setPadding(0, dp(10), 0, 0) })
       }
-    // The phone glyph points up-right; turned over it reads as "hang up".
     buttons.addView(
-      column(roundButton(android.R.drawable.ic_menu_call, DECLINE, "Decline call", 135f) { decline() }, "Decline"),
+      column(roundButton(R.drawable.syph_ic_call_end, DECLINE, "Decline call") { decline() }, "Decline"),
       LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
     )
     buttons.addView(
       column(
-        roundButton(
-          if (isVideo) android.R.drawable.ic_menu_camera else android.R.drawable.ic_menu_call,
-          ACCEPT,
-          "Accept call",
-          0f
-        ) { accept() },
+        roundButton(if (isVideo) R.drawable.syph_ic_videocam else R.drawable.syph_ic_call, ACCEPT, "Accept call") { accept() },
         "Accept"
       ),
       LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)

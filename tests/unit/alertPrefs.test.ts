@@ -4,8 +4,6 @@ import {
   DEFAULT_ALERT_PREFS,
   MAX_RING_MS,
   MESSAGE_BUZZ_PATTERN,
-  MESSAGE_TONES,
-  RINGTONES,
   TOUCH_TICK_MS,
   callFeelPattern,
   messageAlertPlan,
@@ -25,26 +23,24 @@ describe('saved sound choices (normalizeAlertPrefs)', () => {
   });
 
   it('keeps valid choices', () => {
-    const saved = { vibrate: false, touchFeedback: false, ringtone: 'phone', messageTone: 'pop' } as const;
+    const saved = { vibrate: false, touchFeedback: false } as const;
     assert.deepEqual(normalizeAlertPrefs(saved), saved);
   });
 
   it('ignores values it does not understand, one by one', () => {
-    const result = normalizeAlertPrefs({ vibrate: 'yes', touchFeedback: false, ringtone: 'dubstep', messageTone: 'drop' });
+    const result = normalizeAlertPrefs({ vibrate: 'yes', touchFeedback: false });
     assert.equal(result.vibrate, DEFAULT_ALERT_PREFS.vibrate);
     assert.equal(result.touchFeedback, false);
-    assert.equal(result.ringtone, DEFAULT_ALERT_PREFS.ringtone);
-    assert.equal(result.messageTone, 'drop');
+  });
+
+  it('drops the retired tone and ringtone keys of earlier builds', () => {
+    const result = normalizeAlertPrefs({ vibrate: true, touchFeedback: true, ringtone: 'syph', messageTone: 'pop' });
+    assert.deepEqual(result, { vibrate: true, touchFeedback: true });
   });
 
   it('survives text and numbers where an object was expected', () => {
     assert.deepEqual(normalizeAlertPrefs('garbage'), DEFAULT_ALERT_PREFS);
     assert.deepEqual(normalizeAlertPrefs(42), DEFAULT_ALERT_PREFS);
-  });
-
-  it('the defaults are one of the offered choices', () => {
-    assert.ok(RINGTONES.some((tone) => tone.id === DEFAULT_ALERT_PREFS.ringtone));
-    assert.ok(MESSAGE_TONES.some((tone) => tone.id === DEFAULT_ALERT_PREFS.messageTone));
   });
 });
 
@@ -74,33 +70,19 @@ describe('ringing vibration pattern', () => {
 });
 
 describe('what a ringing call does (ringPlan)', () => {
-  it('plays the SYPH ringtone when this build has it', () => {
-    assert.equal(ringPlan(prefs({ ringtone: 'syph' }), true).source, '_BUNDLE_');
-  });
-
-  it('plays the phone ringtone when it was chosen', () => {
-    assert.equal(ringPlan(prefs({ ringtone: 'phone' }), true).source, '_DEFAULT_');
-    assert.equal(ringPlan(prefs({ ringtone: 'phone' }), false).source, '_DEFAULT_');
-  });
-
-  it('falls back to the phone ringtone in a build without the SYPH one, instead of ringing silently', () => {
-    assert.equal(ringPlan(prefs({ ringtone: 'syph' }), false).source, '_DEFAULT_');
-  });
-
-  it('buzzes only when vibration is on', () => {
-    assert.ok(Array.isArray(ringPlan(prefs({ vibrate: true }), true).pattern));
-    assert.equal(ringPlan(prefs({ vibrate: false }), true).pattern, null);
+  it('buzzes only when vibration is on (the ringtone is always the phone\'s own)', () => {
+    assert.ok(Array.isArray(ringPlan(prefs({ vibrate: true })).pattern));
+    assert.equal(ringPlan(prefs({ vibrate: false })).pattern, null);
   });
 
   it('touch feedback does not change how a call rings', () => {
-    assert.deepEqual(ringPlan(prefs({ touchFeedback: false }), true), ringPlan(prefs({ touchFeedback: true }), true));
+    assert.deepEqual(ringPlan(prefs({ touchFeedback: false })), ringPlan(prefs({ touchFeedback: true })));
   });
 });
 
 describe('what a new message does (messageAlertPlan)', () => {
-  it('plays the chosen tone loudly and buzzes for a message in another chat', () => {
-    const plan = messageAlertPlan(prefs({ messageTone: 'pop' }), false);
-    assert.deepEqual(plan, { tone: 'pop', volume: 1, buzz: 'buzz' });
+  it('plays the phone\'s sound loudly and buzzes for a message in another chat', () => {
+    assert.deepEqual(messageAlertPlan(prefs(), false), { volume: 1, buzz: 'buzz' });
   });
 
   it('is quieter and gentler for the chat being read', () => {
@@ -110,16 +92,9 @@ describe('what a new message does (messageAlertPlan)', () => {
     assert.equal(open.buzz, 'tick');
   });
 
-  it('plays no tone when the tone is off, and still buzzes', () => {
-    const plan = messageAlertPlan(prefs({ messageTone: 'off' }), false);
-    assert.equal(plan.tone, null);
-    assert.equal(plan.buzz, 'buzz');
-  });
-
-  it('does not buzz when vibration is off, and still plays the tone', () => {
-    const plan = messageAlertPlan(prefs({ vibrate: false }), false);
-    assert.equal(plan.buzz, null);
-    assert.equal(plan.tone, DEFAULT_ALERT_PREFS.messageTone);
+  it('does not buzz when vibration is off, and still plays the sound', () => {
+    assert.equal(messageAlertPlan(prefs({ vibrate: false }), false).buzz, null);
+    assert.equal(messageAlertPlan(prefs({ vibrate: false }), false).volume, 1);
     assert.equal(messageAlertPlan(prefs({ vibrate: false }), true).buzz, null);
   });
 

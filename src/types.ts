@@ -147,10 +147,8 @@ export interface UserSettings {
   mutedChats: string[];
   notificationsEnabled: boolean;
   expoPushTokens: string[];
-  /** The devices (a subset of expoPushTokens) whose build can show closed-app alerts. */
+  /** The devices (a subset of expoPushTokens) whose build can ring and show the call screen while SYPH is closed. */
   closedAlertTokens?: string[];
-  /** Message tone, ringtone and vibration (utils/push.ts AccountAlerts). Missing until the first build that saves it. */
-  alerts?: { messageTone?: string; ringtone?: string; vibrate?: boolean };
 }
 
 // ---------- Calls (calls/{callId}) ----------

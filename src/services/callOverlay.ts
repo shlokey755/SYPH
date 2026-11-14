@@ -30,6 +30,8 @@ interface OverlayModule {
   openOverlaySettings(): boolean;
   canUseFullScreen(): boolean;
   openFullScreenSettings(): boolean;
+  /** Missing in a build from before SYPH used the phone's own sounds. */
+  playMessageSound?: (volume: number) => boolean;
   addListener(
     eventName: 'onIncomingCallAction',
     listener: (event: { action?: string; key?: string }) => void
@@ -117,3 +119,12 @@ export const openOverlaySettings = (): boolean => attempt('overlay settings', fa
 export const canUseFullScreen = (): boolean => attempt('check full screen', false, (module) => module.canUseFullScreen());
 export const openFullScreenSettings = (): boolean =>
   attempt('full screen settings', false, (module) => module.openFullScreenSettings());
+
+/**
+ * Plays the phone's own notification sound once, for a new message while SYPH is open. False in a build that cannot (then the
+ * message only buzzes). No permission is needed to play the phone's default sound.
+ */
+export const playPhoneMessageSound = (volume = 1): boolean =>
+  attempt('message sound', false, (module) =>
+    typeof module.playMessageSound === 'function' ? module.playMessageSound(Math.min(1, Math.max(0, volume))) : false
+  );

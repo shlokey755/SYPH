@@ -3,6 +3,7 @@ package expo.modules.syphcallservice
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -19,6 +20,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.Chronometer
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import kotlin.math.abs
@@ -26,8 +28,9 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * The small square "return to call" bubble that floats over other apps while a call is running and SYPH is in the
- * background: a phone glyph with the call clock. Drag it anywhere, tap it to go back to the call.
+ * The small "return to call" bubble that floats over other apps while a call is running and SYPH is in the background: a phone
+ * glyph and the call clock side by side, in the theme's accent colour, with square corners like the rest of the app (the
+ * in-app bubble, ReturnToCallBubble.tsx, is drawn the same way). Drag it anywhere, tap it to go back to the call.
  *
  * It is a window drawn by Android on top of other apps, which needs the person to have turned on "Display over other
  * apps" for SYPH (Android Settings). Without that, [show] does nothing and returns false. It is added and removed on the
@@ -37,8 +40,13 @@ import kotlin.math.min
  */
 internal object CallBubble {
   private const val TAG = "SyphCallBubble"
-  private const val SIZE_DP = 64
+  /** Both sizes are fixed, so dragging and settling against an edge need no measuring. */
+  private const val WIDTH_DP = 112
+  private const val WIDTH_NO_CLOCK_DP = 56
+  private const val HEIGHT_DP = 44
   private const val EDGE_DP = 8
+  private const val ICON_DP = 20
+  private const val GAP_DP = 8
 
   private val handler = Handler(Looper.getMainLooper())
   private var view: View? = null
@@ -82,50 +90,72 @@ internal object CallBubble {
 
   private fun add(context: Context, startedAt: Long, route: String, accent: Int) {
     val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    val size = dp(context, SIZE_DP)
+    val width = dp(context, if (startedAt > 0L) WIDTH_DP else WIDTH_NO_CLOCK_DP)
+    val height = dp(context, HEIGHT_DP)
     val edge = dp(context, EDGE_DP)
     val screen = context.resources.displayMetrics
 
-    val bubble = LinearLayout(context).apply {
-      orientation = LinearLayout.VERTICAL
+    // Glyph and clock take white on a dark accent and near-black on a light one, like the in-app bubble (which uses the theme's
+    // button text colour), so they can be read in every theme.
+    val ink = inkOn(accent)
+
+    // One row, centred as a whole: glyph, then clock. The row is as wide as its content, so the pair sits in the middle of
+    // the bubble whatever the clock reads ("0:07" or "1:02:45").
+    val row = LinearLayout(context).apply {
+      orientation = LinearLayout.HORIZONTAL
       gravity = Gravity.CENTER
+    }
+    row.addView(
+      ImageView(context).apply {
+        setImageResource(R.drawable.syph_ic_call)
+        scaleType = ImageView.ScaleType.FIT_CENTER
+        setColorFilter(ink)
+        contentDescription = "Return to call"
+      },
+      LinearLayout.LayoutParams(dp(context, ICON_DP), dp(context, ICON_DP))
+    )
+    if (startedAt > 0L) {
+      row.addView(
+        Chronometer(context).apply {
+          base = SystemClock.elapsedRealtime() - max(0L, System.currentTimeMillis() - startedAt)
+          setTextColor(ink)
+          // dp, not sp: the bubble has a fixed size, so a large system font must not push the clock out of it.
+          setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14f)
+          typeface = Typeface.DEFAULT_BOLD
+          includeFontPadding = false
+          // Digits of equal width, so the row does not shake as the clock ticks.
+          fontFeatureSettings = "tnum"
+          gravity = Gravity.CENTER_VERTICAL
+          start()
+        },
+        // As tall as the glyph, with the text centred in that height: the two share one centre line.
+        LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(context, ICON_DP)).apply {
+          marginStart = dp(context, GAP_DP)
+        }
+      )
+    }
+
+    val bubble = FrameLayout(context).apply {
       background = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(accent)
       }
       elevation = dp(context, 6).toFloat()
     }
-    bubble.addView(
-      ImageView(context).apply {
-        @Suppress("DEPRECATION")
-        setImageResource(android.R.drawable.stat_sys_phone_call)
-        setColorFilter(Color.WHITE)
-      },
-      LinearLayout.LayoutParams(dp(context, 22), dp(context, 22))
-    )
-    if (startedAt > 0L) {
-      bubble.addView(
-        Chronometer(context).apply {
-          base = SystemClock.elapsedRealtime() - max(0L, System.currentTimeMillis() - startedAt)
-          setTextColor(Color.WHITE)
-          setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-          start()
-        }
-      )
-    }
+    bubble.addView(row, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
 
     val type =
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
       else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
     val params = WindowManager.LayoutParams(
-      size,
-      size,
+      width,
+      height,
       type,
       WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
       PixelFormat.TRANSLUCENT
     ).apply {
       gravity = Gravity.TOP or Gravity.START
-      x = screen.widthPixels - size - edge
+      x = screen.widthPixels - width - edge
       y = screen.heightPixels / 4
     }
 
@@ -151,8 +181,8 @@ internal object CallBubble {
             val dy = event.rawY - touchY
             if (abs(dx) > slop || abs(dy) > slop) dragged = true
             if (dragged) {
-              params.x = min(max(0, startX + dx.toInt()), screen.widthPixels - size)
-              params.y = min(max(0, startY + dy.toInt()), screen.heightPixels - size)
+              params.x = min(max(0, startX + dx.toInt()), screen.widthPixels - width)
+              params.y = min(max(0, startY + dy.toInt()), screen.heightPixels - height)
               windowManager.updateViewLayout(v, params)
             }
           }
@@ -161,7 +191,7 @@ internal object CallBubble {
               openCall(context, route)
             } else {
               // Settle against the nearer side, so it never sits in the middle of someone's screen.
-              params.x = if (params.x + size / 2 > screen.widthPixels / 2) screen.widthPixels - size - edge else edge
+              params.x = if (params.x + width / 2 > screen.widthPixels / 2) screen.widthPixels - width - edge else edge
               windowManager.updateViewLayout(v, params)
             }
           }
@@ -174,6 +204,12 @@ internal object CallBubble {
     windowManager.addView(bubble, params)
     view = bubble
     manager = windowManager
+  }
+
+  /** Near-black on a light colour, white on a dark one (by how bright the eye sees it). */
+  private fun inkOn(background: Int): Int {
+    val brightness = (0.299 * Color.red(background) + 0.587 * Color.green(background) + 0.114 * Color.blue(background)) / 255.0
+    return if (brightness > 0.62) 0xFF1A1A1A.toInt() else Color.WHITE
   }
 
   /** Brings SYPH forward on the call. A link into the app's own scheme; with no link it just opens SYPH. */

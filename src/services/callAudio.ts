@@ -111,12 +111,12 @@ export const stopCallAudio = (): boolean => attempt('stop', (manager) => manager
 // phone are respected, and silent mode just buzzes), loops it until stopped, and buzzes the pattern once through.
 
 /**
- * Rings for an incoming call: the SYPH ringtone or the phone's own (`source`), looping, with `pattern` buzzing (or no
- * buzzing when null). `seconds` > 0 stops it by itself after that long (used for previews). Returns false when there is
- * no audio module, so the caller can fall back to buzzing alone.
+ * Rings for an incoming call with the phone's own ringtone, looping, with `pattern` buzzing (or no buzzing when null).
+ * `seconds` > 0 stops it by itself after that long (used for the test button). Returns false when there is no audio module,
+ * so the caller can fall back to buzzing alone.
  */
-export const startRinging = (source: '_BUNDLE_' | '_DEFAULT_', pattern: number[] | null, seconds = 0): boolean =>
-  attempt('ring', (manager) => manager.startRingtone(source, pattern ?? 0, 'default', seconds));
+export const startRinging = (pattern: number[] | null, seconds = 0): boolean =>
+  attempt('ring', (manager) => manager.startRingtone('_DEFAULT_', pattern ?? 0, 'default', seconds));
 
 export const stopRinging = (): boolean => attempt('stop ringing', (manager) => manager.stopRingtone());
 

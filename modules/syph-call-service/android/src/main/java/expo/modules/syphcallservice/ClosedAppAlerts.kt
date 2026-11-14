@@ -8,16 +8,17 @@ import org.json.JSONObject
  * What SYPH does with a push that arrives while the app is closed, before the ordinary notification is made (see
  * [SyphMessagingService]).
  *
- * Messages need nothing here: the sender's phone puts them on the notification channel that matches the person's message tone
- * and vibration choice, and Android plays that channel's sound by itself.
+ * Messages need nothing here: the ordinary notification is on the "messages" channel and Android plays the phone's own
+ * notification sound for it.
  *
  * Calls do. With SYPH closed there is no JavaScript to ring and no call screen, so:
- *   - a call push ("call") rings and opens the full-screen call screen from here ([IncomingCallNotifier.showRinging]);
+ *   - a call push ("call") rings with the phone's ringtone and opens the full-screen call screen from here
+ *     ([IncomingCallNotifier.showRinging]);
  *   - a "call-ended" push (the caller gave up) stops that ring.
  *
- * Both are only for a push that says it comes from a phone that can use them (a ringtone is in the payload, which the sender
- * adds only for devices that registered as able to), and for a closed SYPH: when SYPH is running it rings and shows the screen
- * itself, so the push is left to the ordinary handling.
+ * Every call push is handled this way, whatever its payload says about the recipient's account, so nothing has to be saved
+ * on the account first. It is for every case except SYPH being on the screen (see [AppVisibility]): then the app rings and
+ * shows its own call screen, so the push is left to the ordinary handling.
  *
  * Not yet verified on a device.
  */
@@ -47,17 +48,17 @@ internal object ClosedAppAlerts {
   }
 
   private fun ring(context: Context, data: Map<String, String>, body: JSONObject): Boolean {
-    val ringtone = body.optString("ringtone")
     val callId = body.optString("callId")
-    if (ringtone.isEmpty() || callId.isEmpty()) return false // a push for a phone that cannot do this: the ordinary notification
-    if (CallServiceEvents.incomingListener != null) return false // SYPH is running: it rings and shows the screen itself
+    if (callId.isEmpty()) return false // not a call this handler understands: the ordinary notification
+    // SYPH is on the screen: it rings and shows its own Accept / Decline screen. Anywhere else (closed, in the background with its
+    // JavaScript still alive, phone locked) it is rung from here: a background JavaScript may be frozen or offline.
+    if (AppVisibility.onScreen(context)) return false
 
     val key = if (body.optString("group") == "1") "group:$callId" else callId
     val title = data["title"] ?: "SYPH call"
     val text = data["message"] ?: "Incoming call"
     val isVideo = text.contains("video", ignoreCase = true)
-    val vibrate = body.optString("vibrate") != "0"
     Log.i(TAG, "Ringing for a call while SYPH is closed")
-    return IncomingCallNotifier.showRinging(context, key, title, text, isVideo, ringtone, vibrate)
+    return IncomingCallNotifier.showRinging(context, key, title, text, isVideo)
   }
 }

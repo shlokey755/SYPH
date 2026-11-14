@@ -457,40 +457,37 @@ On a connected 1-to-1 call, an **Add people** button appears under the name. Tap
 | 7 | B presses Add people too, at the same time as A | Both end up in one group call, not two |
 | 8 | Do step 2 with the old rules still published | The call still becomes a group call, but B is rung instead of moved |
 
-### 1.15 Sounds and vibration (partly JavaScript, partly a new APK)
+### 1.15 Sounds and vibration (the phone's own sounds; needs a new APK)
 
-The Me tab has a new **Sounds & vibration** card: vibration on or off, touch feedback on or off, the **call ringtone** (SYPH, or your phone's own) and the **message tone** (SYPH, Pop, Drop or Silent). Picking a ringtone or tone plays it once. The choices are kept on that phone only (nothing in Firestore, no rules change).
+SYPH has **no ringtone or message tone of its own** any more. The SYPH, Pop and Drop tones and the `.wav` files behind them are gone (`assets/sounds/`, `scripts/generate-sounds.py`, the `sounds` entry in `app.json`, and the unused `expo-audio` dependency). Everything uses what you chose in the phone's own settings, so changing a sound is done in Android, not in SYPH.
 
-| What you get | Ships as |
+| What | Sound |
 |---|---|
-| An incoming call rings on the ring volume and buzzes in a pattern (two pulses, a rest, repeated) until it is answered or stops | `eas update --channel preview` (phone ringtone) |
-| The caller hears the usual "tu-tu" while the other phone rings | `eas update --channel preview` |
-| A new message plays a tone and buzzes while SYPH is open. In the chat you are reading it is quieter and only ticks | Buzz: update. Tone: **new APK** |
-| A light tick when you send a message, one pulse when a call connects, two short ones when it ends | `eas update --channel preview` |
-| The SYPH ringtone (`incallmanager_ringtone.wav`), copied into the Android app by the build (`sounds` in the `expo-notifications` entry of `app.json`) | **New APK** |
-| Message tones (Pop, Drop, SYPH), played by `expo-audio` (new dependency, `~57.0.5`, no plugin entry needed) | **New APK** |
+| An incoming call (SYPH open, in the background or closed) | The phone's **ringtone**, repeating on the ring volume (silent mode just buzzes) |
+| A new message (SYPH open, in the background or closed) | The phone's **notification sound**. With SYPH open it is quieter and only ticks for the chat you are reading |
+| The caller hears the usual "tu-tu" while the other phone rings | Unchanged |
+| Vibration | Me tab > **Sounds & vibration** > Vibration (calls and messages). Touch feedback (a tick on send, a pulse when a call connects or ends) is a separate switch |
 
-**An older APK that receives the update** keeps working: calls ring with the phone's own ringtone and new messages only buzz, and the card says so. Nothing crashes, because `expo-audio` is loaded only when its native part is in the build (`services/alertSounds.ts`).
+The Me tab card now has: Vibration, Touch feedback, a **Test** button for the call ringtone, a **Test** button for the message sound, and **Open phone sound settings** (Android Settings > Apps > SYPH > Notifications, where the *Messages* sound can be changed).
 
-**While SYPH is closed:** on the newest build the same choices apply (see 1.16.1). On an older build nothing changed: Android plays the notification sound itself, from the **Messages** and **Calls** notification categories (Android Settings > Apps > SYPH > Notifications).
+**Permissions:** none for the sounds. Android lets every app play the default ringtone and notification sound. What does need you is the full-screen call screen (see 1.16.1): SYPH asks for that once, after you sign in.
 
-**Sounds and licensing:** every sound is synthesised from sine waves by `scripts/generate-sounds.py` (plain Python, nothing to download, nothing to license). Change a tone, run `python3 scripts/generate-sounds.py`, and rebuild. To use your own, replace a file in `assets/sounds/` with another `.wav` of the same name.
+**An old build that receives this update** keeps working: it rings with the phone's ringtone as before. Builds before this one had per-tone message channels (`messages_pop_buzz` and so on); the new build deletes them so the phone's list of SYPH sounds does not keep showing them.
 
-**Needs from you:** nothing (no key, no rules). Build a new APK to get the SYPH ringtone and message tones.
+**Needs from you:** build a new APK (`eas build --profile preview --platform android`). No key, no rules change.
 
-**Test checklist (two phones, new APK on both; step 8 on an old APK)**
+**Test checklist (two phones, new APK on both)**
 
 | # | Do this | Expect |
 |---|---------|--------|
-| 1 | Me tab > Sounds & vibration > tap each message tone | Each plays once; Silent plays nothing |
-| 2 | Tap "SYPH" then "Phone ringtone" under Call ringtone | Each plays for about 3 seconds |
-| 3 | B calls A while A has SYPH open | A rings and buzzes until answered; B hears the "tu-tu" |
-| 4 | A switches Vibration off, B calls again | A rings, no buzz |
-| 5 | B sends A a message while A is on the chat list | Tone, double buzz and the usual pop-up |
-| 6 | B sends A a message while A is in that chat | A softer tone and a tick, no pop-up |
-| 7 | A switches Touch feedback off, then sends a message and makes a call | No tick on send, no pulse on connect or end |
-| 8 | Old APK with this update: B calls and messages | Phone ringtone for the call; messages only buzz; the card explains why |
-| 9 | Put the phone on silent, B calls | No ring tone, the buzz still happens |
+| 1 | Me tab > Sounds & vibration > Test (ringtone) | Your phone's ringtone plays for about 3 seconds |
+| 2 | Test (message sound) | Your phone's notification sound plays once |
+| 3 | Change the phone's default ringtone, press Test again | The new ringtone plays |
+| 4 | B calls A while A has SYPH open | A rings and buzzes until answered; B hears the "tu-tu" |
+| 5 | A switches Vibration off, B calls again | A rings, no buzz |
+| 6 | B messages A while A is on the chat list | Phone's notification sound, double buzz, the usual pop-up |
+| 7 | B messages A while A is in that chat | A softer sound and a tick, no pop-up |
+| 8 | A puts the phone on silent, B calls | No sound, the buzz still happens |
 
 ### 1.16 Calls over other apps (needs a new APK)
 
@@ -499,14 +496,14 @@ Two things, both while SYPH is **in the background but still running** (Home pre
 | What | How it looks |
 |---|---|
 | A ringing call opens a **full-screen call screen** over the other app or the lock screen: name, Decline and Accept. The ringtone keeps playing | A notification with Accept and Decline is posted too. With SYPH open nothing changes: the usual ring screen inside the app is used |
-| A live call shows a small **floating bubble** with the call clock over whatever app you are using. Drag it, tap it to return to the call | Needs "Display over other apps". Inside SYPH the in-app bubble from 1.13 does this job |
+| A live call shows a small **floating bubble** over whatever app you are using: a squared-off pill with the phone glyph and the running clock side by side, centred on one line (it was a square with the glyph above the clock, which looked off-centre). The glyph and clock are white on a dark theme colour and near-black on a light one. Drag it, tap it to return to the call | Needs "Display over other apps". Inside SYPH the in-app bubble from 1.13 does this job and looks the same |
 
 **Needs from you**
 
 | Step | How | Cost |
 |------|-----|------|
 | Build a new APK | `eas build --profile preview --platform android`. The native module gained an activity and two permissions (`USE_FULL_SCREEN_INTENT`, `SYSTEM_ALERT_WINDOW`), so this cannot ship as an update | Free tier |
-| Allow "Display over other apps" | Me tab > **Calls over other apps** > Open settings > switch SYPH on. Android never lets an app switch this on by itself | Free |
+| Allow "Display over other apps" | SYPH asks once after you sign in (see 1.16.1). Later: Me tab > **Calls over other apps** > Open settings > switch SYPH on. Android never lets an app switch this on by itself | Free |
 | Android 14 and newer: allow full-screen call alerts | Same card, second row. Android turns this off for apps it does not count as calling apps, so check it | Free |
 | Some phones (Xiaomi, Oppo, Vivo, Huawei) | Also switch on "Display pop-up windows while running in the background" in the phone's permission page for SYPH. SYPH cannot open that page for you | Free |
 
@@ -528,55 +525,60 @@ Two things, both while SYPH is **in the background but still running** (Home pre
 | 5 | B locks the phone. A calls B | The screen lights up over the lock screen. Accept asks to unlock, then the call connects |
 | 6 | Repeat 2 while A cancels before B answers | The screen and notification disappear by themselves |
 | 7 | Switch "Display over other apps" off, repeat 2 | A banner with Accept and Decline, no full-screen screen, no bubble later |
-| 8 | On a live call, B opens another app | A round bubble with a running clock appears; drag it, then tap it: back in the call |
+| 8 | On a live call, B opens another app | A pill with the phone glyph and a running clock side by side, both centred, appears; drag it, then tap it: back in the call |
 | 9 | End the call from either side | The bubble disappears |
 | 10 | Force-stop SYPH on B (Android Settings > Apps > SYPH > Force stop), A calls | Only the usual push notification (the known limit above) |
 
-### 1.16.1 Alerts that do not depend on SYPH being open (needs a new APK and a rules re-publish)
+### 1.16.1 Calls and messages when SYPH is closed or in the background (needs a new APK)
 
-Goal: a message tone, a buzz, a ringtone and the full-screen call screen behave the same whether SYPH is open, in the background or closed.
+Goal: a call rings with the phone's ringtone and opens a full-screen call screen, and a message plays the phone's notification sound, whether SYPH is open, in the background, or closed.
 
 | What | How it works |
 |---|---|
-| Message tone and buzz | Android plays a notification's sound itself, from its channel, and a channel's sound cannot be changed once created. So the new build creates 8 message channels (4 tones x with / without vibration, `messages_<tone>_<buzz or quiet>`). Your choices are saved on your account (`alerts` in your private settings and in `userPush/{uid}`), and the *sender's* phone puts the push on the channel that matches them. |
-| Ringing and full-screen call screen when SYPH is closed | A small native push handler (`SyphMessagingService` in `modules/syph-call-service`) sees the call push first. If SYPH is not running it posts the call notification on a channel that carries your ringtone, repeating until answered, declined, ended or 45 seconds; and opens the full-screen call screen (same one as 1.16). If SYPH is running it does nothing and the in-app ring is used, as before. Everything that is not a call push goes on to the normal handling untouched. |
+| Who rings | A small native push handler (`SyphMessagingService` in `modules/syph-call-service`) sees every call push first. If SYPH is **on the screen** it does nothing and the app rings its own Accept / Decline screen. In **every other case** (closed, in the background with its JavaScript still alive, phone locked) the handler rings. It asks Android whether SYPH is on the screen (`AppVisibility.kt`), not whether the JavaScript is running: a background JavaScript can be frozen or offline, which was why a call could arrive as a quiet notification. |
+| Once only | When SYPH's JavaScript is alive in the background and sees the call in the database too, it asks the same native code to ring. The call rings once, whichever comes first, and the in-app ring stays silent while SYPH is in the background. |
+| What rings | A call notification (Android's call style on 12 and newer, with Answer and Decline) on the ringing channel, with the phone's ringtone repeating until answered, declined, ended or 45 seconds |
+| Full-screen call screen | The notification carries a full-screen intent: a locked or sleeping phone opens the call screen over the lock screen. A phone in use shows a banner with Answer and Decline unless "Display over other apps" is on: then SYPH opens the call screen at once over whatever app is open. On Android 15 an app may only start a screen from the background while it has a window showing over other apps, so SYPH puts up an invisible 1-pixel window for two seconds while it starts the screen. |
+| Messages | The `messages` channel's sound is the phone's notification sound, so Android plays it with SYPH open or not. Nothing is saved on the account and the sender does not choose anything. |
 | Caller gives up | The caller's phone sends a silent "call ended" push; the closed phone stops ringing and closes the call screen. |
 | Accept from a closed app | Accept starts SYPH and the call connects once the app is up. |
-| Choices | Account-wide, not per phone: the last phone that changed them wins. The Me tab cards say so. |
 
-**Needs from you (in this order)**
+**The permission prompt.** Android never lets an app switch on "Display over other apps" or full-screen call alerts by itself, so the first time you open the new build (a few seconds after sign-in) SYPH explains what they are for and opens the first settings page; when you come back it offers the second if it is still off. It asks once per phone and not at all when both are already on. **Not now** closes it, and the Me tab > **Calls over other apps** card keeps both switches. The sounds need no permission.
+
+**Needs from you**
 
 | # | Step | How | Cost |
 |---|------|-----|------|
-| 1 | Re-publish `firestore.rules` **first** | Adds `alerts` and `alertTokens` to `userPush`. Until it is published, the app falls back to the old mirror and everything works as before, but none of this does | Free |
-| 2 | Build a new APK | `eas build --profile preview --platform android`. New message-tone sounds in `app.json`, a new service in the native module and a new gradle dependency: this cannot ship as an update | Free tier |
-| 3 | Install it on both phones, open SYPH once | The phone registers as "able to ring while closed" and creates the channels. A phone that never opens the new build keeps getting the old pushes | Free |
-| 4 | Same permissions as 1.16 | "Display over other apps", and on Android 14+ full-screen call alerts | Free |
+| 1 | Build a new APK | `eas build --profile preview --platform android`. Native module changes, a removed dependency (`expo-audio`) and removed sound files: this cannot ship as an update | Free tier |
+| 2 | Re-publish `firestore.rules` if you have not since the closed-app-alerts change | It must allow `alertTokens` on `userPush` (already in the file). Nothing new in this change | Free |
+| 3 | Install on both phones, open SYPH once, say yes to the prompt | The phone registers as able to ring while closed, and the two switches are turned on | Free |
+| 4 | Some phones (Xiaomi, Oppo, Vivo, Huawei) | Also set SYPH to "Unrestricted" battery use, allow auto-start, and switch on "Display pop-up windows while running in the background" in the phone's permission page | Free |
 
-No new key, no billing, no server. `server/` (the optional relay) was not changed: with it in use, only the old channels apply.
+No new key, no billing, no server. `server/` (the optional relay) was not changed.
 
 **Limits**
-- A phone you force-stopped (Android Settings > Apps > SYPH > Force stop) receives nothing until SYPH is opened again. That is Android's rule for every app. Some makers (Xiaomi, Oppo, Vivo, Huawei) also kill closed apps; set SYPH to "Unrestricted" battery use and allow auto-start.
-- Declining from the call screen while SYPH is closed only dismisses it on that phone; the caller keeps ringing until the 30 second timeout (the app is not running to tell them). Group calls ring for 45 seconds and then stop by themselves.
+- A phone you force-stopped (Android Settings > Apps > SYPH > Force stop) receives nothing until SYPH is opened again. That is Android's rule for every app.
+- Declining from the call screen while SYPH is closed only dismisses it on that phone; the caller keeps ringing until the 30 second timeout. Group calls ring for 45 seconds and then stop by themselves.
 - A phone in Do Not Disturb or on silent follows its own rules, as for any app.
-- Old APKs keep working as before (old channels, ordinary call notification). Phones on the new APK get the new behaviour only after they have opened it once.
-- The Kotlin compiles against Android 34 stubs and a stand-in for the Expo classes, but has **never run on a device**. The first EAS build failed on the gradle line `implementation project(':expo-notifications')`: in SDK 57 Expo links expo-notifications as a prebuilt Maven package, so that project does not exist. `modules/syph-call-service/android/build.gradle` now takes whichever form Expo links (project or published package). Not yet confirmed by a successful build; the manifest priority over expo-notifications' own service is the next most likely thing to need a fix.
+- An old APK keeps the ordinary call notification; a phone gets the new behaviour only on the new build.
+- The Kotlin compiles against Android stubs and a stand-in for the Expo classes, but has **never run on a device**. The parts most likely to need a fix after a first real test: whether Android lets the handler's service win over expo-notifications' own (manifest priority), the 1-pixel window trick on Android 15, and the notification's full-screen intent on a phone that is in use.
 
-**Test checklist (two phones, new APK on both, rules published)**
+**Test checklist (two phones, new APK on both)**
 
 | # | Do this | Expect |
 |---|---------|--------|
-| 1 | A: Me tab > Sounds & vibration > pick "Pop", vibration on. Swipe SYPH away. B messages A | Pop tone and a buzz, same as when SYPH is open |
-| 2 | A: pick "Silent". B messages A (SYPH closed) | The notification arrives with no sound |
-| 3 | A: vibration off. B messages A (SYPH closed) | Tone, no buzz |
-| 4 | A: ringtone "SYPH". Swipe SYPH away, lock the phone. B calls A | Screen lights up with the full-screen call, SYPH ringtone repeats |
-| 5 | A taps Accept | SYPH opens and the call connects |
-| 6 | Repeat 4, A taps Decline | The screen goes away; B keeps ringing until it times out |
-| 7 | Repeat 4, B hangs up first | The ring stops and the screen closes by itself within a few seconds |
-| 8 | A: ringtone "Phone". Repeat 4 | Phone's own ringtone |
+| 1 | A: open the new build, wait for the prompt, tap Open settings, switch it on, come back, do the second page | Me tab > Calls over other apps shows both On |
+| 2 | A: swipe SYPH away (closed). B calls A | The phone's ringtone repeats and the full-screen call screen opens |
+| 3 | A: press Home with SYPH still in recent apps. B calls A | The same: ringtone and full-screen call screen, rung once (not twice) |
+| 4 | A: lock the phone, SYPH closed. B calls A | Screen lights up over the lock screen. Accept asks to unlock, then the call connects |
+| 5 | A is in another app (browser). B calls A | Call screen opens over the browser |
+| 6 | Repeat 2, A taps Decline | The screen goes away; B keeps ringing until it times out |
+| 7 | Repeat 2, B hangs up first | The ring stops and the screen closes by itself within a few seconds |
+| 8 | A switches "Display over other apps" off, repeat 5 | A banner with Answer and Decline, no full-screen screen |
 | 9 | Group call to A (SYPH closed) | Same, ends by itself after about 45 seconds if nobody joins |
-| 10 | Repeat 4 with SYPH open | The usual in-app ring only: no second ringtone, no duplicate notification |
-| 11 | Old APK on A, B calls | The ordinary push notification, as before |
+| 10 | Repeat 2 with SYPH open on screen | Only the in-app ring: no second ringtone, no notification |
+| 11 | B messages A (SYPH closed) | The phone's notification sound |
+| 12 | Old APK on A, B calls | The ordinary push notification, as before |
 
 ### 1.17 Animated emoji (JavaScript only, nothing to set up)
 
