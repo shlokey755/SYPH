@@ -1,5 +1,5 @@
 /**
- * onboarding.tsx
+ * onboarding.web.tsx
  * Three intro slides shown once, before the first sign-in (SRS section 5: splash + onboarding).
  */
 
@@ -83,8 +83,11 @@ export default function Onboarding() {
     listRef.current?.scrollToIndex({ index: index + 1, animated: true });
   };
 
-  const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setIndex(Math.round(e.nativeEvent.contentOffset.x / width));
+  // A browser never sends the "momentum ended" event that the phone's list does, so the slide is read from the scroll position as
+  // it moves. Without this the button stays "Next" for ever, "Get started" never appears and the sign-in page is never reached.
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (width <= 0) return;
+    setIndex(Math.min(SLIDES.length - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.x / width))));
   };
 
   return (
@@ -113,7 +116,8 @@ export default function Onboarding() {
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={onScrollEnd}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
           renderItem={({ item }) => (
             <View style={[styles.slide, { width }]}>

@@ -7,9 +7,10 @@
  * the @font-face rules, and with static rendering Expo copies the files into the page so they can be preloaded.
  *
  * Text that is drawn before a font is registered keeps the system font for good, so nothing is shown until they are
- * loaded: app/_layout.tsx renders nothing, with the splash still up, until `useMapFonts` says true.
+ * loaded: app/_layout.web.tsx renders nothing until `useMapFonts` says true.
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { FONT } from './parchment';
 
@@ -30,9 +31,23 @@ export function mapFontsUsable(): boolean {
   return usable;
 }
 
-/** Loads the map's typefaces. True once they are ready, or once loading has failed (the app then runs on system fonts). */
+let iconFontWarned = false;
+
+/**
+ * Loads the map's typefaces and the icon font. True once they are ready, or once loading has failed (the app then runs on system
+ * fonts).
+ *
+ * The icon font is waited for like the typefaces. Left to load by itself after the first picture, @expo/vector-icons draws
+ * nothing in an icon's place until the file has arrived, and when it never arrives the icons stay blank. It has a hook of its
+ * own so that its failure is only logged and does not take the map's typefaces with it.
+ */
 export function useMapFonts(): boolean {
   const [loaded, error] = useFonts(MAP_FONT_SOURCES);
+  const [iconsLoaded, iconsError] = useFonts(Ionicons.font);
   if (error) usable = false;
-  return loaded || error != null;
+  if (iconsError && !iconFontWarned) {
+    iconFontWarned = true;
+    console.warn('The icon font did not load, so icons will be blank:', iconsError);
+  }
+  return (loaded || error != null) && (iconsLoaded || iconsError != null);
 }
