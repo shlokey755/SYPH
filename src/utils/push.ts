@@ -11,7 +11,10 @@
 export const MESSAGES_CHANNEL_ID = 'messages';
 export const CALLS_CHANNEL_ID = 'calls';
 
-import type { MessageToneId, RingtoneId } from './alertPrefs';
+/** Channels an earlier build made for SYPH's own message tones ("messages_pop_buzz", ...). Removed from the phone on start. */
+export const OLD_MESSAGE_CHANNEL_IDS: readonly string[] = ['syph', 'pop', 'drop', 'off'].flatMap((tone) =>
+  ['buzz', 'quiet'].map((feel) => `messages_${tone}_${feel}`)
+);
 
 export const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -37,110 +40,10 @@ export const MAX_MESSAGE_RECIPIENTS = 30;
 
 // ---------- Alerts while SYPH is closed ----------
 //
-// With SYPH closed, Android (not SYPH) plays the sound and buzz of a notification, from its notification channel. So the
-// person's choices (message tone, ringtone, vibration) are saved on their account, and the sender's phone puts the
-// notification on the channel that matches them. A build that can do this (new APK) creates one channel per tone and
-// vibration choice; an older build has only "messages" and "calls", so it is sent to those as before.
-
-/** Message tones, as in utils/alertPrefs.ts (a test keeps the two lists equal). */
-export const MESSAGE_TONE_IDS: readonly MessageToneId[] = ['syph', 'pop', 'drop', 'off'];
-export const RINGTONE_IDS: readonly RingtoneId[] = ['syph', 'phone'];
-
-/** The choices that decide how a closed-app alert sounds. Stored in the account's settings and in the mirror. */
-export interface AccountAlerts {
-  messageTone: MessageToneId;
-  ringtone: RingtoneId;
-  vibrate: boolean;
-}
-
-export const DEFAULT_ACCOUNT_ALERTS: AccountAlerts = { messageTone: 'syph', ringtone: 'syph', vibrate: true };
-
-/** Reads saved choices, ignoring anything missing or not understood. */
-export function normalizeAccountAlerts(raw: unknown): AccountAlerts {
-  const data = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
-  return {
-    messageTone: MESSAGE_TONE_IDS.includes(data.messageTone as MessageToneId)
-      ? (data.messageTone as MessageToneId)
-      : DEFAULT_ACCOUNT_ALERTS.messageTone,
-    ringtone: RINGTONE_IDS.includes(data.ringtone as RingtoneId)
-      ? (data.ringtone as RingtoneId)
-      : DEFAULT_ACCOUNT_ALERTS.ringtone,
-    vibrate: typeof data.vibrate === 'boolean' ? data.vibrate : DEFAULT_ACCOUNT_ALERTS.vibrate,
-  };
-}
-
-/** The sound files of the message tones. They are copied into the Android app by the build (`sounds` in app.json). */
-export const MESSAGE_TONE_FILES: Record<Exclude<MessageToneId, 'off'>, string> = {
-  syph: 'syph_message.wav',
-  pop: 'msg_pop.wav',
-  drop: 'msg_drop.wav',
-};
-
-/** The Android channel for a message tone and vibration choice, for example "messages_pop_buzz". */
-export const messageChannelId = (tone: MessageToneId, vibrate: boolean): string =>
-  `messages_${tone}_${vibrate ? 'buzz' : 'quiet'}`;
-
-export interface MessageChannelSpec {
-  id: string;
-  name: string;
-  /** File name in the app's sounds, or null for a silent channel. */
-  sound: string | null;
-  vibrate: boolean;
-}
-
-const TONE_NAMES: Record<MessageToneId, string> = { syph: 'SYPH tone', pop: 'Pop tone', drop: 'Drop tone', off: 'Silent' };
-
-/** Every message channel a build that can show closed-app alerts creates (4 tones, with and without vibration). */
-export const MESSAGE_CHANNEL_SPECS: readonly MessageChannelSpec[] = MESSAGE_TONE_IDS.flatMap((tone) =>
-  [true, false].map((vibrate) => ({
-    id: messageChannelId(tone, vibrate),
-    name: `Messages: ${TONE_NAMES[tone]}${vibrate ? ', vibrate' : ''}`,
-    sound: tone === 'off' ? null : MESSAGE_TONE_FILES[tone],
-    vibrate,
-  }))
-);
-
-/** Where one device's notifications go, from what its owner chose and what its build can do. */
-export interface TokenRoute {
-  /** The channel for a message or a missed-call notice. */
-  messageChannel: string;
-  /** True when the build can ring natively while SYPH is closed (new APK). */
-  closedAlerts: boolean;
-  ringtone: RingtoneId;
-  vibrate: boolean;
-}
-
-/** An older build, or an account that has not saved choices: the original channels. */
-export const DEFAULT_ROUTE: TokenRoute = {
-  messageChannel: MESSAGES_CHANNEL_ID,
-  closedAlerts: false,
-  ringtone: DEFAULT_ACCOUNT_ALERTS.ringtone,
-  vibrate: DEFAULT_ACCOUNT_ALERTS.vibrate,
-};
-
-export type RouteOf = (token: string) => TokenRoute;
-const defaultRouteOf: RouteOf = () => DEFAULT_ROUTE;
-
-/** The route of one of the target's devices. Only a device that registered as able to show closed-app alerts gets the new channels. */
-export function routeFor(target: Pick<PushTarget, 'alerts' | 'alertTokens'>, token: string): TokenRoute {
-  if (!target.alertTokens.includes(token)) return DEFAULT_ROUTE;
-  return {
-    messageChannel: messageChannelId(target.alerts.messageTone, target.alerts.vibrate),
-    closedAlerts: true,
-    ringtone: target.alerts.ringtone,
-    vibrate: target.alerts.vibrate,
-  };
-}
-
-/** One route lookup for the devices of several recipients (a group message goes to many people at once). */
-export function routeOfTokens(targets: readonly (Pick<PushTarget, 'alerts' | 'alertTokens' | 'tokens'> | null | undefined)[]): RouteOf {
-  const routes = new Map<string, TokenRoute>();
-  for (const target of targets) {
-    if (!target) continue;
-    for (const token of target.tokens) routes.set(token, routeFor(target, token));
-  }
-  return (token) => routes.get(token) ?? DEFAULT_ROUTE;
-}
+// SYPH has no sounds of its own: a message uses the "messages" channel, whose sound is the phone's notification sound, and a call
+// is rung by the app itself (native code, see API.md > Push) with the phone's ringtone. So nothing about the sound is stored on the
+// account or chosen by the sender. The one thing a sender still needs to know is which of the recipient's devices run a build
+// that can ring natively: only those are sent the silent "call-ended" push that stops the ring (`alertTokens`).
 
 export type PushMode = 'client' | 'relay' | 'off';
 
@@ -161,9 +64,7 @@ export interface PushTarget {
   tokens: string[];
   notificationsEnabled: boolean;
   mutedChats: string[];
-  /** Their tone, ringtone and vibration choices. */
-  alerts: AccountAlerts;
-  /** The devices (a subset of `tokens`) whose build can show those choices while SYPH is closed. */
+  /** The devices (a subset of `tokens`) whose build can ring and show the call screen while SYPH is closed. */
   alertTokens: string[];
 }
 
@@ -172,7 +73,6 @@ export interface PushMirror {
   tokens: string[];
   notificationsEnabled: boolean;
   mutedChats: string[];
-  alerts: AccountAlerts;
   alertTokens: string[];
 }
 
@@ -181,7 +81,6 @@ export interface MirrorSource {
   notificationsEnabled?: boolean;
   mutedChats?: string[];
   expoPushTokens?: string[];
-  alerts?: unknown;
   closedAlertTokens?: string[];
 }
 
@@ -207,7 +106,6 @@ export function mirrorFromSettings(settings: MirrorSource): PushMirror {
     tokens,
     notificationsEnabled: settings.notificationsEnabled !== false,
     mutedChats,
-    alerts: normalizeAccountAlerts(settings.alerts),
     alertTokens,
   };
 }
@@ -218,7 +116,6 @@ export const mirrorKey = (mirror: PushMirror): string =>
     mirror.notificationsEnabled,
     [...mirror.tokens].sort(),
     [...mirror.mutedChats].sort(),
-    [mirror.alerts.messageTone, mirror.alerts.ringtone, mirror.alerts.vibrate],
     [...mirror.alertTokens].sort(),
   ]);
 
@@ -261,13 +158,10 @@ export interface MessagePushInput {
   /** Short preview of the message (see messagePreview in chatService). */
   preview: string;
   tokens: string[];
-  /** Where each device's notification goes. Without it every device gets the original "messages" channel. */
-  routeOf?: RouteOf;
 }
 
 /** Direct chat: "Alice: hi". Group chat: title is the group, body is "Alice: hi". */
 export function buildMessagePushes(input: MessagePushInput): ExpoPushMessage[] {
-  const routeOf = input.routeOf ?? defaultRouteOf;
   const sender = input.senderName.trim() || 'New message';
   const preview = input.preview.trim() || 'New message';
   const title = input.isGroup ? input.groupName?.trim() || 'Group' : sender;
@@ -278,7 +172,7 @@ export function buildMessagePushes(input: MessagePushInput): ExpoPushMessage[] {
     body,
     sound: 'default',
     priority: 'high',
-    channelId: routeOf(to).messageChannel,
+    channelId: MESSAGES_CHANNEL_ID,
     data: { type: 'message', conversationId: input.conversationId },
   }));
 }
@@ -289,20 +183,9 @@ export interface CallPushInput {
   callerName: string;
   type: 'audio' | 'video';
   tokens: string[];
-  routeOf?: RouteOf;
-}
-
-/**
- * What a build that can ring natively while SYPH is closed needs on top of the usual payload: which ringtone to use and
- * whether to buzz (and, for a group call, that the key of the call is the group one). Older builds get none of it.
- */
-function ringData(route: TokenRoute, group: boolean): Record<string, string> {
-  if (!route.closedAlerts) return {};
-  return { ringtone: route.ringtone, vibrate: route.vibrate ? '1' : '0', ...(group ? { group: '1' } : {}) };
 }
 
 export function buildCallPushes(input: CallPushInput): ExpoPushMessage[] {
-  const routeOf = input.routeOf ?? defaultRouteOf;
   const caller = input.callerName.trim() || 'Someone';
   const kind = input.type === 'video' ? 'video' : 'voice';
   return input.tokens.map((to) => ({
@@ -313,7 +196,7 @@ export function buildCallPushes(input: CallPushInput): ExpoPushMessage[] {
     priority: 'high',
     ttl: CALL_PUSH_TTL_SECONDS,
     channelId: CALLS_CHANNEL_ID,
-    data: { type: 'call', conversationId: input.conversationId, callId: input.callId, ...ringData(routeOf(to), false) },
+    data: { type: 'call', conversationId: input.conversationId, callId: input.callId },
   }));
 }
 
@@ -347,7 +230,7 @@ export function buildMissedCallPushes(input: CallPushInput): ExpoPushMessage[] {
     sound: 'default',
     priority: 'high',
     ttl: MISSED_CALL_PUSH_TTL_SECONDS,
-    channelId: (input.routeOf ?? defaultRouteOf)(to).messageChannel,
+    channelId: MESSAGES_CHANNEL_ID,
     data: { type: 'missed-call', conversationId: input.conversationId, callId: input.callId },
   }));
 }
@@ -359,12 +242,13 @@ export interface GroupCallPushInput {
   callerName: string;
   type: 'audio' | 'video';
   tokens: string[];
-  routeOf?: RouteOf;
 }
 
-/** "Alice started a video call" in the group's name. Rings on the calls channel and expires quickly. */
+/**
+ * "Alice started a video call" in the group's name. Rings on the calls channel and expires quickly. `group` tells a phone that
+ * rings natively (SYPH closed) that the call's key is the group one, the same key the app itself uses.
+ */
 export function buildGroupCallPushes(input: GroupCallPushInput): ExpoPushMessage[] {
-  const routeOf = input.routeOf ?? defaultRouteOf;
   const caller = input.callerName.trim() || 'Someone';
   const kind = input.type === 'video' ? 'video' : 'voice';
   return input.tokens.map((to) => ({
@@ -375,7 +259,7 @@ export function buildGroupCallPushes(input: GroupCallPushInput): ExpoPushMessage
     priority: 'high',
     ttl: GROUP_CALL_PUSH_TTL_SECONDS,
     channelId: CALLS_CHANNEL_ID,
-    data: { type: 'call', conversationId: input.conversationId, callId: input.callId, ...ringData(routeOf(to), true) },
+    data: { type: 'call', conversationId: input.conversationId, callId: input.callId, group: '1' },
   }));
 }
 

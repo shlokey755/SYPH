@@ -23,10 +23,16 @@ import { useRouter } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { buzz, hasBundledSounds, stopBuzz } from '../services/alertSounds';
+import { buzz, stopBuzz } from '../services/alertSounds';
 import { getAlertPrefs } from '../services/alertPrefsStore';
 import { startRinging, stopRinging } from '../services/callAudio';
-import { consumeIncomingPress, hideIncomingScreen, onIncomingPress, showIncomingScreen } from '../services/callOverlay';
+import {
+  consumeIncomingPress,
+  hideIncomingScreen,
+  onIncomingPress,
+  showIncomingScreen,
+  supportsClosedAlerts,
+} from '../services/callOverlay';
 import { declineCall, getCallStatus, subscribeIncomingCalls } from '../services/callService';
 import { isCallingSupported } from '../services/webrtc';
 import { ActiveGroupCall, Call, CallType } from '../types';
@@ -245,18 +251,26 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
     return null;
   }, [incoming, groupCandidate]);
 
-  // Ring and buzz while the overlay is up: the chosen ringtone on the ring volume, with the buzz pattern. Without the audio
-  // module (Expo Go) it buzzes alone.
-  const ringKey = ring?.key ?? null;
+  const [appState, setAppState] = useState(AppState.currentState);
   useEffect(() => {
-    if (!ringKey) return;
-    const plan = ringPlan(getAlertPrefs(), hasBundledSounds());
-    if (!startRinging(plan.source, plan.pattern) && plan.pattern) buzz(plan.pattern);
+    const subscription = AppState.addEventListener('change', setAppState);
+    return () => subscription.remove();
+  }, []);
+
+  // Ring and buzz while the overlay is up: the phone's own ringtone on the ring volume, with the buzz pattern. Without the
+  // audio module (Expo Go) it buzzes alone. A build with the native call helper rings from its notification whenever SYPH is
+  // not on the screen (below), so this only rings while SYPH is: two rings at once would be one too many.
+  const ringKey = ring?.key ?? null;
+  const ringsHere = appState !== 'background' || !supportsClosedAlerts();
+  useEffect(() => {
+    if (!ringKey || !ringsHere) return;
+    const plan = ringPlan(getAlertPrefs());
+    if (!startRinging(plan.pattern) && plan.pattern) buzz(plan.pattern);
     return () => {
       stopRinging();
       stopBuzz();
     };
-  }, [ringKey]);
+  }, [ringKey, ringsHere]);
 
   const accept = useCallback(() => {
     if (incoming) {
@@ -283,15 +297,10 @@ export function IncomingCallsProvider({ children }: { children: React.ReactNode 
     }
   }, [incoming, groupCandidate]);
 
-  // While SYPH is in the background (but running) a ringing call is also put on the lock screen and over other apps: a
-  // full-screen call screen and a notification with Accept and Decline (native, services/callOverlay.ts). The ring itself
-  // keeps playing from here. With SYPH on screen the ring screen above does the job and the native one is taken away.
-  const [appState, setAppState] = useState(AppState.currentState);
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', setAppState);
-    return () => subscription.remove();
-  }, []);
-
+  // While SYPH is in the background (but running) a ringing call is put on the lock screen and over other apps: a ringing
+  // notification with Accept and Decline and a full-screen call screen (native, services/callOverlay.ts). A closed SYPH gets the
+  // same from the push; whichever comes first rings, the other does nothing. With SYPH on screen the ring screen above does the
+  // job and the native one is taken away.
   const screenWanted = incomingScreenWanted(ringKey, appState);
   useEffect(() => {
     if (!screenWanted || !ring) return;
