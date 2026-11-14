@@ -39,6 +39,7 @@
     "src/components/profile/NameSection.tsx",
     "src/components/profile/SoundsSection.tsx",
     "src/components/profile/UpdateSection.tsx",
-    "src/hooks/toastNotifications.tsx"
+    "src/hooks/toastNotifications.tsx",
+    "src/services/webrtc.ts"
   ]
 }

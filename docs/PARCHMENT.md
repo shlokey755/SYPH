@@ -137,12 +137,19 @@ The web build is the same screens and the same pieces. What differs, and where:
 | Hand cursor and hover brightening on buttons | `POINTER`, `isHovered` |
 | A `Modal` is drawn over the whole browser window, so a sheet or panel inside one is given `SHEET_FRAME` (full width up to 560 points, centred); a full-height picker (forward, GIFs, group info) is given `DIALOG_FRAME`, a card with margins and a shadow over a dimmed window; the message menu is a torn note in the middle of the window | `SHEET_FRAME`, `DIALOG_FRAME` |
 | No native animation engine in a browser, so Animated must not ask for one | `NATIVE_DRIVER` |
-| `Alert.alert` does nothing in React Native Web, so `app/_layout.tsx` points it at the browser's own `alert` / `confirm` (the logic is `utils/browserAlert.ts`: a destructive button is what `confirm` runs on OK) | `utils/browserAlert.ts` |
+| `Alert.alert` does nothing in React Native Web, so `app/_layout.web.tsx` points it at the browser's own `alert` / `confirm` (the logic is `utils/browserAlert.ts`: a destructive button is what `confirm` runs on OK) | `utils/browserAlert.ts` |
 | A text box is `Field`: a dashed, hand-drawn box around a `TextInput`, which turns brass-red while it has focus. Enter sends a message in a browser, Shift+Enter adds a line | `Field`, `components/chat/MessageInput.tsx` |
 | Tab icon and name, and the colour of the browser's address bar on phones | `web` in `app.json`, `assets/images/favicon-compass.png` |
 
-Calls, push notifications and live location sharing are not available in a browser; their screens look the same but the
-features check for the platform as before.
+Push notifications and live location sharing are not available in a browser; their screens look the same but the features
+check for the platform as before.
+
+Calls run on the browser's own WebRTC. `services/webrtc.web.ts` hands the call code the browser's peer connection and media
+devices in the shape of react-native-webrtc's (`services/webrtcBrowser.tsx`): `RTCView` becomes a `<video>`, the other person's
+voice plays through a hidden `<audio>`, and `stream.toURL()` is an address that `utils/streamRegistry.ts` turns back into the
+stream. A browser allows the microphone and camera only on an https:// page or on localhost; anywhere else `getWebRTC()` is null
+and the chat screen says so. When `webrtc.ts` changes (the ICE server list, say), change `webrtc.web.ts` too:
+`tests/unit/streamRegistry.test.ts` checks that their exports match. The call screens are still the phone's, unstyled for the map.
 
 To try it: `npm run web`, or `npx expo export --platform web` and serve the `dist` folder.
 
