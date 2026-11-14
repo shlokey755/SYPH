@@ -5,7 +5,7 @@ import { Image, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PushNotificationsBridge } from '../../components/PushNotificationsBridge';
-import { ART, useDesktopLayout } from '../../components/parchment';
+import { ART, FILL_IMAGE, useDesktopLayout } from '../../components/parchment';
 import { useTheme } from '../../theme/mapTheme';
 import { useConversations } from '../../hooks/useConversations';
 import { FONT, mixColors } from '../../theme/parchment';
@@ -15,7 +15,7 @@ function TabBarBackdrop() {
   const { themeColors } = useTheme();
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: themeColors.wood }]}>
-      <Image source={ART.wood} resizeMode="cover" style={StyleSheet.absoluteFill} />
+      <Image source={ART.wood} resizeMode="cover" style={FILL_IMAGE} />
       <View style={[styles.rail, { backgroundColor: themeColors.brass }]} />
       <View style={styles.railLight} />
     </View>

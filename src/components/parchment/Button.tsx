@@ -18,7 +18,7 @@ import { mixColors } from '../../theme/parchment';
 import { ART } from './art';
 import { Compass } from './Compass';
 import { Tack } from './Pins';
-import { isHovered, paperShadow, POINTER } from './platform';
+import { FILL_IMAGE, isHovered, paperShadow, POINTER } from './platform';
 import { Text } from './Text';
 
 export type MapButtonVariant = 'plank' | 'wax' | 'danger' | 'ghost';
@@ -141,7 +141,7 @@ export function MapButton({
                 justifyContent: 'center',
               }}
             >
-              <Image source={ART.wood} resizeMode="cover" style={StyleSheet.absoluteFill} />
+              <Image source={ART.wood} resizeMode="cover" style={FILL_IMAGE} />
               <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 2, backgroundColor: 'rgba(255, 230, 180, 0.28)' }} />
               <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, backgroundColor: 'rgba(0, 0, 0, 0.3)' }} />
               {state.pressed ? (

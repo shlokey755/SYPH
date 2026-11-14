@@ -6,7 +6,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -33,12 +34,65 @@ import { CallOverlaySection } from '../../components/profile/CallOverlaySection'
 import { SoundsSection } from '../../components/profile/SoundsSection';
 import { UpdateSection } from '../../components/profile/UpdateSection';
 import { NameSection } from '../../components/profile/NameSection';
+import { db } from '../../firebaseConfig';
 import { isPushSupported, registerForPush } from '../../services/pushService';
 
-export default function MeTab() {
+/** How long the full profile may take before the page opens with the one the app already holds. */
+const PROFILE_PATIENCE_MS = 5000;
+/** How long the notice waits for the server's answer before it says that there was none. */
+const DIAGNOSIS_TIMEOUT_MS = 8000;
+
+/**
+ * Shown above the page while only the profile the app already holds (hooks/useAuth.tsx) is on screen, because the full one
+ * has not come: asks the server why, and offers to try again.
+ */
+function ProfileNotice({ uid, onRetry }: { uid: string; onRetry: () => void }) {
+  const { themeColors: c } = useTheme();
+  const [reason, setReason] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    const timer = setTimeout(() => live && setReason((r) => r ?? 'The server did not answer in time.'), DIAGNOSIS_TIMEOUT_MS);
+    getDoc(doc(db, 'users', uid)).then(
+      (snap) => live && setReason(snap.exists() ? 'It was slow to arrive.' : 'Your profile page is missing on the server.'),
+      (e: unknown) => live && setReason(e instanceof Error ? e.message : String(e))
+    );
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [uid]);
+
+  return (
+    <Paper tone="alt" lift={0} contentStyle={styles.warn}>
+      <Ionicons name="alert-circle" size={20} color={c.stamp} />
+      <View style={styles.grow}>
+        <Text kind="label" style={[styles.warnTitle, { color: c.stamp }]}>
+          Showing the copy kept on this device
+        </Text>
+        <Text kind="hand" style={[styles.hint, { color: c.inkSoft }]}>
+          {reason ?? 'Asking the server why...'}
+        </Text>
+        <MapButton small variant="ghost" title="Try again" onPress={onRetry} />
+      </View>
+    </Paper>
+  );
+}
+
+function MeScreen({ onRetry }: { onRetry: () => void }) {
   const { currentUser, logout, refreshCurrentUser } = useAuth();
-  const { profile, canChangeUsername, timeUntilCanChange, updateUsername, patchProfile } =
+  const { profile: loaded, isLoading, canChangeUsername, timeUntilCanChange, updateUsername, patchProfile } =
     useUserProfile(currentUser?.uid);
+
+  // The profile is read once, when the screen opens, and hooks/useUserProfile.ts waits for ever when that read stalls or fails.
+  // After a few seconds the page opens with the profile the app already holds (name and username), and says so.
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    if (loaded) return;
+    const timer = setTimeout(() => setGaveUp(true), PROFILE_PATIENCE_MS);
+    return () => clearTimeout(timer);
+  }, [loaded]);
+  const profile = loaded ?? (gaveUp || !isLoading ? currentUser : null);
 
   const { themeColors } = useTheme();
   const router = useRouter();
@@ -126,6 +180,12 @@ export default function MeTab() {
           <TrailLine x style={styles.trail} />
         </View>
 
+        {!loaded && (
+          <View style={styles.section}>
+            <ProfileNotice uid={profile.uid} onRetry={onRetry} />
+          </View>
+        )}
+
         {/* Avatar: initial only (no photos, the app has no file storage) */}
         <View style={styles.photoSection}>
           <Avatar name={profile.username} size={96} seed={currentUser!.uid} />
@@ -153,38 +213,42 @@ export default function MeTab() {
             </Text>
           </Paper>
 
-          <Field
-            boxStyle={styles.gap}
-            placeholder="New username"
-            value={newUsername}
-            onChangeText={setNewUsername}
-            autoCapitalize="none"
-            editable={!isChangingUsername}
-          />
+          {loaded && (
+            <>
+              <Field
+                boxStyle={styles.gap}
+                placeholder="New username"
+                value={newUsername}
+                onChangeText={setNewUsername}
+                autoCapitalize="none"
+                editable={!isChangingUsername}
+              />
 
-          {!canChangeUsername && (
-            <Paper tone="alt" lift={0} contentStyle={styles.warn} style={styles.gap}>
-              <Ionicons name="alert-circle" size={20} color={themeColors.stamp} />
-              <View style={styles.grow}>
-                <Text kind="label" style={[styles.warnTitle, { color: themeColors.stamp }]}>
-                  Try again tomorrow
-                </Text>
-                <Text kind="hand" style={[styles.hint, { color: themeColors.inkSoft }]}>
-                  {timeUntilCanChange}
-                </Text>
-              </View>
-            </Paper>
+              {!canChangeUsername && (
+                <Paper tone="alt" lift={0} contentStyle={styles.warn} style={styles.gap}>
+                  <Ionicons name="alert-circle" size={20} color={themeColors.stamp} />
+                  <View style={styles.grow}>
+                    <Text kind="label" style={[styles.warnTitle, { color: themeColors.stamp }]}>
+                      Try again tomorrow
+                    </Text>
+                    <Text kind="hand" style={[styles.hint, { color: themeColors.inkSoft }]}>
+                      {timeUntilCanChange}
+                    </Text>
+                  </View>
+                </Paper>
+              )}
+
+              <MapButton
+                title="Change username"
+                onPress={handleChangeUsername}
+                loading={isChangingUsername}
+                disabled={!canChangeUsername || isChangingUsername}
+              />
+              <Text kind="hand" style={[styles.hint, styles.centered, { color: themeColors.subText }]}>
+                You can change it once a day.
+              </Text>
+            </>
           )}
-
-          <MapButton
-            title="Change username"
-            onPress={handleChangeUsername}
-            loading={isChangingUsername}
-            disabled={!canChangeUsername || isChangingUsername}
-          />
-          <Text kind="hand" style={[styles.hint, styles.centered, { color: themeColors.subText }]}>
-            You can change it once a day.
-          </Text>
         </View>
 
         {/* Sign-in email (FR-01) */}
@@ -267,4 +331,13 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   switchLabel: { fontSize: 19, lineHeight: 23, fontWeight: '600' },
   credit: { fontSize: 13, lineHeight: 17, textAlign: 'center', paddingHorizontal: 15 },
+  troubleCard: { alignItems: 'center', gap: 10, padding: 24, maxWidth: 420 },
+  troubleTitle: { fontSize: 28, lineHeight: 34, textAlign: 'center' },
+  troubleHint: { fontSize: 19, lineHeight: 24, textAlign: 'center' },
 });
+
+export default function MeTab() {
+  // "Try again" mounts the screen afresh, which reads the profile again.
+  const [attempt, setAttempt] = useState(0);
+  return <MeScreen key={attempt} onRetry={() => setAttempt((n) => n + 1)} />;
+}

@@ -116,6 +116,11 @@ a button, loading labels. Meaning always stays obvious. Never rename something a
 7. Tilt, tear and shadow are for display. Do not put a `Paper` with `angle` or `seed` around something the person types into.
 8. Keep the behaviour of every screen exactly as its phone twin has it. This is a re-skin: no changes to data, navigation, permissions, text a
    test depends on, or accessibility roles.
+9. An Image that fills its parent is `style={FILL_IMAGE}` (from `components/parchment`), and its tint is the `tintColor` prop. React
+   Native Web gives an Image the size of its file before it reads `style`, so left/right/top/bottom alone leave a torn edge
+   hundreds of points wide; and spreading `StyleSheet.absoluteFill` into a new object loses its parts on the web.
+10. A navigator paints its screens with the navigation theme's background, pale grey by default. `_layout.web.tsx` makes it
+    transparent on a wide window so the map the shell paints shows through; keep any new navigator under that `ThemeProvider`.
 
 ## On the web
 

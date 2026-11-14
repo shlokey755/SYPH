@@ -5,11 +5,18 @@
  */
 
 import { createContext, useEffect, useState } from 'react';
-import { AccessibilityInfo, Platform, ViewStyle, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, ImageStyle, Platform, ViewStyle, useWindowDimensions } from 'react-native';
 import { shadowSpec } from '../../theme/parchment';
 import { type DesktopLayout, SHEET_WIDTH, boxShadowCss, desktopLayout } from '../../theme/web';
 
 export const IS_WEB = Platform.OS === 'web';
+
+/**
+ * The style of an Image that fills its parent. React Native Web gives an Image the size of its file before it reads `style`, so
+ * left/right/top/bottom alone leave it as big as the file (a torn edge hundreds of points wide); the 100% settles it. Use this, in an
+ * array with any tint or transform: spreading StyleSheet.absoluteFill into an object loses its parts on the web.
+ */
+export const FILL_IMAGE: ImageStyle = { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' };
 
 /**
  * For the outer box of a bottom sheet or a centred panel inside a `Modal`. A Modal on the web is drawn over the whole browser window,

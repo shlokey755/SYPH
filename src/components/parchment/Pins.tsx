@@ -4,10 +4,10 @@
  */
 
 import React from 'react';
-import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Image, StyleProp, View, ViewStyle } from 'react-native';
 import { mixColors } from '../../theme/parchment';
 import { ART } from './art';
-import { paperShadow } from './platform';
+import { FILL_IMAGE, paperShadow } from './platform';
 
 export interface TackProps {
   /** Usually one of `themeColors.pins`. */
@@ -84,17 +84,20 @@ export function WaxSeal({ color, size = 30, angle = 0, children, style }: WaxSea
       <Image
         source={ART.seal}
         resizeMode="stretch"
-        style={{ ...StyleSheet.absoluteFill, tintColor: '#000000', opacity: 0.3, top: size * 0.05, transform: [{ rotate: `${angle}deg` }] }}
+        tintColor="#000000"
+        style={[FILL_IMAGE, { opacity: 0.3, top: size * 0.05, transform: [{ rotate: `${angle}deg` }] }]}
       />
       <Image
         source={ART.seal}
         resizeMode="stretch"
-        style={{ ...StyleSheet.absoluteFill, tintColor: color, transform: [{ rotate: `${angle}deg` }] }}
+        tintColor={color}
+        style={[FILL_IMAGE, { transform: [{ rotate: `${angle}deg` }] }]}
       />
       <Image
         source={ART.sealRing}
         resizeMode="stretch"
-        style={{ ...StyleSheet.absoluteFill, tintColor: mixColors(color, '#000000', 0.45), transform: [{ rotate: `${angle}deg` }] }}
+        tintColor={mixColors(color, '#000000', 0.45)}
+        style={[FILL_IMAGE, { transform: [{ rotate: `${angle}deg` }] }]}
       />
       {children}
     </View>

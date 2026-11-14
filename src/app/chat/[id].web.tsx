@@ -22,7 +22,7 @@ import {
   View,
   ViewToken,
 } from 'react-native';
-import { ART, Loading, NATIVE_DRIVER, PageTexture, POINTER, Text, TextInput, useDesktopLayout } from '../../components/parchment';
+import { ART, FILL_IMAGE, Loading, NATIVE_DRIVER, PageTexture, POINTER, Text, TextInput, useDesktopLayout } from '../../components/parchment';
 import { READING_WIDTH } from '../../theme/web';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -645,7 +645,7 @@ export default function ChatScreen() {
       <PageTexture variant="plain" />
       {/* Header: a strip of ship's planking with a brass rail along its edge */}
       <View style={[styles.headerWrap, { backgroundColor: themeColors.wood, paddingTop: insets.top }]}>
-        <Image source={ART.wood} resizeMode="cover" style={StyleSheet.absoluteFill} />
+        <Image source={ART.wood} resizeMode="cover" style={FILL_IMAGE} />
         <View style={styles.header}>
           {desktop ? null : (
             <Pressable onPress={() => router.back()} hitSlop={10} accessibilityLabel="Back" style={POINTER}>

@@ -27,6 +27,7 @@ export {
   InShellContext,
   IS_WEB,
   NATIVE_DRIVER,
+  FILL_IMAGE,
   POINTER,
   SHEET_FRAME,
   isHovered,
