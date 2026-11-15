@@ -3,7 +3,6 @@
  * Renders nothing. While a user is signed in it:
  *   - registers this device for push (once settings say notifications are on),
  *   - mirrors the push-relevant settings to userPush/{uid} so other people's phones can notify this one,
- *   - asks once (per phone) to allow what ringing and showing a call while SYPH is closed needs (useCallAccessPrompt),
  *   - opens the right chat when a notification is tapped (including a cold start from a notification),
  *   - mirrors the unread total on the app icon.
  * Mounted inside the tabs layout, which only exists for signed-in users once navigation is ready.
@@ -21,7 +20,6 @@ import {
   registerForPush,
   setAppBadge,
 } from '../services/pushService';
-import { useCallAccessPrompt } from '../hooks/useCallAccessPrompt';
 import { syncPushMirror } from '../services/userService';
 import { mirrorFromSettings, mirrorKey } from '../utils/push';
 
@@ -46,9 +44,6 @@ export function PushNotificationsBridge() {
   useEffect(() => {
     configureForegroundBehavior();
   }, []);
-
-  // Once per phone: the permissions that let a call ring and open full screen while SYPH is closed.
-  useCallAccessPrompt(uid, isLoaded);
 
   // Keep the shared copy of the push settings current. Covers devices added or removed, the master switch and mutes,
   // and accounts that predate the mirror. The key skips writes when nothing changed.

@@ -31,7 +31,6 @@ import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useUserSettings } from '../../hooks/useUserSettings';
 import { AccountEmailSection } from '../../components/profile/AccountEmailSection';
-import { CallOverlaySection } from '../../components/profile/CallOverlaySection';
 import { SoundsSection } from '../../components/profile/SoundsSection';
 import { UpdateSection } from '../../components/profile/UpdateSection';
 import { NameSection } from '../../components/profile/NameSection';
@@ -314,9 +313,6 @@ function MeScreen({ attempt, onRetry }: { attempt: number; onRetry: () => void }
 
         {/* Ringtone, message tone and vibration */}
         <SoundsSection />
-
-        {/* Permissions behind the call bubble and the lock-screen call */}
-        <CallOverlaySection />
 
         {/* Logout Section */}
         <View style={styles.section}>
