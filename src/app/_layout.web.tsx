@@ -1,7 +1,7 @@
 // src/app/_layout.web.tsx
 // The root layout in a browser. Same providers and screens as _layout.tsx (the phone's), with three additions: the map's
-// typefaces are registered before anything is drawn, Alert.alert (empty in React Native Web) opens the browser's own
-// dialogs, and the stack sits inside the desktop shell (rail, chat list and wide map page on a wide window).
+// typefaces are registered before anything is drawn, Alert.alert (empty in React Native Web) opens a parchment dialog, and the
+// stack sits inside the desktop shell (rail, chat list and wide map page on a wide window).
 // A phone never loads this file. When _layout.tsx gains a provider or a screen, add it here too (docs/PARCHMENT.md).
 import '../services/liveLocationTask';
 import { DefaultTheme, Stack, ThemeProvider as NavigationThemeProvider } from 'expo-router';
@@ -10,7 +10,7 @@ import { Alert } from 'react-native';
 import { ActiveCallProvider } from '../components/call/ActiveCallHost';
 import { ChatShortcutsBridge } from '../components/ChatShortcutsBridge';
 import { DesktopShell } from '../components/desktop/DesktopShell';
-import { useDesktopLayout } from '../components/parchment';
+import { DialogHost, useDesktopLayout } from '../components/parchment';
 import { ThemeProvider } from '../hooks/themeContext';
 import { ToastProvider } from '../hooks/toastNotifications';
 import { AuthProvider, useAuth } from '../hooks/useAuth';
@@ -22,15 +22,14 @@ import { restoreLiveShares } from '../services/liveLocationManager';
 import { keepSplashVisible } from '../services/splashService';
 import { vintage } from '../theme/colors';
 import { useMapFonts } from '../theme/fonts';
-import { showBrowserAlert } from '../utils/browserAlert';
+import { showDialog } from '../utils/dialogQueue';
 
 keepSplashVisible();
 
-// React Native Web leaves Alert.alert empty, so in a browser errors and "are you sure?" questions would never show.
-// Use the browser's own dialogs.
+// React Native Web leaves Alert.alert empty, so in a browser errors and "are you sure?" questions would never show. They are
+// queued (utils/dialogQueue.ts) and drawn as parchment dialogs by the DialogHost mounted below, not as the browser's plain boxes.
 if (typeof window !== 'undefined') {
-  Alert.alert = (title, message, buttons) =>
-    showBrowserAlert({ alert: (t) => window.alert(t), confirm: (t) => window.confirm(t) }, title, message, buttons);
+  Alert.alert = (title, message, buttons) => showDialog(title, message, buttons);
 }
 
 // Every navigator paints its screens with the navigation theme's background, a pale grey by default, which would hide the map the
@@ -101,6 +100,7 @@ export default function RootLayout() {
               <IncomingCallsProvider>
                 <ActiveCallProvider>
                   <RootNav />
+                  <DialogHost />
                 </ActiveCallProvider>
               </IncomingCallsProvider>
             </ConversationsProvider>
