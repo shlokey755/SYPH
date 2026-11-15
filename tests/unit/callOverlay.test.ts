@@ -5,7 +5,6 @@ import {
   bubbleColor,
   bubbleWanted,
   incomingScreenWanted,
-  overlayStatus,
   parseIncomingAction,
 } from '../../src/utils/callOverlay.ts';
 
@@ -71,26 +70,6 @@ describe('the floating bubble (bubbleWanted)', () => {
 
   it('stays away while a 1-to-1 call is moving into a group call', () => {
     assert.equal(bubbleWanted({ ...running, movedTo: true }), false);
-  });
-});
-
-describe('what the Me tab says about the permissions (overlayStatus)', () => {
-  it('says "comes with the newest app" for both in a build without the native side', () => {
-    assert.deepEqual(overlayStatus({ available: false, overApps: true, fullScreen: true }), {
-      overApps: 'unavailable',
-      fullScreen: 'unavailable',
-    });
-  });
-
-  it('reports each permission by itself', () => {
-    assert.deepEqual(overlayStatus({ available: true, overApps: true, fullScreen: false }), {
-      overApps: 'granted',
-      fullScreen: 'needed',
-    });
-    assert.deepEqual(overlayStatus({ available: true, overApps: false, fullScreen: true }), {
-      overApps: 'needed',
-      fullScreen: 'granted',
-    });
   });
 });
 

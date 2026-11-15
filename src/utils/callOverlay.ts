@@ -5,7 +5,6 @@
  *   - when the native incoming-call screen is wanted (`incomingScreenWanted`)
  *   - when the floating "return to call" bubble is wanted (`bubbleWanted`)
  *   - what Accept / Decline on that screen sends back (`parseIncomingAction`)
- *   - what the Me tab says about the two permissions (`overlayStatus`)
  */
 
 export type IncomingAction = 'accept' | 'decline';
@@ -40,30 +39,6 @@ export const incomingScreenWanted = (ringKey: string | null, appState: string): 
 /** The floating bubble is for a call that is running while SYPH is in the background. */
 export const bubbleWanted = (input: { live: boolean; ended: boolean; movedTo: boolean; appState: string }): boolean =>
   input.live && !input.ended && !input.movedTo && input.appState === 'background';
-
-export type PermissionStatus = 'unavailable' | 'granted' | 'needed';
-
-export interface OverlayAccess {
-  /** This build has the native side (an older APK does not). */
-  available: boolean;
-  /** "Display over other apps" is on for SYPH. */
-  overApps: boolean;
-  /** Full-screen call alerts are allowed (always true before Android 14). */
-  fullScreen: boolean;
-}
-
-export interface OverlayStatus {
-  overApps: PermissionStatus;
-  fullScreen: PermissionStatus;
-}
-
-export function overlayStatus(access: OverlayAccess): OverlayStatus {
-  if (!access.available) return { overApps: 'unavailable', fullScreen: 'unavailable' };
-  return {
-    overApps: access.overApps ? 'granted' : 'needed',
-    fullScreen: access.fullScreen ? 'granted' : 'needed',
-  };
-}
 
 /** The accent colour as Android reads it (#RRGGBB or #AARRGGBB); anything else becomes SYPH's green. */
 export const FALLBACK_BUBBLE_COLOR = '#22C55E';

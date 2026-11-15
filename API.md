@@ -502,23 +502,23 @@ Two things, both while SYPH is **in the background but still running** (Home pre
 
 | Step | How | Cost |
 |------|-----|------|
-| Build a new APK | `eas build --profile preview --platform android`. The native module gained an activity and two permissions (`USE_FULL_SCREEN_INTENT`, `SYSTEM_ALERT_WINDOW`), so this cannot ship as an update | Free tier |
-| Allow "Display over other apps" | SYPH asks once after you sign in (see 1.16.1). Later: Me tab > **Calls over other apps** > Open settings > switch SYPH on. Android never lets an app switch this on by itself | Free |
-| Android 14 and newer: allow full-screen call alerts | Same card, second row. Android turns this off for apps it does not count as calling apps, so check it | Free |
+| Build a new APK | `eas build --profile preview --platform android`. The native module gained an activity and permissions (`USE_FULL_SCREEN_INTENT`, `SYSTEM_ALERT_WINDOW`, and for the ringtone `READ_MEDIA_AUDIO` / `READ_EXTERNAL_STORAGE`), so this cannot ship as an update | Free tier |
+| Allow "Display over other apps" | SYPH asks once when the app starts (see 1.16.1) and opens the Android page. Later: Android Settings > Apps > SYPH > Display over other apps. Android never lets an app switch this on by itself | Free |
+| Android 14 and newer: allow full-screen call alerts | Asked right after, the same way. Later: Android Settings > Apps > SYPH > Full-screen notifications (the name varies by phone). Android turns this off for apps it does not count as calling apps, so check it | Free |
 | Some phones (Xiaomi, Oppo, Vivo, Huawei) | Also switch on "Display pop-up windows while running in the background" in the phone's permission page for SYPH. SYPH cannot open that page for you | Free |
 
 **What it cannot do (on purpose or by Android's rules)**
 - SYPH keeps nothing running while it is idle (that needs a permanent notification and costs battery). If Android has already closed SYPH, the call is rung by a small native push handler instead: see 1.16.1 (needs the newest APK; older ones get the ordinary push notification).
 - Without "Display over other apps": a locked phone still gets the full-screen screen (if the full-screen switch allows it), a phone in use gets a banner with Accept and Decline instead, and there is no bubble.
 - Accepting from the lock screen: Android asks to unlock before showing the call.
-- An older APK that receives this update behaves as before; the Me tab card says "Comes with the newest version of the app".
+- An older APK that receives this update behaves as before, and does not ask for the two settings (the prompt only appears in a build that has the native call helper).
 - The Kotlin compiles (checked against Android 34 stubs and a stand-in for the Expo module API) but has never run on a device.
 
 **Test checklist (two phones, new APK on both)**
 
 | # | Do this | Expect |
 |---|---------|--------|
-| 1 | B: Me tab > Calls over other apps | Both rows say Off. Open settings > allow > come back: the row says On |
+| 1 | B: open the new build for the first time, allow all three questions (1.16.1) | Android Settings > Apps > SYPH shows Display over other apps and Full-screen notifications as allowed |
 | 2 | B presses Home. A calls B | A call screen with B's caller name opens over the home screen, ringtone plays |
 | 3 | B taps Accept | SYPH opens on the call screen and the call connects |
 | 4 | Repeat 2, B taps Decline | The screen goes away, A sees the call declined |
@@ -543,15 +543,23 @@ Goal: a call rings with the phone's ringtone and opens a full-screen call screen
 | Caller gives up | The caller's phone sends a silent "call ended" push; the closed phone stops ringing and closes the call screen. |
 | Accept from a closed app | Accept starts SYPH and the call connects once the app is up. |
 
-**The permission prompt.** Android never lets an app switch on "Display over other apps" or full-screen call alerts by itself, so the first time you open the new build (a few seconds after sign-in) SYPH explains what they are for and opens the first settings page; when you come back it offers the second if it is still off. It asks once per phone and not at all when both are already on. **Not now** closes it, and the Me tab > **Calls over other apps** card keeps both switches. The sounds need no permission.
+**The permission questions (at startup, not in the Me tab).** When the app starts (about a second and a half after it is ready, whether or not you are signed in) SYPH asks for three things, one after the other, each with a short explanation and **Not now**:
+
+| # | Permission | What happens on **Allow** |
+|---|---|---|
+| 1 | **Ringtone**: read audio files (`READ_MEDIA_AUDIO` on Android 13+, `READ_EXTERNAL_STORAGE` before). The ringtone or notification sound you chose can be a file on the phone, and Android needs this to play it | Android's own permission dialog |
+| 2 | **Display over other apps** | Opens Android's page for SYPH; the next question comes when you are back |
+| 3 | **Full-screen call alerts** (Android 14+; earlier versions always have it) | Opens Android's page for SYPH |
+
+Each is asked **once per phone** and skipped when it is already on. A permission added in a later version is asked once on its own. Nothing is shown in the Me tab any more: the "Calls over other apps" card is gone. After the first start, change any of them in Android Settings > Apps > SYPH > Permissions (ringtone: Music and audio / Files and media; the other two under Special app access or the same page). If you press **Not now** SYPH does not ask again. Not asked while you are on a call screen, and not on iOS or web. The two settings pages are only asked for in a build that has the native call helper. Notifications keep their own question after sign-in, unchanged.
 
 **Needs from you**
 
 | # | Step | How | Cost |
 |---|------|-----|------|
-| 1 | Build a new APK | `eas build --profile preview --platform android`. Native module changes, a removed dependency (`expo-audio`) and removed sound files: this cannot ship as an update | Free tier |
+| 1 | Build a new APK | `eas build --profile preview --platform android`. Native module changes (including the new audio permissions in its manifest), a removed dependency (`expo-audio`) and removed sound files: this cannot ship as an update | Free tier |
 | 2 | Re-publish `firestore.rules` if you have not since the closed-app-alerts change | It must allow `alertTokens` on `userPush` (already in the file). Nothing new in this change | Free |
-| 3 | Install on both phones, open SYPH once, say yes to the prompt | The phone registers as able to ring while closed, and the two switches are turned on | Free |
+| 3 | Install on both phones, open SYPH once, say yes to the three questions | The phone registers as able to ring while closed, and the switches are turned on | Free |
 | 4 | Some phones (Xiaomi, Oppo, Vivo, Huawei) | Also set SYPH to "Unrestricted" battery use, allow auto-start, and switch on "Display pop-up windows while running in the background" in the phone's permission page | Free |
 
 No new key, no billing, no server. `server/` (the optional relay) was not changed.
@@ -567,7 +575,8 @@ No new key, no billing, no server. `server/` (the optional relay) was not change
 
 | # | Do this | Expect |
 |---|---------|--------|
-| 1 | A: open the new build, wait for the prompt, tap Open settings, switch it on, come back, do the second page | Me tab > Calls over other apps shows both On |
+| 1 | A: open the new build for the first time (also try with a signed-out app) | Three questions in turn: ringtone (Android dialog after Allow), Display over other apps (opens the Android page; come back and the next question follows), full-screen call alerts. Me tab has no permissions card |
+| 1b | A: close and reopen SYPH | No questions again. Turn one off in Android Settings > Apps > SYPH and reopen: still not asked |
 | 2 | A: swipe SYPH away (closed). B calls A | The phone's ringtone repeats and the full-screen call screen opens |
 | 3 | A: press Home with SYPH still in recent apps. B calls A | The same: ringtone and full-screen call screen, rung once (not twice) |
 | 4 | A: lock the phone, SYPH closed. B calls A | Screen lights up over the lock screen. Accept asks to unlock, then the call connects |

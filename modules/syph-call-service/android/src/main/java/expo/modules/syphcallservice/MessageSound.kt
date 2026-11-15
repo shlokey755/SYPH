@@ -15,7 +15,8 @@ import android.util.Log
  * background, the notification itself makes the same sound (the "messages" channel uses the phone's default), so a message
  * sounds the same either way.
  *
- * No permission is needed to play the phone's default sound.
+ * Audio access (READ_MEDIA_AUDIO, or READ_EXTERNAL_STORAGE before Android 13) is what lets Android play the sound when it is a
+ * file on the phone; SYPH asks for it when the app starts (hooks/useCallAccessPrompt.ts).
  */
 internal object MessageSound {
   private const val TAG = "SyphMessageSound"

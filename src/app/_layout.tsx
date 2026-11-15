@@ -2,7 +2,7 @@
 // Defines the background location task. It must be loaded in the global scope of the bundle, because Android can start
 // the app only to run it (live location sharing while SYPH is closed).
 import '../services/liveLocationTask';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { ThemeProvider, useTheme } from '../hooks/themeContext';
@@ -12,6 +12,7 @@ import { StartupStack } from '../components/StartupStack';
 import { ToastProvider } from '../hooks/toastNotifications';
 import { AuthProvider, useAuth } from '../hooks/useAuth';
 import { ConversationsProvider } from '../hooks/useConversations';
+import { useCallAccessPrompt } from '../hooks/useCallAccessPrompt';
 import { IncomingCallsProvider } from '../hooks/useIncomingCalls';
 import { useSplashGate } from '../hooks/useSplashGate';
 import { UserSettingsProvider } from '../hooks/useUserSettings';
@@ -26,6 +27,11 @@ function RootNav() {
   const { themeColors } = useTheme();
   const { isLoading, firebaseUser } = useAuth();
   useSplashGate(!isLoading);
+
+  // Ringtone access, "Display over other apps" and full-screen call alerts are asked once per phone when the app starts, not
+  // on top of a call screen (a cold start from a call notification opens one).
+  const pathname = usePathname();
+  useCallAccessPrompt(!isLoading && !/^\/(call|group-call)\//.test(pathname));
 
   // A live location share that was running when SYPH closed continues, or is ended if its time ran out.
   const uid = firebaseUser?.uid;

@@ -7,6 +7,10 @@
   <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
   <!-- ... and the floating "return to call" bubble over other apps, which the person allows in Android Settings. -->
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+  <!-- The phone's own ringtone and notification sound can be an audio file on the phone. Reading it needs audio access: its own
+       permission from Android 13, "read external storage" before. Asked at startup (hooks/useCallAccessPrompt.ts). -->
+  <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
   <application>
     <!-- Sees every push before expo-notifications does (a higher priority; expo-notifications' own is -1): with SYPH closed, a
