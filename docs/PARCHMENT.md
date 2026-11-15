@@ -13,15 +13,16 @@ under [Beside the phone app](#beside-the-phone-app).
 | | Phone (Android, iOS) | Browser |
 |---|---|---|
 | Screens and components | `Foo.tsx` | `Foo.web.tsx`, next to it |
-| Colours | `hooks/themeContext.tsx` (the themes) | `theme/mapTheme.ts`: `useTheme()` returns the one palette |
-| Root layout | `app/_layout.tsx` | `app/_layout.web.tsx`: desktop shell, map typefaces, browser dialogs |
+| Colours | `hooks/themeContext.tsx` (the themes) | `theme/mapTheme.ts`: `useTheme()` returns the one palette; `hooks/themeContext.web.tsx` gives the same palette to the pieces the phone shares |
+| Root layout | `app/_layout.tsx` | `app/_layout.web.tsx`: desktop shell, map typefaces, parchment dialogs |
 
 - Metro picks `Foo.web.tsx` over `Foo.tsx` in a browser and never loads it on a phone. Expo Router does the same for routes
   ([platform-specific extensions](https://docs.expo.dev/router/advanced/platform-specific-modules/)), which is why every
   `.web` file needs its phone file beside it.
 - Everything that is only the map is imported by `.web` files alone: `components/parchment`, `components/desktop`,
   `components/chat/ChatListView.tsx`, `theme/colors`, `theme/parchment`, `theme/fonts`, `theme/web`, `theme/mapTheme`,
-  `utils/browserAlert`, `assets/parchment`, `assets/fonts`. No phone file imports them, so a phone bundle never contains them.
+  `components/call/CallPlank.tsx`, `utils/dialogQueue`, `utils/tileGrid`, `assets/parchment`, `assets/fonts`. No phone file imports
+  them, so a phone bundle never contains them.
 - Of the files that were already in the repo, only `app.json` changes, and only inside its `web` block.
 - When a phone screen changes in a way that is not just looks, make the same change in its `.web` twin. A change to
   `_layout.tsx` (a new provider, a new screen) goes into `_layout.web.tsx` too.
@@ -33,7 +34,9 @@ under [Beside the phone app](#beside-the-phone-app).
 
 Import from one place: `import { Page, Paper, Text } from '../../components/parchment';` (the code is in
 `src/components/parchment/`). Colours come from `const { themeColors } = useTheme()` of `src/theme/mapTheme.ts` (the palette is `src/theme/colors.ts`), never from
-`hooks/themeContext`, which belongs to the phone.
+`hooks/themeContext`, which belongs to the phone. (A few pieces are shared with the phone and do call it, such as the add-people
+sheet and the incoming-call box; in a browser `hooks/themeContext.web.tsx` answers with the same parchment palette, so they come
+out in parchment colours, though in the system typeface.)
 
 | Piece | What it is | Use it for |
 | --- | --- | --- |
@@ -137,7 +140,7 @@ The web build is the same screens and the same pieces. What differs, and where:
 | Hand cursor and hover brightening on buttons | `POINTER`, `isHovered` |
 | A `Modal` is drawn over the whole browser window, so a sheet or panel inside one is given `SHEET_FRAME` (full width up to 560 points, centred); a full-height picker (forward, GIFs, group info) is given `DIALOG_FRAME`, a card with margins and a shadow over a dimmed window; the message menu is a torn note in the middle of the window | `SHEET_FRAME`, `DIALOG_FRAME` |
 | No native animation engine in a browser, so Animated must not ask for one | `NATIVE_DRIVER` |
-| `Alert.alert` does nothing in React Native Web, so `app/_layout.web.tsx` points it at the browser's own `alert` / `confirm` (the logic is `utils/browserAlert.ts`: a destructive button is what `confirm` runs on OK) | `utils/browserAlert.ts` |
+| `Alert.alert` does nothing in React Native Web, so `app/_layout.web.tsx` points it at `utils/dialogQueue.ts` and mounts `DialogHost`, which draws each question or notice as a torn sheet under a wax seal, with every button of the call (plank, wax for the main choice, dark wax for a warning, dashed trail for cancel). Escape and a click outside answer with "cancel" when there is one | `utils/dialogQueue.ts`, `DialogHost` |
 | A text box is `Field`: a dashed, hand-drawn box around a `TextInput`, which turns brass-red while it has focus. Enter sends a message in a browser, Shift+Enter adds a line | `Field`, `components/chat/MessageInput.tsx` |
 | Tab icon and name, and the colour of the browser's address bar on phones | `web` in `app.json`, `assets/images/favicon-compass.png` |
 
@@ -149,7 +152,18 @@ devices in the shape of react-native-webrtc's (`services/webrtcBrowser.tsx`): `R
 voice plays through a hidden `<audio>`, and `stream.toURL()` is an address that `utils/streamRegistry.ts` turns back into the
 stream. A browser allows the microphone and camera only on an https:// page or on localhost; anywhere else `getWebRTC()` is null
 and the chat screen says so. When `webrtc.ts` changes (the ICE server list, say), change `webrtc.web.ts` too:
-`tests/unit/streamRegistry.test.ts` checks that their exports match. The call screens are still the phone's, unstyled for the map.
+`tests/unit/streamRegistry.test.ts` checks that their exports match.
+
+The call screens have twins too (`call/[id].web.tsx`, `group-call/[id].web.tsx`, with `ControlButton.web.tsx` and
+`ParticipantTile.web.tsx`): the logic is copied from the phone's, the drawing is the map. A voice call is a parchment note with
+the other person's face, a video call puts their picture in a wooden frame with a nameplate, and the buttons lie on a plank
+(`components/call/CallPlank.tsx`). A group call lays its frames out for the shape of the window (`utils/tileGrid.ts`). A computer
+has no earpiece and one camera, so the sound-route and flip-camera buttons are not drawn.
+There is no floating call bubble in a browser (`ReturnToCallBubble.web.tsx` draws nothing) and nothing about "calls over other
+apps" in the Me tab: tabs and windows do that job. "Chats" on the call screen leaves the call running, and the way back is part
+of the page (`components/desktop/OnCallChip.tsx`): a button in the rail on a wide window, a slim strip across the top (a link, in
+the page's flow, covering nothing) on a narrow window or outside the app. The incoming-call box is the phone's, in parchment
+colours. When a phone call screen changes how a call starts, runs or ends, change its twin too.
 
 To try it: `npm run web`, or `npx expo export --platform web` and serve the `dist` folder.
 
@@ -185,5 +199,5 @@ src/app/**/*.web.tsx       the browser's screens, each beside the phone's
 src/app/+html.tsx          the page around the app on the web
 scripts/make-parchment-art.py
 tsconfig.web.json          type-check of the browser build
-tests/unit/colors.test.ts, parchment.test.ts, web.test.ts, browserAlert.test.ts, webVariants.test.ts
+tests/unit/colors.test.ts, parchment.test.ts, web.test.ts, dialogQueue.test.ts, tileGrid.test.ts, themeContext.test.ts, webVariants.test.ts
 ```

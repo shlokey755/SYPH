@@ -18,6 +18,9 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
 [tabindex]:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible {
   outline: 2px dashed #33200F; outline-offset: 3px; box-shadow: 0 0 0 5px rgba(243, 229, 189, 0.85);
 }
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, textarea:-webkit-autofill {
+  -webkit-text-fill-color: #33200F; caret-color: #33200F; -webkit-box-shadow: 0 0 0 1000px #F3E5BD inset; transition: background-color 600000s 0s;
+}
 noscript { display: block; padding: 48px 24px; text-align: center; color: #EBD9AE; font: 20px/1.4 Georgia, serif; }
 `;
 

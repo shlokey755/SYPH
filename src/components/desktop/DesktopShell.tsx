@@ -1,9 +1,10 @@
 /**
  * DesktopShell.tsx
  * The desktop layout of the app (browser windows from 900 points wide, see theme/web.ts): a plank rail down the left with the Chats,
- * Add and Me buttons, the list of chats beside it, and the open page (a conversation, Add, Me) taking the rest on a wide sheet of
- * the map. Everywhere else (a phone, a narrow window, and the sign-in, onboarding and call screens) it draws nothing and the
- * screens fill the window.
+ * Add and Me buttons (and, while a call is running, a button back to it), the list of chats beside it, and the open page (a
+ * conversation, Add, Me) taking the rest on a wide sheet of the map. Everywhere else (a phone, a narrow window, and the sign-in,
+ * onboarding and call screens) it draws no rail and the screens fill the window; there a call that is running but not on screen is
+ * shown as a slim strip across the top of the page (OnCallBar), so the way back to it is never lost.
  * It is always the same tree, so the navigator inside is never remounted when the layout changes with the window.
  */
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +27,7 @@ import {
   useDesktopLayout,
 } from '../parchment';
 import { WIDE_ART } from '../parchment/wideArt';
+import { OnCallBar, OnCallChip } from './OnCallChip';
 
 type Place = 'chats' | 'add' | 'me';
 
@@ -82,6 +84,8 @@ function Rail({ width, place }: { width: number; place: Place | null }) {
           </View>
         );
       })}
+      {/* A call that is still running, when the call screen is not the one open. */}
+      <OnCallChip />
     </View>
   );
 }
@@ -112,6 +116,7 @@ function WebShell({ children }: { children: ReactNode }) {
         ) : null}
         <View style={styles.main}>
           {inApp ? <Image source={page} resizeMode="cover" style={FILL_IMAGE} /> : null}
+          {!inApp ? <OnCallBar /> : null}
           {children}
         </View>
       </View>

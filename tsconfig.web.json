@@ -21,10 +21,15 @@
     "src/app/(tabs)/index.tsx",
     "src/app/(tabs)/me.tsx",
     "src/app/_layout.tsx",
+    "src/app/call/[id].tsx",
     "src/app/chat/[id].tsx",
+    "src/app/group-call/[id].tsx",
     "src/app/index.tsx",
     "src/app/onboarding.tsx",
     "src/components/OfflineBanner.tsx",
+    "src/components/call/ControlButton.tsx",
+    "src/components/call/ParticipantTile.tsx",
+    "src/components/call/ReturnToCallBubble.tsx",
     "src/components/chat/DateSeparator.tsx",
     "src/components/chat/ForwardPicker.tsx",
     "src/components/chat/GifPicker.tsx",
@@ -39,6 +44,7 @@
     "src/components/profile/NameSection.tsx",
     "src/components/profile/SoundsSection.tsx",
     "src/components/profile/UpdateSection.tsx",
+    "src/hooks/themeContext.tsx",
     "src/hooks/toastNotifications.tsx",
     "src/services/webrtc.ts"
   ]
