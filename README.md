@@ -110,7 +110,7 @@ flowchart LR
 - **Real time:** messages, read receipts and typing state are Firestore documents with live listeners.
 - **Security:** access is membership-based and enforced by [`firestore.rules`](firestore.rules), not by hiding client config.
 - **Calls:** WebRTC between phones. Firestore carries the signalling, and free STUN finds the route. Group calls are a mesh.
-- **Push:** the sender's phone asks Expo's free push service to notify the recipient, so no server is needed. An optional relay lives in [`server/`](server).
+- **Push:** the sender's phone asks Expo's free push service to notify the recipient, so no server is needed. An optional relay lives in [`server/`](server). A browser cannot make that request (Expo's push service refuses browsers), so the web version posts to the small push gateway in the same folder instead.
 - **No file storage:** chats carry text and GIF links only, so there is no Firebase Storage and no billing plan.
 
 ###  Tech stack
@@ -166,7 +166,7 @@ eas.json        build profiles
 ##  Known limits
 
 - **No TURN server** (it costs money), so a few network pairs cannot connect a call, mostly mobile data on both sides.
-- **Push is sent from the sender's phone**, which must be online at that moment.
+- **Push is sent from the sender's phone**, which must be online at that moment. From the web version it needs the push gateway running ([`server/README.md`](server/README.md)).
 - **Android first.** iOS builds and push need a paid Apple developer account.
 - Web is not supported yet.
 - **Live location in the background** uses the GPS and a visible notification, so it uses more battery. Some phone brands may still stop it unless SYPH's battery use is set to Unrestricted.

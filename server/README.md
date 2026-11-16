@@ -32,6 +32,26 @@ If the host wants a web port, set `PORT` and the relay answers `GET /health`.
 
 Run **one instance only**: two instances would each send every notification.
 
+## Push gateway (so the web version can notify phones)
+
+Phones send their own push notifications by asking Expo's push service directly. A **browser cannot**: the service sends no
+CORS headers, so the browser refuses the request ("Push request failed: Failed to fetch") and nothing is delivered. The gateway
+is the small server the web app posts to instead; it passes the same messages on to Expo. Phones are not affected.
+
+- It needs **no `npm install` and no service account**, only your Firebase project id. It uses that to check that each request
+  carries the sign-in token of someone signed in to *your* app, so strangers cannot use it.
+- **Run it** (Node 22.9+): `cd server`, `cp .env.example .env` (the project id is read from the app's own `../.env` when
+  `FIREBASE_PROJECT_ID` is empty), then `npm run gateway`. You should see `SYPH push gateway started on port 8787`.
+- **Tell the web app where it is:** in the app's `.env` set `EXPO_PUBLIC_PUSH_GATEWAY_URL="http://localhost:8787/push"` and
+  restart with `npx expo start --web --clear`. Without it the web version sends no push notifications and says so once in the
+  console.
+- **Hosting:** like the relay, any always-on Node host (Render, Railway, Fly.io, a small VPS) works; set the same variables in the
+  host's settings. A web page served over https can only reach an https gateway (a gateway on `localhost` is the exception), and
+  `ALLOWED_ORIGINS` can list the site's address, for example `https://your-site.web.app`.
+- It limits each person to 120 requests a minute and only passes on well-formed push messages (at most 100 per request).
+- Only needed while `EXPO_PUBLIC_PUSH_MODE` is `client` (the default). With `relay`, the relay above sends everything and the web
+  app sends nothing.
+
 ## How delivery is decided
 
 | Condition | Result |

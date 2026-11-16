@@ -165,6 +165,12 @@ of the page (`components/desktop/OnCallChip.tsx`): a button in the rail on a wid
 the page's flow, covering nothing) on a narrow window or outside the app. The incoming-call box is the phone's, in parchment
 colours. When a phone call screen changes how a call starts, runs or ends, change its twin too.
 
+What you send from a browser reaches other people's phones only through the push gateway (`server/`, see its README): a browser
+may not post to Expo's push service, which is how a phone wakes the other phone. `app/_layout.web.tsx` swaps the browser's `fetch`
+for one that sends that single request to `EXPO_PUBLIC_PUSH_GATEWAY_URL` with the person's Firebase sign-in token
+(`services/pushGateway.ts`), so `services/pushSender.ts` stays shared with the phone. Without a gateway the web version sends
+no push and says so once in the console.
+
 To try it: `npm run web`, or `npx expo export --platform web` and serve the `dist` folder.
 
 ## Assets

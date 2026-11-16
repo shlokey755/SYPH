@@ -1,7 +1,8 @@
 // src/app/_layout.web.tsx
-// The root layout in a browser. Same providers and screens as _layout.tsx (the phone's), with three additions: the map's
-// typefaces are registered before anything is drawn, Alert.alert (empty in React Native Web) opens a parchment dialog, and the
-// stack sits inside the desktop shell (rail, chat list and wide map page on a wide window).
+// The root layout in a browser. Same providers and screens as _layout.tsx (the phone's), with four additions: the map's
+// typefaces are registered before anything is drawn, Alert.alert (empty in React Native Web) opens a parchment dialog, the push
+// request a browser may not make goes through the push gateway, and the stack sits inside the desktop shell (rail, chat list and
+// wide map page on a wide window).
 // A phone never loads this file. When _layout.tsx gains a provider or a screen, add it here too (docs/PARCHMENT.md).
 import '../services/liveLocationTask';
 import { DefaultTheme, Stack, ThemeProvider as NavigationThemeProvider } from 'expo-router';
@@ -11,6 +12,7 @@ import { ActiveCallProvider } from '../components/call/ActiveCallHost';
 import { ChatShortcutsBridge } from '../components/ChatShortcutsBridge';
 import { DesktopShell } from '../components/desktop/DesktopShell';
 import { DialogHost, useDesktopLayout } from '../components/parchment';
+import { auth } from '../firebaseConfig';
 import { ThemeProvider } from '../hooks/themeContext';
 import { ToastProvider } from '../hooks/toastNotifications';
 import { AuthProvider, useAuth } from '../hooks/useAuth';
@@ -19,10 +21,12 @@ import { IncomingCallsProvider } from '../hooks/useIncomingCalls';
 import { useSplashGate } from '../hooks/useSplashGate';
 import { UserSettingsProvider } from '../hooks/useUserSettings';
 import { restoreLiveShares } from '../services/liveLocationManager';
+import { installPushGateway } from '../services/pushGateway';
 import { keepSplashVisible } from '../services/splashService';
 import { vintage } from '../theme/colors';
 import { useMapFonts } from '../theme/fonts';
 import { showDialog } from '../utils/dialogQueue';
+import { EXPO_PUSH_URL } from '../utils/push';
 
 keepSplashVisible();
 
@@ -30,6 +34,15 @@ keepSplashVisible();
 // queued (utils/dialogQueue.ts) and drawn as parchment dialogs by the DialogHost mounted below, not as the browser's plain boxes.
 if (typeof window !== 'undefined') {
   Alert.alert = (title, message, buttons) => showDialog(title, message, buttons);
+
+  // A browser may not post to Expo's push service (it sends no CORS headers), which is how services/pushSender.ts wakes the other
+  // person's phone. That one request goes to the push gateway instead (services/pushGateway.ts, server/README.md). Read as a
+  // literal so Expo can inline it at build time.
+  installPushGateway(window, {
+    expoUrl: EXPO_PUSH_URL,
+    gatewayUrl: process.env.EXPO_PUBLIC_PUSH_GATEWAY_URL || undefined,
+    getToken: async () => (await auth.currentUser?.getIdToken()) ?? null,
+  });
 }
 
 // Every navigator paints its screens with the navigation theme's background, a pale grey by default, which would hide the map the
