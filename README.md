@@ -16,14 +16,7 @@
   offering one-to-one and group chats, GIFs, themes, read receipts, push notifications, and voice and video calls.
 </p>
 
-<p align="center">
-  <a href="#-features">Features</a> ·
-  <a href="#-screenshots">Screenshots</a> ·
-  <a href="#-quick-start">Quick start</a> ·
-  <a href="#-build-the-apk">Build the APK</a> ·
-  <a href="#-how-it-works">How it works</a> ·
-  <a href="#-roadmap">Roadmap</a>
-</p>
+
 
 ---
 
