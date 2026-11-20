@@ -27,6 +27,9 @@ import expo.modules.kotlin.modules.ModuleDefinition
  *
  * Sound:
  *   playMessageSound(volume)                     the phone's notification sound once (a new message while SYPH is open)
+ *   startRingtone(pattern, seconds)              the phone's ringtone, looping, and the buzz pattern in milliseconds (an incoming
+ *                                                call while SYPH is open); seconds above 0 ends it by itself (see RingtonePlayer.kt)
+ *   stopRingtone()                               stop that ring
  *
  * Long-press menu on the SYPH icon (the module holds it because it is SYPH's one native Android module):
  *   setChatShortcuts(json)                       replace the menu with the person's recent chats (see ChatShortcuts.kt)
@@ -51,6 +54,8 @@ class SyphCallServiceModule : Module() {
     OnDestroy {
       CallServiceEvents.listener = null
       CallServiceEvents.incomingListener = null
+      // A reload of the app must not leave a ring going with nobody left to stop it.
+      RingtonePlayer.stop()
     }
 
     Function("show") { title: String, text: String, startedAt: Double, route: String ->
@@ -87,6 +92,18 @@ class SyphCallServiceModule : Module() {
     Function("playMessageSound") { volume: Double ->
       val context = appContext.reactContext ?: return@Function false
       MessageSound.play(context, volume.toFloat())
+    }
+
+    // The ring of an incoming call while SYPH is open: the phone's own ringtone through Android's ringtone player (which, unlike a
+    // plain media player, does not need the audio-files permission), looping, with the buzz pattern. Always true when the module is here.
+    Function("startRingtone") { pattern: LongArray, seconds: Double ->
+      val context = appContext.reactContext ?: return@Function false
+      RingtonePlayer.start(context, pattern, seconds)
+    }
+
+    Function("stopRingtone") {
+      RingtonePlayer.stop()
+      true
     }
 
     Function("setChatShortcuts") { json: String ->

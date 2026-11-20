@@ -489,6 +489,43 @@ The Me tab card now has: Vibration, Touch feedback, a **Test** button for the ca
 | 7 | B messages A while A is in that chat | A softer sound and a tick, no pop-up |
 | 8 | A puts the phone on silent, B calls | No sound, the buzz still happens |
 
+### 1.15.1 The ring while SYPH is open: Android's own ringtone player (needs a new APK)
+
+**What was wrong.** With SYPH open, an incoming call rang through `react-native-incall-manager`, which opens the phone's ringtone with a plain Android `MediaPlayer`. A plain `MediaPlayer` can open the ringtone only when the app may read it, and a ringtone that is a file on the phone's shared storage needs the audio-files permission (`READ_MEDIA_AUDIO`, or `READ_EXTERNAL_STORAGE` before Android 13). When it cannot, the library catches the error, writes it to the log and carries on: the call **buzzes but makes no sound, and nothing tells the app**. Answering **Not now** to the ringtone question at startup (see 1.16.1) was enough to cause it. The library also rings only if it is granted audio focus, so a refused focus request meant a silent ring too. The Test button used the same path.
+
+**What changed.** The ring now goes through Android's `Ringtone` player (`RingtonePlayer.kt`, reached as `startRingtone` / `stopRingtone` on the native call helper). When the app cannot open the ringtone file, `Ringtone` plays it through the system's own ringtone player, which can (it is how the phone's own Settings plays one), and the ring does not wait for audio focus: other audio is asked to pause, and the ring goes ahead whatever the answer. It rings the way the library did:
+
+| Phone is on | Ringtone | Buzz (when Vibration is on in the Me tab) |
+|---|---|---|
+| Sound, ring volume up | Yes, looping | Yes |
+| Sound, ring volume at 0 | No | Yes |
+| Vibrate | No | Yes |
+| Mute (Android's "do not buzz either") | No | No |
+
+The ring ends when the call is answered, declined or cancelled, after 3 seconds for the Test button, or after 60 seconds if nothing stops it (a call is given up after 45). If the ringtone cannot play for any reason the buzz still happens. The ring is played and buzzed as a ringtone, so Android's own Do Not Disturb and "vibrate for calls" rules should apply to it as to any ringing phone (not tried).
+
+**An old build that receives this update** keeps working as before: the app tries the native player first, then the library's, then buzzing alone, so only a new APK gets the fix.
+
+**What is not changed.** In the background, closed or locked, the call rings from its notification (1.16.1), as before. A web page calling a phone that has SYPH closed still needs the push gateway (see `server/`), since nothing else wakes that phone.
+
+**Checked, and not.** `nativeBuzzPattern` (the buzz as the native side takes it) is unit tested, the type-check is clean, and `RingtonePlayer.kt` and its two new module functions compile against Android's API stubs and Expo's function signatures. **Never run on a phone.** Whether `Ringtone` really plays a ringtone from shared storage without the permission is how Android's source reads, not something tried here, so the first row of this checklist is the one that matters.
+
+**Needs from you:** build a new APK (`eas build --profile preview --platform android`). No key, no rules change.
+
+**Test checklist (two phones, new APK on A)**
+
+| # | Do this | Expect |
+|---|---------|--------|
+| 1 | On A, with a ringtone you added yourself (a file on the phone, not a stock one), turn off SYPH's audio-files permission (Android Settings > Apps > SYPH > Permissions) or answer Not now at startup. Me tab > Sounds & vibration > Test (ringtone) | The phone's ringtone plays for about 3 seconds |
+| 2 | B calls A while A has SYPH open, phone on Sound | A rings and buzzes until answered, declined or 45 s; B hears the "tu-tu" |
+| 3 | A switches Vibration off, B calls again | A rings, no buzz |
+| 4 | A on Vibrate, B calls | The buzz only |
+| 5 | A on Mute, B calls | Nothing: no sound, no buzz (SYPH still shows the call) |
+| 6 | A is playing music, B calls | The music pauses while A rings |
+| 7 | B hangs up while A is ringing | The ring and the buzz stop at once |
+| 8 | B calls, A answers | The ring stops, the call connects, sound is normal (earpiece or speaker as before) |
+| 9 | B calls, A presses Home while it rings | The ring carries on from the notification, once (not twice) |
+
 ### 1.16 Calls over other apps (needs a new APK)
 
 Two things, both while SYPH is **in the background but still running** (Home pressed, another app open, or the phone locked):

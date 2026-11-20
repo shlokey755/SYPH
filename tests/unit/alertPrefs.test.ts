@@ -7,6 +7,7 @@ import {
   TOUCH_TICK_MS,
   callFeelPattern,
   messageAlertPlan,
+  nativeBuzzPattern,
   normalizeAlertPrefs,
   ringPlan,
   ringVibrationPattern,
@@ -66,6 +67,35 @@ describe('ringing vibration pattern', () => {
   it('can be made for a shorter time', () => {
     const total = ringVibrationPattern(5_000).reduce((sum, part) => sum + part, 0);
     assert.ok(total >= 5_000 && total < 9_000);
+  });
+});
+
+describe('the buzz pattern as the native ringer takes it (nativeBuzzPattern)', () => {
+  it('hands the ring pattern over as it is', () => {
+    const pattern = ringVibrationPattern();
+    assert.deepEqual(nativeBuzzPattern(pattern), pattern);
+  });
+
+  it('is empty when there is nothing to buzz', () => {
+    assert.deepEqual(nativeBuzzPattern(null), []);
+    assert.deepEqual(nativeBuzzPattern(undefined), []);
+    assert.deepEqual(nativeBuzzPattern([]), []);
+  });
+
+  it('is empty for a pattern with no buzz in it, which Android refuses', () => {
+    assert.deepEqual(nativeBuzzPattern([500]), []); // only the wait before a buzz
+    assert.deepEqual(nativeBuzzPattern([0, 0, 300, 0]), []); // pauses only
+  });
+
+  it('makes whole, non-negative milliseconds of whatever it is given', () => {
+    assert.deepEqual(nativeBuzzPattern([0, 45.4, -20, 45.6, Number.NaN, 12]), [0, 45, 0, 46, 0, 12]);
+    assert.deepEqual(nativeBuzzPattern([0, Number.POSITIVE_INFINITY, 70, 40]), [0, 0, 70, 40], 'a buzz that never ends is no buzz');
+  });
+
+  it('does not change the pattern it was given', () => {
+    const pattern = [0, 45.4, 70, 45];
+    nativeBuzzPattern(pattern);
+    assert.deepEqual(pattern, [0, 45.4, 70, 45]);
   });
 });
 

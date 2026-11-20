@@ -20,6 +20,7 @@ import { isRunningInExpoGo } from 'expo';
 import { DeviceEventEmitter, PermissionsAndroid, Platform } from 'react-native';
 import type { CallType } from '../types';
 import { AudioRoute, NATIVE_ROUTE, parseRouteEvent, RouteState } from '../utils/audioRoute';
+import { startPhoneRingtone, stopPhoneRingtone } from './callOverlay';
 
 type InCallManager = typeof import('react-native-incall-manager').default;
 
@@ -107,18 +108,28 @@ export const chooseCallRoute = (route: AudioRoute): boolean =>
 export const stopCallAudio = (): boolean => attempt('stop', (manager) => manager.stop());
 
 // ----- ringing -----
-// The same library rings the phone. Android plays the ringtone on the ring volume (so the volume and silent switch of the
-// phone are respected, and silent mode just buzzes), loops it until stopped, and buzzes the pattern once through.
+// Android plays the ringtone on the ring volume (so the volume and silent switch of the phone are respected, and silent mode
+// just buzzes), loops it until stopped, and buzzes the pattern once through. Two ways to do it, the first one preferred:
+//   - the native call helper (services/callOverlay.ts, RingtonePlayer.kt): Android's own ringtone player, which can play the
+//     ringtone whether or not SYPH was given the audio-files permission;
+//   - the library's own ringtone (react-native-incall-manager): a plain media player, which stays silent when the ringtone is a
+//     file SYPH may not read, and tells nobody. Kept for a build without the native helper (Expo Go, an older APK).
 
 /**
  * Rings for an incoming call with the phone's own ringtone, looping, with `pattern` buzzing (or no buzzing when null).
- * `seconds` > 0 stops it by itself after that long (used for the test button). Returns false when there is no audio module,
+ * `seconds` > 0 stops it by itself after that long (used for the test button). Returns false when there is no way to ring,
  * so the caller can fall back to buzzing alone.
  */
 export const startRinging = (pattern: number[] | null, seconds = 0): boolean =>
+  startPhoneRingtone(pattern, seconds) ||
   attempt('ring', (manager) => manager.startRingtone('_DEFAULT_', pattern ?? 0, 'default', seconds));
 
-export const stopRinging = (): boolean => attempt('stop ringing', (manager) => manager.stopRingtone());
+/** Stops whichever of the two is ringing. Both are told: it is harmless to stop one that was never started. */
+export const stopRinging = (): boolean => {
+  const native = stopPhoneRingtone();
+  const library = attempt('stop ringing', (manager) => manager.stopRingtone());
+  return native || library;
+};
 
 /** The "tu-tu" the caller hears while the other phone rings. The phone's own tone, so it needs no sound file. */
 export const startRingback = (): boolean => attempt('ringback', (manager) => manager.startRingback('_DTMF_'));
