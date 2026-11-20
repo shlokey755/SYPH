@@ -165,6 +165,14 @@ of the page (`components/desktop/OnCallChip.tsx`): a button in the rail on a wid
 the page's flow, covering nothing) on a narrow window or outside the app. The incoming-call box is the phone's, in parchment
 colours. When a phone call screen changes how a call starts, runs or ends, change its twin too.
 
+Ringing has a twin as well (`services/callAudio.web.ts`). The phone plays its own ringtone and tone; a browser has neither, and
+SYPH ships no sound files, so the person being called hears a ring and the caller hears the usual "tu-tu", both drawn with the Web
+Audio API (`utils/ringTones.ts` holds the notes, `services/webRinger.ts` plays them) while the tab's title flashes, so a call is
+noticed from another tab. A browser plays sound only after a click or key press in the page: the first one wakes the audio for the
+rest of the visit, and a ring that comes before it starts the moment it happens. A browser cannot buzz, and a closed tab cannot be
+woken by a push, so a call rings only in a tab that is open. The other functions of `callAudio.ts` (routing, Bluetooth) answer
+"false" there, as in Expo Go.
+
 What you send from a browser reaches other people's phones only through the push gateway (`server/`, see its README): a browser
 may not post to Expo's push service, which is how a phone wakes the other phone. `app/_layout.web.tsx` swaps the browser's `fetch`
 for one that sends that single request to `EXPO_PUBLIC_PUSH_GATEWAY_URL` with the person's Firebase sign-in token
