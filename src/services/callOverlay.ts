@@ -16,6 +16,7 @@
 
 import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
+import { nativeBuzzPattern } from '../utils/alertPrefs';
 import { IncomingPress, parseIncomingAction, bubbleColor } from '../utils/callOverlay';
 
 interface OverlayModule {
@@ -32,6 +33,9 @@ interface OverlayModule {
   openFullScreenSettings(): boolean;
   /** Missing in a build from before SYPH used the phone's own sounds. */
   playMessageSound?: (volume: number) => boolean;
+  /** Missing in a build from before SYPH rang with Android's own ringtone player. */
+  startRingtone?: (pattern: number[], seconds: number) => boolean;
+  stopRingtone?: () => boolean;
   addListener(
     eventName: 'onIncomingCallAction',
     listener: (event: { action?: string; key?: string }) => void
@@ -128,3 +132,18 @@ export const playPhoneMessageSound = (volume = 1): boolean =>
   attempt('message sound', false, (module) =>
     typeof module.playMessageSound === 'function' ? module.playMessageSound(Math.min(1, Math.max(0, volume))) : false
   );
+
+/**
+ * Rings for an incoming call while SYPH is open: the phone's own ringtone, looping, and `pattern` buzzing (no buzz when it is null
+ * or empty). `seconds` above 0 ends it by itself after that long (the Test button). It plays through Android's ringtone player, which
+ * does not need the audio-files permission that the library's plain media player does (see RingtonePlayer.kt). False in a build that
+ * cannot, so the caller can ring another way.
+ */
+export const startPhoneRingtone = (pattern: number[] | null, seconds = 0): boolean =>
+  attempt('ring', false, (module) =>
+    typeof module.startRingtone === 'function' ? module.startRingtone(nativeBuzzPattern(pattern), Math.max(0, seconds)) === true : false
+  );
+
+/** Stops the ring that `startPhoneRingtone` started. False in a build that cannot ring this way. */
+export const stopPhoneRingtone = (): boolean =>
+  attempt('stop ring', false, (module) => (typeof module.stopRingtone === 'function' ? module.stopRingtone() === true : false));

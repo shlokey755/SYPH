@@ -55,6 +55,17 @@ export function ringVibrationPattern(durationMs: number = MAX_RING_MS): number[]
   return pattern;
 }
 
+/**
+ * A buzz pattern in the form the native ringer takes (modules/syph-call-service, RingtonePlayer.kt): whole, non-negative
+ * milliseconds, or an empty list when there is nothing to buzz. Android refuses a pattern with no buzz in it, and a buzz sits at
+ * every odd position (position 0 is the wait before the first one).
+ */
+export function nativeBuzzPattern(pattern: readonly number[] | null | undefined): number[] {
+  if (!pattern) return [];
+  const whole = pattern.map((part) => (Number.isFinite(part) && part > 0 ? Math.round(part) : 0));
+  return whole.some((part, index) => index % 2 === 1 && part > 0) ? whole : [];
+}
+
 export interface RingPlan {
   /** Null when vibration is off. */
   pattern: number[] | null;
