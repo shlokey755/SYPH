@@ -12,21 +12,33 @@
  *
  * It has no dependencies and no network of its own: the fetching of Google's keys and the call to Expo are passed in, so
  * test/pushGateway.test.js runs without either. gateway.js is the small server that runs it.
+ *
+ * It says what it does, in plain words, to the `log` it is given (see gatewayReport.js): who was refused and why, and what Expo
+ * answered to each send. Nothing was ever said before, so a gateway that refused every request looked the same as one that worked.
  */
 
 import { createPublicKey, verify } from 'node:crypto';
+import { EXPO_PUSH_URL, describeNetworkError, isExpoPushToken, readExpoAnswer } from './gatewayReport.js';
 
-export const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+export { EXPO_PUSH_URL };
 /** Google's public keys for Firebase ID tokens. */
 export const GOOGLE_KEYS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
 export const MAX_BODY_BYTES = 256 * 1024;
 export const MAX_MESSAGES = 100; // what Expo accepts in one request
 
 const MINUTE_MS = 60_000;
-const EXPO_TOKEN = /^(?:Expo|Exponent)PushToken\[[^\]\s]+\]$/;
 
-/** A sign-in token that cannot be accepted (as opposed to a failure of ours while checking it). */
-export class TokenError extends Error {}
+/**
+ * A sign-in token that cannot be accepted (as opposed to a failure of ours while checking it). `message` is what the sender is
+ * told; `hint` is for the person running the gateway and is only ever written to its log.
+ */
+export class TokenError extends Error {
+  /** @param {string} message @param {string} [hint] */
+  constructor(message, hint) {
+    super(message);
+    this.hint = hint;
+  }
+}
 
 /**
  * Google's keys, kept for as long as Google says (Cache-Control max-age) and fetched again when a token names a key that is
@@ -101,10 +113,29 @@ export async function verifyIdToken(token, { projectId, getKey, now = () => Date
   const claims = readPart(body);
   const seconds = Math.floor(now() / 1000);
   if (claims.aud !== projectId || claims.iss !== `https://securetoken.google.com/${projectId}`) {
-    throw new TokenError('token is for another project');
+    // The signature held, so this is a real Firebase token and its project is the app's: the likeliest reason is that the gateway
+    // was given something else (the project's name, or another project's id).
+    const theirs = typeof claims.aud === 'string' ? claims.aud.slice(0, 80) : '?';
+    throw new TokenError(
+      'token is for another project',
+      `The app is signed in to the Firebase project "${theirs}" but the gateway is set to "${projectId}". Set FIREBASE_PROJECT_ID=${theirs} ` +
+        `in server/.env (it must be the app's EXPO_PUBLIC_FIREBASE_PROJECT_ID, the Project ID and not the project's name) and restart the gateway`
+    );
   }
-  if (typeof claims.exp !== 'number' || claims.exp <= seconds) throw new TokenError('token expired');
-  if (typeof claims.iat !== 'number' || claims.iat > seconds + 300) throw new TokenError('token is from the future');
+  if (typeof claims.exp !== 'number' || claims.exp <= seconds) {
+    const late = typeof claims.exp === 'number' ? seconds - claims.exp : 0;
+    throw new TokenError(
+      'token expired',
+      late > 120 ? `The sign-in ran out ${Math.round(late / 60)} minutes ago, which usually means this computer's clock is ahead: check its date and time` : undefined
+    );
+  }
+  if (typeof claims.iat !== 'number' || claims.iat > seconds + 300) {
+    const early = typeof claims.iat === 'number' ? claims.iat - seconds : 0;
+    throw new TokenError(
+      'token is from the future',
+      early > 300 ? `The sign-in is dated ${Math.round(early / 60)} minutes ahead of this computer's clock, which is probably behind: check its date and time` : undefined
+    );
+  }
   if (typeof claims.sub !== 'string' || claims.sub.length === 0 || claims.sub.length > 128) {
     throw new TokenError('token names no user');
   }
@@ -119,7 +150,7 @@ const isText = (value, max) => typeof value === 'string' && value.length <= max;
  */
 export function cleanMessage(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  if (typeof raw.to !== 'string' || !EXPO_TOKEN.test(raw.to)) return null;
+  if (!isExpoPushToken(raw.to)) return null;
   const message = { to: raw.to };
 
   for (const key of ['title', 'subtitle', 'body']) {
@@ -229,11 +260,35 @@ export function createForwarder({ fetchImpl = fetch, accessToken, timeoutMs = 10
  * @param {string[]} [deps.allowedOrigins]
  * @param {number} [deps.perMinute]                                      how many requests one person may send in a minute
  * @param {() => number} [deps.now]
- * @returns {(request: { method: string, path: string, origin?: string, authorization?: string, body: string }) =>
- *   Promise<{ status: number, headers: Record<string, string>, body: string }>}
+ * @param {(line: string) => void} [deps.log]                            where it says what it did, in plain words
+ * @param {(ids: string[]) => void} [deps.watchReceipts]                 told the ids Expo gave, to look at the receipts later
+ * @returns {((request: { method: string, path: string, origin?: string, authorization?: string, body: string }) =>
+ *   Promise<{ status: number, headers: Record<string, string>, body: string }>) & { stats: object }}
  */
-export function createGateway({ projectId, getKey, forward, allowedOrigins = ['*'], perMinute = 120, now = () => Date.now() }) {
+export function createGateway({
+  projectId,
+  getKey,
+  forward,
+  allowedOrigins = ['*'],
+  perMinute = 120,
+  now = () => Date.now(),
+  log = () => {},
+  watchReceipts = () => {},
+}) {
   const windows = new Map(); // uid -> { start, count }
+  /** What the page at "/" shows, so a person can see from the browser that the gateway is there and what it has been doing. */
+  const stats = { requests: 0, passedOn: 0, refused: 0, lastProblem: null };
+  const who = (uid) => `user ${uid.slice(0, 6)}…`;
+  const clock = (at) => new Date(at).toTimeString().slice(0, 8);
+
+  const statusText = () =>
+    [
+      'SYPH push gateway: running.',
+      `Project: ${projectId}`,
+      `Since it started: ${stats.requests} request(s) from the app, ${stats.passedOn} notification(s) passed on to Expo, ${stats.refused} refused.`,
+      stats.lastProblem ? `Last problem (${clock(stats.lastProblem.at)}): ${stats.lastProblem.text}` : 'Last problem: none.',
+      '',
+    ].join('\n');
 
   function overLimit(uid) {
     const at = now();
@@ -249,43 +304,95 @@ export function createGateway({ projectId, getKey, forward, allowedOrigins = ['*
     return slot.count > perMinute;
   }
 
-  return async function handle(request) {
+  async function handle(request) {
     const cors = corsHeaders(request.origin, allowedOrigins);
     const answer = (status, payload) => ({
       status,
       headers: { ...cors, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    /** A refusal: answered to the sender in a few words, written to the log with the reason and what to do about it. */
+    const refuse = (status, payload, why) => {
+      stats.refused += 1;
+      stats.lastProblem = { at: now(), text: why };
+      log(`Refused: ${why}`);
+      return answer(status, payload);
+    };
 
-    if (request.origin && Object.keys(cors).length === 0) return answer(403, { error: 'this web address may not use the gateway' });
-    if (request.method === 'OPTIONS') return { status: 204, headers: cors, body: '' };
+    if (request.origin && Object.keys(cors).length === 0) {
+      return refuse(
+        403,
+        { error: 'this web address may not use the gateway' },
+        `a page at ${request.origin} tried to use the gateway, but that web address is not in ALLOWED_ORIGINS (${allowedOrigins.join(', ')}).`
+      );
+    }
+    if (request.method === 'OPTIONS') {
+      log(`The browser asked whether the page at ${request.origin ?? 'an unknown address'} may send here: yes.`);
+      return { status: 204, headers: cors, body: '' };
+    }
     if (request.method === 'GET' && request.path === '/health') {
       return { status: 200, headers: { 'Content-Type': 'text/plain' }, body: 'ok' };
     }
+    if (request.method === 'GET' && request.path === '/') {
+      return { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' }, body: statusText() };
+    }
     if (request.method !== 'POST') return answer(404, { error: 'not found' });
 
+    stats.requests += 1;
     const bearer = /^Bearer\s+(\S+)$/i.exec(request.authorization ?? '');
+    if (!bearer) {
+      return refuse(
+        401,
+        { error: 'sign in again (no sign-in token)' },
+        'a request came without a sign-in token: the app was not signed in at that moment, or something other than the app called the gateway.'
+      );
+    }
     let uid;
     try {
-      uid = await verifyIdToken(bearer?.[1], { projectId, getKey, now });
+      uid = await verifyIdToken(bearer[1], { projectId, getKey, now });
     } catch (error) {
-      if (error instanceof TokenError) return answer(401, { error: `sign in again (${error.message})` });
-      return answer(503, { error: 'could not check the sign-in just now' });
+      if (error instanceof TokenError) {
+        return refuse(401, { error: `sign in again (${error.message})` }, `the sign-in was not accepted (${error.message}).${error.hint ? ` ${error.hint}.` : ''}`);
+      }
+      return refuse(
+        503,
+        { error: 'could not check the sign-in just now' },
+        `could not check a sign-in: ${describeNetworkError(error)}. The gateway has to reach Google (www.googleapis.com) for that: is this computer online?`
+      );
     }
-    if (overLimit(uid)) return answer(429, { error: 'too many requests; wait a minute' });
+    if (overLimit(uid)) {
+      return refuse(429, { error: 'too many requests; wait a minute' }, `${who(uid)} sent more than ${perMinute} requests in a minute; the rest are refused until the minute is over.`);
+    }
 
     const parsed = parsePushBody(request.body);
-    if ('error' in parsed) return answer(400, { error: parsed.error });
+    if ('error' in parsed) {
+      return refuse(400, { error: parsed.error }, `the request was not a list of push messages that this gateway passes on (${parsed.error}).`);
+    }
 
     try {
       const result = await forward(parsed.messages);
+      const report = readExpoAnswer(result.status, result.body);
+      stats.passedOn += report.accepted;
+      const kinds = [...new Set(parsed.messages.map((message) => message.data?.type).filter(Boolean))].join(', ') || 'push';
+      const from = request.origin ? ` from ${request.origin}` : '';
+      const count = parsed.messages.length;
+      log(
+        `${who(uid)} sent ${count} notification(s) (${kinds})${from}. Expo accepted ${report.accepted}${report.problems.length > 0 ? ` of ${count}, and said:` : '.'}`
+      );
+      for (const problem of report.problems) {
+        stats.lastProblem = { at: now(), text: problem };
+        log(`  - ${problem}`);
+      }
+      watchReceipts(report.ids);
       return {
         status: result.status,
         headers: { ...cors, 'Content-Type': result.contentType ?? 'application/json' },
         body: result.body,
       };
-    } catch {
-      return answer(502, { error: 'Expo push service did not answer' });
+    } catch (error) {
+      return refuse(502, { error: 'Expo push service did not answer' }, `could not reach Expo's push service (${describeNetworkError(error)}). Is this computer online?`);
     }
-  };
+  }
+
+  return Object.assign(handle, { stats });
 }

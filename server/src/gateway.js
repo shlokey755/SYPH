@@ -1,25 +1,33 @@
 /**
  * SYPH push gateway: lets the web version of the app wake people's phones. See pushGateway.js for what it does and
  * server/README.md for how to run and host it. It needs no npm install and no service account, only the project id.
+ *
+ * It writes what it does to the window it runs in: every request from the app, and for a refusal the reason and what to change.
  */
 
-import { createServer } from 'node:http';
-import { MAX_BODY_BYTES, createForwarder, createGateway, createKeyCache } from './pushGateway.js';
+import { readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { EXPO_PUSH_URL, createReceiptWatcher, describeNetworkError } from './gatewayReport.js';
+import { createGatewayServer } from './gatewayServer.js';
+import { applySettingsFiles, chooseProjectId } from './gatewaySettings.js';
+import { createForwarder, createGateway, createKeyCache } from './pushGateway.js';
 
-/** The project id: set on its own, the same variable the app uses, or read from the relay's service account key. */
-function findProjectId() {
-  const named = process.env.FIREBASE_PROJECT_ID || process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
-  if (named) return named.trim();
-  try {
-    return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '{}').project_id || '';
-  } catch {
-    return '';
-  }
-}
+const serverDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const appDir = resolve(serverDir, '..');
 
-const projectId = findProjectId();
+const log = (line) => console.log(`${new Date().toTimeString().slice(0, 8)}  ${line}`);
+
+// Most important first: the host's own variables, then server/.env, then the app's settings (.env.local over .env, as Expo reads them).
+const { read, missing } = applySettingsFiles([join(serverDir, '.env'), join(appDir, '.env.local'), join(appDir, '.env')], process.env, readFileSync);
+
+const { projectId, source, warnings } = chooseProjectId(process.env);
 if (!projectId) {
-  console.error('SYPH push gateway: set FIREBASE_PROJECT_ID in server/.env (the project id from the Firebase console).');
+  console.error('SYPH push gateway: no Firebase project id found.');
+  console.error(`  Settings read:      ${read.length > 0 ? read.join(', ') : 'none'}`);
+  console.error(`  Settings not found: ${missing.join(', ')}`);
+  console.error('  Put this line in server/.env, with the Project ID from Firebase console > Project settings > General:');
+  console.error('    FIREBASE_PROJECT_ID=your-project-id');
   process.exit(1);
 }
 
@@ -27,66 +35,61 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '*')
   .split(',')
   .map((origin) => origin.trim().replace(/\/$/, ''))
   .filter(Boolean);
-const port = Number(process.env.PORT || process.env.GATEWAY_PORT || 8787);
+// GATEWAY_PORT first: a PORT left in server/.env for the relay must not move the gateway away from the address the app was given.
+const port = Number(process.env.GATEWAY_PORT || process.env.PORT || 8787);
+const accessToken = process.env.EXPO_ACCESS_TOKEN || undefined;
+const getKey = createKeyCache();
 
 const handle = createGateway({
   projectId,
-  getKey: createKeyCache(),
-  forward: createForwarder({ accessToken: process.env.EXPO_ACCESS_TOKEN || undefined }),
+  getKey,
+  forward: createForwarder({ accessToken }),
   allowedOrigins,
+  log,
+  watchReceipts: createReceiptWatcher({ log, accessToken }),
 });
 
-/**
- * The request body as text, or null when it is longer than MAX_BODY_BYTES. A body that is too long is answered at once and the
- * rest of it is read and thrown away, so the answer can still reach the sender (closing the connection would hide it).
- */
-function readBody(request) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    let size = 0;
-    let tooLong = false;
-    request.on('data', (chunk) => {
-      if (tooLong) return;
-      size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
-        tooLong = true;
-        chunks.length = 0;
-        resolve(null);
-      } else {
-        chunks.push(chunk);
-      }
+/** Says early whether the two things the gateway depends on can be reached, so a firewall or a lost connection shows at once. */
+async function checkConnections() {
+  try {
+    await getKey('self-check');
+    log("Check: Google's sign-in keys can be reached, so sign-ins can be verified.");
+  } catch (error) {
+    log(`CHECK FAILED: cannot reach Google's sign-in keys (${describeNetworkError(error)}). Every request will be refused until this computer can reach www.googleapis.com.`);
+  }
+  try {
+    const response = await fetch(EXPO_PUSH_URL, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: '[]',
+      signal: AbortSignal.timeout(10_000),
     });
-    request.on('end', () => {
-      if (!tooLong) resolve(Buffer.concat(chunks).toString('utf8'));
-    });
-    request.on('error', reject);
-  });
+    log(`Check: Expo's push service can be reached (it answered HTTP ${response.status}).`);
+  } catch (error) {
+    log(`CHECK FAILED: cannot reach Expo's push service (${describeNetworkError(error)}). Nothing can be delivered until this computer can reach exp.host.`);
+  }
 }
 
-createServer(async (request, response) => {
-  try {
-    const url = new URL(request.url ?? '/', 'http://gateway');
-    const body = await readBody(request);
-    if (body === null) {
-      response.writeHead(413, { 'Content-Type': 'application/json', Connection: 'close' });
-      response.end(JSON.stringify({ error: 'request too large' }));
-      return;
-    }
-    const answer = await handle({
-      method: request.method ?? 'GET',
-      path: url.pathname,
-      origin: request.headers.origin,
-      authorization: request.headers.authorization,
-      body,
-    });
-    response.writeHead(answer.status, answer.headers);
-    response.end(answer.body);
-  } catch (error) {
-    console.warn('SYPH push gateway: a request failed:', error instanceof Error ? error.message : error);
-    if (!response.headersSent) response.writeHead(500, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify({ error: 'gateway error' }));
+const server = createGatewayServer({ handle, log });
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`SYPH push gateway: port ${port} is already in use. Is the gateway already running in another window? Close that one, or set GATEWAY_PORT in server/.env.`);
+    process.exit(1);
   }
-}).listen(port, () => {
-  console.log(`SYPH push gateway started on port ${port} for project ${projectId}`);
-  console.log(`Allowed web addresses: ${allowedOrigins.join(', ')}`);
+  throw error;
+});
+server.listen(port, () => {
+  const address = `http://localhost:${port}`;
+  console.log('SYPH push gateway');
+  console.log(`  Project:   ${projectId}  (from ${source})`);
+  console.log(`  Settings:  read ${read.length > 0 ? read.join(', ') : 'no file'}${missing.length > 0 ? `; not found: ${missing.join(', ')}` : ''}`);
+  console.log(`  Web pages: ${allowedOrigins.includes('*') ? 'any (people still have to be signed in)' : allowedOrigins.join(', ')}`);
+  console.log(`  Listening: ${address}/push`);
+  console.log("  The app must be told this address: in its .env (or .env.local) put  EXPO_PUBLIC_PUSH_GATEWAY_URL=\"" + address + '/push"');
+  console.log('  and restart the web app with  npx expo start --web --clear');
+  console.log(`  To see from your browser that it is here, open ${address}/`);
+  for (const warning of warnings) console.log(`  WARNING: ${warning}`);
+  console.log('  Each request from the app is written below, and the reason when one is refused.');
+  console.log('');
+  checkConnections().catch(() => {});
 });
