@@ -52,6 +52,24 @@ describe('verifyIdToken', () => {
     await rejects(makeToken({ claims: { aud: 'other-app' } }), /another project/);
     await rejects(makeToken({ claims: { iss: 'https://securetoken.google.com/other-app' } }), /another project/);
   });
+  it('gives the person running the gateway a hint for what to change, which the sender is never told', async () => {
+    const hintOf = async (token) => {
+      try {
+        await verifyIdToken(token, deps);
+      } catch (error) {
+        assert.ok(error instanceof TokenError);
+        return { message: error.message, hint: error.hint };
+      }
+      assert.fail('the token was accepted');
+    };
+    const wrongProject = await hintOf(makeToken({ claims: { aud: 'other-app', iss: 'https://securetoken.google.com/other-app' } }));
+    assert.match(wrongProject.hint, /"other-app" but the gateway is set to "syph-test"/);
+    assert.match(wrongProject.hint, /FIREBASE_PROJECT_ID=other-app/);
+    assert.doesNotMatch(wrongProject.message, /other-app/);
+    assert.match((await hintOf(makeToken({ claims: { exp: SECONDS - 600 } }))).hint, /clock is ahead/);
+    assert.match((await hintOf(makeToken({ claims: { iat: SECONDS + 1200 } }))).hint, /clock.*behind/);
+    assert.equal((await hintOf(makeToken({ claims: { exp: SECONDS - 1 } }))).hint, undefined, 'a token that only just ran out says nothing about the clock');
+  });
   it('refuses a token signed by a key that is not Google\'s', () => rejects(makeToken({ key: stranger.privateKey }), /signature/));
   it('refuses a token whose body was changed after signing', async () => {
     const [head, , signature] = makeToken().split('.');

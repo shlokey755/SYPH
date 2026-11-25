@@ -20,6 +20,24 @@ function fakeFetch(behaviour: () => Response | Promise<Response> = () => new Res
 const post = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '[{"to":"x"}]' };
 const signedIn = async () => 'id-token';
 
+/** Lets what was started without being waited for (a copy of an answer being read) finish. */
+const settle = async () => {
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve));
+};
+
+/** What `console[method]` was called with while `run` ran. */
+async function capture(method: 'info' | 'warn', run: () => Promise<void>): Promise<unknown[][]> {
+  const told: unknown[][] = [];
+  const original = console[method];
+  console[method] = (...args: unknown[]) => void told.push(args);
+  try {
+    await run();
+  } finally {
+    console[method] = original;
+  }
+  return told;
+}
+
 describe('pushThroughGateway', () => {
   it('sends the request meant for Expo to the gateway, with the sign-in token and everything else it had', async () => {
     const real = fakeFetch();
@@ -98,6 +116,47 @@ describe('pushThroughGateway', () => {
     }
     assert.equal(warned.length, 1);
     assert.match(String(warned[0][0]), /Is it running/);
+    assert.match(String(warned[0][0]), /Open http:\/\/localhost:8787\/ in this browser/, 'the page that shows the gateway is there');
+  });
+
+  it('says, once for each kind of refusal, what the gateway said, and still hands the answer on whole', async () => {
+    const real = fakeFetch(
+      () => new Response('{"error":"sign in again (token is for another project)"}', { status: 401, headers: { 'Content-Type': 'application/json' } })
+    );
+    const wrapped = pushThroughGateway(real.fetchImpl, { expoUrl: EXPO, gatewayUrl: GATEWAY, getToken: signedIn });
+    const told = await capture('warn', async () => {
+      const first = await wrapped(EXPO, post);
+      await wrapped(EXPO, post);
+      assert.equal(first.status, 401);
+      assert.deepEqual(await first.json(), { error: 'sign in again (token is for another project)' }, 'the body was not used up by reading it');
+      await settle();
+    });
+    assert.equal(told.length, 1);
+    assert.match(String(told[0][0]), /Phones were not notified: the push gateway answered HTTP 401: sign in again \(token is for another project\)/);
+    assert.match(String(told[0][0]), /window the gateway runs in says why/);
+  });
+
+  it('copes with a refusal that is not the gateway\'s own words', async () => {
+    const real = fakeFetch(() => new Response('<html>Bad gateway</html>', { status: 502 }));
+    const wrapped = pushThroughGateway(real.fetchImpl, { expoUrl: EXPO, gatewayUrl: GATEWAY, getToken: signedIn });
+    const told = await capture('warn', async () => {
+      assert.equal((await wrapped(EXPO, post)).status, 502);
+      await settle();
+    });
+    assert.equal(told.length, 1);
+    assert.match(String(told[0][0]), /answered HTTP 502\. The window/);
+  });
+
+  it('says once, when the gateway takes a notification, that phones are notified through it', async () => {
+    const real = fakeFetch();
+    const wrapped = pushThroughGateway(real.fetchImpl, { expoUrl: EXPO, gatewayUrl: GATEWAY, getToken: signedIn });
+    const told = await capture('info', async () => {
+      await wrapped(EXPO, post);
+      await wrapped(EXPO, post);
+      await settle();
+    });
+    assert.equal(told.length, 1);
+    assert.match(String(told[0][0]), /notified through the push gateway at http:\/\/localhost:8787\/push/);
   });
 });
 

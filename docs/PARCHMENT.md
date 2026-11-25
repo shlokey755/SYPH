@@ -177,7 +177,8 @@ What you send from a browser reaches other people's phones only through the push
 may not post to Expo's push service, which is how a phone wakes the other phone. `app/_layout.web.tsx` swaps the browser's `fetch`
 for one that sends that single request to `EXPO_PUBLIC_PUSH_GATEWAY_URL` with the person's Firebase sign-in token
 (`services/pushGateway.ts`), so `services/pushSender.ts` stays shared with the phone. Without a gateway the web version sends
-no push and says so once in the console.
+no push and says so once in the console. With one, the console says once that phones are notified through it, and once for each
+way the gateway refuses; the gateway's own window says why (`server/README.md`, "If phones are still not notified").
 
 To try it: `npm run web`, or `npx expo export --platform web` and serve the `dist` folder.
 
