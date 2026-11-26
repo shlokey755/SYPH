@@ -63,3 +63,6 @@ export function timeWithDay(ms: number, now: number = Date.now()): string {
   const day = dayLabel(ms, now);
   return day === 'Today' ? clockOf(ms) : `${day}, ${clockOf(ms)}`;
 }
+
+/** Always the day and the time: "Today, 9:41 AM", "Yesterday, 9:41 AM", "Saturday, 31 Oct, 9:41 AM". The call log uses it. */
+export const dayAndTime = (ms: number, now: number = Date.now()): string => `${dayLabel(ms, now)}, ${clockOf(ms)}`;

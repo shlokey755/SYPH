@@ -743,6 +743,44 @@ Notes:
 | Pick a GIF | The bubble appears already animating |
 | Another phone on the old build receives it | The GIF shows and animates |
 
+### 1.20 Contact profile screen: tap their name in a chat (publish the rules; no new APK)
+
+In a 1-on-1 chat, tap the name at the top. A profile screen opens:
+
+| Part | What it shows |
+|------|---------------|
+| Avatar, name, @username | Theirs, from the public profile |
+| Email | The email they have shared in this chat (below) |
+| Call history (scrolls) | Every audio and video call between the two of you, newest first: Outgoing / Incoming, audio / video, how it ended (Answered with how long, Missed, No answer, Declined, Cancelled) and the day and time, for example "Today, 9:41 AM" or "Saturday, 31 Oct, 9:41 AM". A call you did not get to answer is drawn in the warning colour |
+
+Group chats are unchanged: tapping the group name still opens the group info. The browser version has its own screens and does not link here.
+
+**Where the email comes from.** Nobody's email is in the public profile (`users/{uid}`, which every signed-in account can read), and Firebase does not let one account read another's sign-in email. So each phone writes its owner's email into the chats they share, at `conversations/{id}/contacts/{uid}`. Only the two people in that chat can read it, and each can write only their own (`firestore.rules`). It is written when the chat is opened, once per chat, and again only if the email changes. What you may see under Email:
+
+| Shows | Meaning |
+|-------|---------|
+| The email | They have opened this chat on a build with this feature |
+| Not shared yet | They have not opened this chat on the new build yet. It fills in the first time they do |
+| No email added | Their account is username-only (no real email). They can add one in the Me tab |
+| Could not load | The rules are not published yet (below), or no connection |
+
+**Call history.** Read from the `calls` documents between the two of you, live, with no new index. A call the optional TTL policy has deleted (1.7 and item 9 of the setup list, 24 hours) is gone from the log, so **leave the TTL policy on `calls` off if you want the history to last**. A call still marked "ringing" after 2 minutes (a phone that died mid-call never wrote the end) is shown as missed.
+
+| # | What you need to do | How | Cost |
+|---|---------------------|-----|------|
+| 1 | Publish the new rules | `npx firebase-tools deploy --only firestore:rules --project syph-3c8be`, or paste `firestore.rules` into Console > Firestore > Rules > Publish. Without it the email shows "Could not load" and nothing else breaks | Free |
+| 2 | Ship the app | JavaScript only: `eas update --channel preview` reaches phones that already have a recent build. A build older than the Nov 15 one needs the new APK anyway | Free |
+
+| Test | Expect |
+|------|--------|
+| A opens the chat with B, taps B's name at the top | Profile opens with B's avatar, name and @username. Email says "Not shared yet" |
+| B opens the chat with A once, then A reopens B's profile | B's email appears (or "No email added" for a username-only account) |
+| A calls B (audio) and B answers, talk 20 seconds, hang up | A row "Outgoing audio call, Answered, 20 sec" with today's day and time appears at the top without leaving the screen |
+| B video-calls A and A declines, then B calls again and A lets it ring out | "Incoming video call, Declined" then "Incoming audio/video call, Missed" in the warning colour |
+| Scroll the call history with many calls | Only the list scrolls; avatar, name and email stay in place |
+| Tap the name in a group chat | The group info opens, as before |
+| Back button on the profile | Returns to the chat |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
@@ -761,6 +799,7 @@ Notes:
 | `conversations/{id}.activeCall` | Groups only: the "call in progress" pointer (`id`, `type`, `startedBy`, `startedByName`, `startedAt`, `beat`). Set when a call starts, refreshed by someone in the call, removed when the last person leaves |
 | `conversations/{id}/groupCalls/{callId}/peers/{uid}` | Who is in the call: `sid` (this join), `username`, `joinedAt`, `lastSeen` (heartbeat), `cameraOff`, `muted`, `expireAt`. Members read, each writes only their own |
 | `conversations/{id}/groupCalls/{callId}/signals/{id}` | Handshake between two members: `kind` (offer / answer / candidate), `from`, `fromSid`, `to`, `toSid`, `sdp` or `candidate`, `createdAt`, `expireAt`. Only the addressee reads it |
+| `conversations/{id}/contacts/{uid}` | `email` (the email that member shows to the others in this chat, `''` for a username-only account) and `updatedAt`. Members read, each writes only their own (1.20) |
 | `conversations/{id}/typing/{uid}` | "I am typing" marker: `typing: true`, `at` (server time). Members read, each writes only their own, deleted when they stop |
 | `conversations/{id}/locations/{messageId}` | One live location share, named after its message: `senderId`, `lat`, `lng`, `accuracy`, `active`, `updatedAt`, `expiresAt` (epoch ms), `expireAt` (for a TTL policy). Members read; only the sharer writes, and afterwards only the position and `active` can change |
 

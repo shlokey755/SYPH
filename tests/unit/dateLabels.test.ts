@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { dayHeaders, dayLabel, dayLabelsEach, floatingDayLabel, timeWithDay } from '../../src/utils/dateLabels.ts';
+import { dayAndTime, dayHeaders, dayLabel, dayLabelsEach, floatingDayLabel, timeWithDay } from '../../src/utils/dateLabels.ts';
 
 // Wednesday 4 November 2026, 3 pm, in whatever time zone the test runs in (dates are built from local parts).
 const NOW = new Date(2026, 10, 4, 15, 0).getTime();
@@ -114,5 +114,18 @@ describe('time with the day', () => {
     assert.equal(timeWithDay(yesterday, NOW), `Yesterday, ${clock(yesterday)}`);
     const older = at(2026, 10, 31, 8);
     assert.equal(timeWithDay(older, NOW), `Saturday, 31 Oct, ${clock(older)}`);
+  });
+});
+
+describe('day and time (call log)', () => {
+  const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  it('always names the day, even for today', () => {
+    const ms = at(2026, 11, 4, 9);
+    assert.equal(dayAndTime(ms, NOW), `Today, ${clock(ms)}`);
+    const yesterday = at(2026, 11, 3, 21);
+    assert.equal(dayAndTime(yesterday, NOW), `Yesterday, ${clock(yesterday)}`);
+    const older = at(2026, 10, 31, 8);
+    assert.equal(dayAndTime(older, NOW), `Saturday, 31 Oct, ${clock(older)}`);
   });
 });
