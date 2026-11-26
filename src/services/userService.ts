@@ -85,8 +85,14 @@ export async function syncPushMirror(uid: string, mirror: PushMirror) {
   }
 }
 
+/** Saves the theme. Choosing a theme also goes back to its own accent colour, so `accentHue` is cleared with it. */
 export function saveTheme(uid: string, theme: string) {
-  return setDoc(doc(db, 'users', uid), { theme }, { merge: true });
+  return setDoc(doc(db, 'users', uid), { theme, accentHue: null }, { merge: true });
+}
+
+/** Saves the hue picked on the colour wheel, or `null` to use the theme's own accent colour. */
+export function saveAccentHue(uid: string, accentHue: number | null) {
+  return setDoc(doc(db, 'users', uid), { accentHue }, { merge: true });
 }
 
 export function updateProfileFields(uid: string, fields: { displayName?: string }) {

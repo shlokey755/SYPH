@@ -17,6 +17,7 @@ import { stopAllLiveShares } from '../services/liveLocationManager';
 import { clearPushTargetCache } from '../services/pushTargets';
 import { setAppBadge, unregisterPush } from '../services/pushService';
 import { UserProfile } from '../types';
+import { profileHueOf } from '../utils/accentColor';
 import { profileRepairPatch } from '../utils/profileRepair';
 import {
   friendlyAuthError,
@@ -73,6 +74,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         usernameLowercase: userData.usernameLowercase || (userData.username ? userData.username.toLowerCase() : 'anonymous'),
         displayName: userData.displayName || userData.username || 'Anonymous',
         theme: userData.theme,
+        accentHue: profileHueOf(userData.accentHue),
         createdAt: new Date(),
       };
       void writeCachedProfile(profile);

@@ -6,12 +6,17 @@
  * - The choice is cached on the device (instant on launch) and saved to the user's profile
  *   (users/{uid}.theme), so it follows them to a new phone.
  * - Themes drive backgrounds, chat bubbles, navigation bar, buttons/icons, toasts and accents.
+ * - The colour wheel (Me tab) lays one hue over the chosen theme: the accent, and the text on it, take that hue
+ *   (utils/accentColor.ts) and the launcher icon follows it. Choosing a theme goes back to the theme's own accent.
+ *   Kept like the theme: on the device (instant on launch) and on the profile (users/{uid}.accentHue).
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { applyThemeIcon } from '../services/appIconService';
-import { saveTheme } from '../services/userService';
+import { patchCachedProfile } from '../services/profileCache';
+import { saveAccentHue, saveTheme } from '../services/userService';
+import { accentColors, hueOf } from '../utils/accentColor';
 import { useAuth } from './useAuth';
 
 export type ThemeOption =
@@ -136,6 +141,11 @@ export const isThemeOption = (value: unknown): value is ThemeOption =>
   typeof value === 'string' && value in themeSchemes;
 
 const STORAGE_KEY = 'syph.theme';
+const HUE_STORAGE_KEY = 'syph.accentHue';
+
+/** Remembers the hue on the device; no hue removes the entry. */
+const storeHue = (hue: number | null) =>
+  (hue === null ? AsyncStorage.removeItem(HUE_STORAGE_KEY) : AsyncStorage.setItem(HUE_STORAGE_KEY, String(hue))).catch(() => {});
 
 interface ThemeContextType {
   selectedTheme: ThemeOption;
@@ -143,6 +153,9 @@ interface ThemeContextType {
   isReady: boolean;
   themeColors: ThemeColors;
   setTheme: (theme: ThemeOption) => void;
+  /** The hue (0 to 359) picked on the colour wheel, or null while the theme's own accent is used. */
+  accentHue: number | null;
+  setAccentHue: (hue: number | null) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -151,16 +164,20 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const { currentUser } = useAuth();
   const uid = currentUser?.uid;
   const profileTheme = currentUser?.theme;
+  const profileHue = currentUser?.accentHue;
 
   const [selectedTheme, setSelectedTheme] = useState<ThemeOption>(DEFAULT_THEME);
+  const [accentHue, setAccentHueState] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
   const profileAppliedFor = useRef<string | null>(null);
 
   // Device cache: gives the right theme immediately on launch, before the profile has loaded.
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((stored) => {
-        if (isThemeOption(stored) && profileAppliedFor.current === null) setSelectedTheme(stored);
+    Promise.all([AsyncStorage.getItem(STORAGE_KEY), AsyncStorage.getItem(HUE_STORAGE_KEY)])
+      .then(([stored, storedHue]) => {
+        if (profileAppliedFor.current !== null) return;
+        if (isThemeOption(stored)) setSelectedTheme(stored);
+        setAccentHueState(hueOf(storedHue));
       })
       .catch(() => {})
       .finally(() => setIsReady(true));
@@ -175,25 +192,55 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     if (profileAppliedFor.current === uid) return;
     profileAppliedFor.current = uid;
     if (isThemeOption(profileTheme)) {
+      // An account that never used the colour wheel has no hue saved: it uses its theme's own accent.
+      const hue = profileHue ?? null;
       setSelectedTheme(profileTheme);
+      setAccentHueState(hue);
       AsyncStorage.setItem(STORAGE_KEY, profileTheme).catch(() => {});
-      applyThemeIcon(profileTheme); // a theme chosen on another phone also changes this phone's icon
+      storeHue(hue);
+      applyThemeIcon(profileTheme, hue); // a theme or colour chosen on another phone also changes this phone's icon
     }
-  }, [uid, profileTheme]);
+  }, [uid, profileTheme, profileHue]);
 
+  // Picking a theme means that theme as designed, so it also drops the colour-wheel hue.
   const setTheme = useCallback(
     (theme: ThemeOption) => {
       setSelectedTheme(theme);
+      setAccentHueState(null);
       AsyncStorage.setItem(STORAGE_KEY, theme).catch(() => {});
+      storeHue(null);
       applyThemeIcon(theme);
-      if (uid) saveTheme(uid, theme).catch((e) => console.warn('Could not save theme to profile:', e));
+      if (uid) {
+        // The copy of the profile kept on the device is what the next start reads first: keep it in step.
+        patchCachedProfile(uid, { theme, accentHue: null }).catch(() => {});
+        saveTheme(uid, theme).catch((e) => console.warn('Could not save theme to profile:', e));
+      }
     },
     [uid]
   );
 
+  const setAccentHue = useCallback(
+    (hue: number | null) => {
+      const next = hue === null ? null : hueOf(hue);
+      setAccentHueState(next);
+      storeHue(next);
+      applyThemeIcon(selectedTheme, next);
+      if (uid) {
+        patchCachedProfile(uid, { accentHue: next }).catch(() => {});
+        saveAccentHue(uid, next).catch((e) => console.warn('Could not save the accent colour to profile:', e));
+      }
+    },
+    [uid, selectedTheme]
+  );
+
+  const themeColors = useMemo(() => {
+    const base = themeSchemes[selectedTheme];
+    return accentHue === null ? base : { ...base, ...accentColors(accentHue, base.isDark) };
+  }, [selectedTheme, accentHue]);
+
   const value = useMemo(
-    () => ({ selectedTheme, isReady, themeColors: themeSchemes[selectedTheme], setTheme }),
-    [selectedTheme, isReady, setTheme]
+    () => ({ selectedTheme, isReady, themeColors, setTheme, accentHue, setAccentHue }),
+    [selectedTheme, isReady, themeColors, setTheme, accentHue, setAccentHue]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

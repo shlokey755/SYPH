@@ -1,6 +1,6 @@
 /**
  * me.tsx
- * Me Tab - Profile editor: name, username change (1x per day), sign-in email, notifications, theme.
+ * Me Tab - Profile editor: name, username change (1x per day), sign-in email, notifications, theme, accent colour wheel.
  * The avatar is always the user's initial: there is no photo upload because the app has no file storage.
  */
 
@@ -23,6 +23,7 @@ import { useToast } from '../../hooks/toastNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useUserSettings } from '../../hooks/useUserSettings';
+import { AccentSection } from '../../components/profile/AccentSection';
 import { AccountEmailSection } from '../../components/profile/AccountEmailSection';
 import { SoundsSection } from '../../components/profile/SoundsSection';
 import { UpdateSection } from '../../components/profile/UpdateSection';
@@ -245,6 +246,9 @@ export default function MeTab() {
           })}
         </View>
       </View>
+
+      {/* Colour wheel: one hue over the theme, and the launcher icon to match */}
+      <AccentSection />
 
       {/* Logout Section */}
       <View style={styles.section}>

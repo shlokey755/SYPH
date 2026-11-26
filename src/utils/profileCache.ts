@@ -9,7 +9,7 @@ import type { UserProfile } from '../types';
 /** The fields the app needs before the network has answered. */
 export type CachedProfile = Pick<
   UserProfile,
-  'uid' | 'username' | 'usernameLowercase' | 'displayName' | 'theme'
+  'uid' | 'username' | 'usernameLowercase' | 'displayName' | 'theme' | 'accentHue'
 >;
 
 /** Bump when the shape changes, so an older copy is ignored instead of misread. */
@@ -19,6 +19,12 @@ export const profileCacheKey = (uid: string) => `syph.profile.v${PROFILE_CACHE_V
 
 const optionalString = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
 
+/** A saved colour-wheel hue: a number, null for "the theme's own accent", or undefined when none was saved. */
+const optionalHue = (value: unknown): number | null | undefined => {
+  if (value === null) return null;
+  return typeof value === 'number' && Number.isFinite(value) ? ((Math.round(value) % 360) + 360) % 360 : undefined;
+};
+
 /** What gets stored: only plain strings, never timestamps. */
 export function serializeProfile(profile: UserProfile): string {
   const cached: CachedProfile = {
@@ -27,6 +33,7 @@ export function serializeProfile(profile: UserProfile): string {
     usernameLowercase: profile.usernameLowercase,
     displayName: profile.displayName,
     theme: profile.theme,
+    accentHue: profile.accentHue,
   };
   return JSON.stringify(cached);
 }
@@ -49,6 +56,7 @@ export function parseCachedProfile(raw: string | null | undefined, uid: string):
       usernameLowercase: optionalString(data.usernameLowercase),
       displayName: optionalString(data.displayName) || username,
       theme: optionalString(data.theme),
+      accentHue: optionalHue(data.accentHue),
     };
   } catch {
     return null;

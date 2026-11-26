@@ -10,6 +10,8 @@ export interface UserProfile {
   displayName: string;
   /** Theme id saved to the profile (FR-15). */
   theme?: string;
+  /** Hue (0 to 359) chosen on the colour wheel, `null` when the theme's own accent is used, missing on older accounts. */
+  accentHue?: number | null;
   lastUsernameChange?: FirestoreTime | Date;
   createdAt: FirestoreTime | Date;
 }

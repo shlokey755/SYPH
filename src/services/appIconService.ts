@@ -13,6 +13,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import type { ThemeOption } from '../hooks/themeContext';
+import { iconNameForHue } from '../utils/accentColor';
 import { iconForTheme, shouldChangeIcon } from '../utils/appIcon';
 
 const STORAGE_KEY = 'syph.appIcon';
@@ -33,11 +34,14 @@ function loadModule(): IconModule | null {
   return iconModule;
 }
 
-/** Sets the icon that belongs to `theme`. Never throws. */
-export async function applyThemeIcon(theme: ThemeOption): Promise<void> {
+/**
+ * Sets the launcher icon: the one closest to the colour-wheel hue when there is one, otherwise the one that belongs to
+ * `theme`. Never throws.
+ */
+export async function applyThemeIcon(theme: ThemeOption, accentHue: number | null = null): Promise<void> {
   if (Platform.OS === 'web') return;
   try {
-    const icon = iconForTheme(theme);
+    const icon = accentHue === null ? iconForTheme(theme) : iconNameForHue(accentHue);
     const last = await AsyncStorage.getItem(STORAGE_KEY).catch(() => null);
     if (!shouldChangeIcon(last, icon)) return;
     const module = loadModule();

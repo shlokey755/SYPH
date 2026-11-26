@@ -109,6 +109,42 @@
           },
           "sunset": {
             "image": "./assets/images/Sunset.png"
+          },
+          "hue000": {
+            "image": "./assets/images/hue-icons/hue000.png"
+          },
+          "hue030": {
+            "image": "./assets/images/hue-icons/hue030.png"
+          },
+          "hue060": {
+            "image": "./assets/images/hue-icons/hue060.png"
+          },
+          "hue090": {
+            "image": "./assets/images/hue-icons/hue090.png"
+          },
+          "hue120": {
+            "image": "./assets/images/hue-icons/hue120.png"
+          },
+          "hue150": {
+            "image": "./assets/images/hue-icons/hue150.png"
+          },
+          "hue180": {
+            "image": "./assets/images/hue-icons/hue180.png"
+          },
+          "hue210": {
+            "image": "./assets/images/hue-icons/hue210.png"
+          },
+          "hue240": {
+            "image": "./assets/images/hue-icons/hue240.png"
+          },
+          "hue270": {
+            "image": "./assets/images/hue-icons/hue270.png"
+          },
+          "hue300": {
+            "image": "./assets/images/hue-icons/hue300.png"
+          },
+          "hue330": {
+            "image": "./assets/images/hue-icons/hue330.png"
           }
         }
       ]

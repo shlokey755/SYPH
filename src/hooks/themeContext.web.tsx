@@ -38,6 +38,9 @@ interface ThemeContextType {
   isReady: boolean;
   themeColors: ThemeColors;
   setTheme: (theme: ThemeOption) => void;
+  /** The phone's colour wheel; a browser has none, so there is never a hue. */
+  accentHue: number | null;
+  setAccentHue: (hue: number | null) => void;
 }
 
 const theme: ThemeContextType = {
@@ -45,6 +48,8 @@ const theme: ThemeContextType = {
   isReady: true,
   themeColors: vintage,
   setTheme: () => {},
+  accentHue: null,
+  setAccentHue: () => {},
 };
 
 /** Nothing to provide: kept so the root layout reads the same as the phone's. */
