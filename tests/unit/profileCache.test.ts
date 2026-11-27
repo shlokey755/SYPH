@@ -8,6 +8,7 @@ const profile = {
   usernameLowercase: 'alice',
   displayName: 'Alice A',
   theme: 'ocean',
+  accentHue: 210,
   createdAt: new Date(),
 };
 
@@ -21,7 +22,17 @@ describe('profile cache', () => {
       usernameLowercase: 'alice',
       displayName: 'Alice A',
       theme: 'ocean',
+      accentHue: 210,
     });
+  });
+
+  it('keeps "no colour-wheel hue" (null) apart from "never saved" (undefined)', () => {
+    const none = parseCachedProfile(serializeProfile({ ...profile, accentHue: null }), 'u1');
+    assert.equal(none?.accentHue, null);
+    const neverSaved = parseCachedProfile(serializeProfile({ ...profile, accentHue: undefined }), 'u1');
+    assert.equal(neverSaved?.accentHue, undefined);
+    assert.equal(parseCachedProfile(JSON.stringify({ uid: 'u1', username: 'bob', accentHue: 'blue' }), 'u1')?.accentHue, undefined);
+    assert.equal(parseCachedProfile(JSON.stringify({ uid: 'u1', username: 'bob', accentHue: 400 }), 'u1')?.accentHue, 40);
   });
 
   it('ignores a copy that belongs to another account', () => {
@@ -46,6 +57,7 @@ describe('profile cache', () => {
       usernameLowercase: undefined,
       displayName: 'bob',
       theme: undefined,
+      accentHue: undefined,
     });
   });
 

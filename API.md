@@ -781,11 +781,51 @@ Group chats are unchanged: tapping the group name still opens the group info. Th
 | Tap the name in a group chat | The group info opens, as before |
 | Back button on the profile | Returns to the chat |
 
+### 1.21 Colour wheel and icon hue (Me tab; the wheel is JavaScript, the icons need a new APK)
+
+Me tab > **Accent colour**: a ring of hues. Drag around it, or tap it; lifting the finger applies the colour.
+
+| Part | What it does |
+|------|--------------|
+| The wheel | Hue 0 at the top, growing clockwise. A square marker and the swatch in the middle follow your finger. Touching the middle does nothing |
+| What takes the colour | The accent: buttons, your message bubbles, the active tab, links, switches, the chat shortcuts' icon colour and the call bubble. The text on top of it turns black or white, whichever reads better. Backgrounds and normal text stay the theme's own |
+| Dark and light themes | The same hue is made brighter on a dark theme and deeper on a light one, so it stays readable. The ring shows the colours you will really get. Tests check every hue: at least 5:1 contrast on black and 7:1 on white (`utils/accentColor.ts`) |
+| Going back | **Use the theme's own colour** under the wheel, or tap any theme above it (a theme means that theme as designed, so it drops the hue) |
+| The launcher icon | **12 icons**, one every 30 degrees (`assets/images/hue-icons/hue000.png` to `hue330.png`), the SYPH logo painted with the same accent as the app. The wheel's hue picks the closest one. Android swaps the icon **when you leave the app**, the same way the six theme icons already change. With no hue, the theme's own icon is used as before |
+| Saved | On the phone (`syph.accentHue`) and on your profile (`users/{uid}.accentHue`, `null` for none), so a new phone or a reinstall gets it back. Applied once at sign-in, like the theme. The phone's copy of the profile is now updated with every theme or colour change, so the next start does not put the previous choice back |
+| Where | Phone only. The browser keeps its parchment colours and has no wheel |
+
+| # | What you need to do | How | Cost |
+|---|---------------------|-----|------|
+| 1 | Build a new APK | `eas build --profile preview --platform android`. The 12 icons are new Android launcher aliases, so an `eas update` cannot add them. The version stays 7.5.5 | Free tier |
+| 2 | Nothing else | No key, no rules change (you may already write your own profile), no billing | Free |
+
+Install the APK on a phone **before** sending it the update. If an update with the wheel reaches a phone that still has the older APK, the wheel recolours the app but the icon stays the default one (Android has no icon of that name). The phone asks Android which icon is really set each time SYPH starts, so it fixes itself after the new APK is installed.
+
+**To change the colours or the logo:** edit `accentForHue` in `src/utils/accentColor.ts` or replace `assets/images/Cyber.png`, then run `python3 scripts/make-hue-icons.py` (needs Python with Pillow and numpy, and Node 22.18 or newer) and commit the 12 new pictures.
+
+**Checked:** type-check, 621 unit tests (hue to colour for all 360 hues, contrast, hue to icon, wheel geometry, profile copy, `app.json` and the icon list agree), the Android bundle, and the Android prebuild, which writes all 18 icon aliases and 12 new icon pictures. The wheel was drawn and driven with a mouse in a browser (turning, dragging, tapping the middle). **Not run on a phone.**
+
+| Test (new APK) | Expect |
+|----------------|--------|
+| Me tab, scroll to Accent colour | A ring of colours, a swatch saying "Theme" in the middle, no reset button |
+| Touch the ring at the right (3 o'clock) | The marker jumps there and the swatch shows 90 and a green; on release the buttons, your bubbles and the active tab turn that green |
+| Drag slowly around the ring | The marker and swatch follow. The rest of the app changes only when you let go. The Me tab does not scroll while your finger is on the ring |
+| Touch the middle swatch | Nothing happens |
+| Press Home, look at the launcher | After a moment the icon is the colour closest to your pick |
+| Pick red, then blue | The icon follows each time you leave the app |
+| Choose Candy or Monochrome (light themes), then pick yellow | The accent is a deep olive, not a pale yellow, and the button text is white and readable |
+| Tap **Use the theme's own colour** | Back to the theme's accent, the swatch says "Theme", the icon goes back to the theme's |
+| Pick a hue, tap a theme above | The hue is dropped and the theme's own colours return |
+| Pick a hue, close SYPH completely and reopen it | The colour is still there with no flash of the old one |
+| Sign in on a second phone with the same account | It starts with the same colour, and its icon follows once it has been opened and left |
+| Chat list shortcuts (long-press the icon) | Their icon colour follows the accent |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
 |------|---------|
-| `users/{uid}` | Public profile: `username`, `usernameLowercase`, `displayName` (optional), `theme`. Old `profileImageUrl` / `status` fields may still exist on accounts and are ignored |
+| `users/{uid}` | Public profile: `username`, `usernameLowercase`, `displayName` (optional), `theme`, `accentHue` (the colour wheel's hue 0 to 359, `null` for none, 1.21). Old `profileImageUrl` / `status` fields may still exist on accounts and are ignored |
 | `users/{uid}/private/settings` | Owner-only: `mutedChats[]`, `notificationsEnabled`, `expoPushTokens[]` |
 | `conversations/{id}` | `participantIds[]`, `isGroup`, `groupName`, `createdBy`, last-message summary, `groupActivity` (latest rename / removal / leave, read by the push relay), `hiddenBy[]`, `readState{uid:{deliveredAt,readAt,log[{at,upTo}]}}`, `unread{uid:n}` |
 | `usernames/{lowercase name}` | Claim registry: `uid`, `createdAt`. One document per name, create-once, so two accounts cannot take the same name. Readable one at a time, never listed |

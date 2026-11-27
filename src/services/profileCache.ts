@@ -25,6 +25,20 @@ export async function writeCachedProfile(profile: UserProfile): Promise<void> {
   }
 }
 
+/**
+ * Changes fields of the cached copy without waiting for the server. The theme and the colour wheel use it: they are applied from
+ * this copy when the app starts, so a copy that still held the old choice would put it back.
+ */
+export async function patchCachedProfile(uid: string, patch: Partial<Pick<CachedProfile, 'theme' | 'accentHue'>>): Promise<void> {
+  try {
+    const cached = parseCachedProfile(await AsyncStorage.getItem(profileCacheKey(uid)), uid);
+    if (!cached) return;
+    await AsyncStorage.setItem(profileCacheKey(uid), JSON.stringify({ ...cached, ...patch }));
+  } catch {
+    // ignore
+  }
+}
+
 /** Called at sign-out so a shared phone does not keep the previous person's profile. */
 export async function clearCachedProfile(uid: string): Promise<void> {
   try {
