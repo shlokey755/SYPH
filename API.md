@@ -849,6 +849,52 @@ To change the picture, replace `assets/images/splash_icon_new.png` and run `pyth
 | Sign in, press Home, wait a moment | The home screen icon turns into the theme's logo icon (or the colour wheel's): expected, see above |
 | A launcher with round icons and one with rounded squares | All four faces visible in both |
 
+### 1.23 Tappable links in messages (JavaScript only, nothing to set up)
+
+Web links in a text message are now underlined and can be tapped. Messages sent before this update become tappable too: nothing is stored, the links are found when the message is drawn.
+
+| You tap | What happens |
+|---------|--------------|
+| A YouTube video or Short link | The in-app pop-up player from section 4 (close with X, a tap outside or Back; "Open in YouTube" is in it) |
+| Any other link | Opens outside SYPH: in the phone's browser, or in the app that handles that address (Maps, Instagram, ...) |
+| A link the phone cannot open | A toast: "Could not open the link", with the address |
+| A link and hold | The normal message menu (reply, delete), the same as holding the rest of the bubble |
+
+A message with a YouTube link keeps its card under the text (section 4); tapping the link always opens the pop-up, while the card opens it only when it has a preview (otherwise it opens YouTube).
+
+**What counts as a link.** It is strict on purpose, because a wrong guess turns ordinary words into links.
+
+| Written | Link? |
+|---------|-------|
+| `https://example.com/a?b=c#d`, `http://localhost:3000/x` | Yes |
+| `www.example.com` | Yes, opened over `https://` |
+| `youtube.com/watch?v=...`, `bit.ly/3x`, `google.co.in/search?q=a` | Yes: an address without `http` or `www` needs a common ending in lower case (`com org net edu gov io co in app dev ai xyz info biz tv gg ly me us uk ca au de fr jp link site online store tech page cloud blog news live chat`). Others, such as `.pk`, need `http://` or `www.` in front |
+| `see https://a.com/x.` / `(https://a.com/x)` | Yes, without the full stop or the bracket that belong to the sentence. A bracket the link opened itself stays (`.../Foo_(bar)`) |
+| `https://a.com,https://b.org` | Two links |
+| `e.g.`, `file.txt`, `7.5.5`, `3.14`, `Done.In`, `hello.World`, `me@example.com` | No |
+| `javascript:`, `ftp://`, `tel:`, `file:`, `intent:`, `mailto:` | No. Only `http` and `https` are ever made tappable |
+
+SYPH does not check where a link leads (that needs a paid scanning service); the browser opens it as written, so it is the same as any link someone sends you. Phone numbers and email addresses are not made tappable. The pirate-map web version is unchanged (its messages are still plain text).
+
+| # | What you need to do | How | Cost |
+|---|---------------------|-----|------|
+| 1 | Send the update | `eas update --channel preview --message "Tappable links"`. No new APK, no rules change, version stays 7.5.5. The YouTube pop-up needs the web view that is already in the APK from section 4 | Free tier |
+
+Code: `utils/linkify.ts` (finds the links, no imports), `components/chat/LinkedText.tsx` (underline, tap, long-press, pop-up or browser), one line changed in `components/chat/MessageContent.tsx`.
+
+**Checked:** 18 unit tests for the link finder (every row above, trailing punctuation, brackets, two links in one message, upper-case schemes, and that the pieces always add up to the original text), both type checks, and the whole unit suite (672 tests). **Not run on a phone.**
+
+| Test (after the update) | Expect |
+|-------------------------|--------|
+| Send `https://example.com` | Underlined; tapping opens the browser on it |
+| Send `see www.wikipedia.org, thanks` | Only `www.wikipedia.org` is underlined; the comma and "thanks" are not |
+| Send `bit.ly/abc and example.com/page` | Both underlined, both open |
+| Send `watch https://youtu.be/dQw4w9WgXcQ` | The link is underlined; tapping it opens the pop-up player, and the card below does the same |
+| Send `e.g. file.txt, v7.5.5 and me@example.com` | Nothing underlined |
+| Hold a link | The message menu appears (it does not open the link) |
+| Tap a link in a message you received, and in one from before the update | Both work |
+| Turn on airplane mode, tap a plain link | The browser opens its own offline page, or a toast says the link could not be opened |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
