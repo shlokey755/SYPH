@@ -1,6 +1,7 @@
 /**
  * MessageContent.tsx
- * Renders the body of a message by type: text (emoji-only text is animated), GIF or live location. Old photo / video / voice / document messages
+ * Renders the body of a message by type: text (web links in it are tappable, see LinkedText; emoji-only text is animated), GIF or
+ * live location. Old photo / video / voice / document messages
  * (from before file sharing was removed) show a one-line label instead of the file. Old sticker messages are just an
  * emoji, so they show as ordinary text.
  */
@@ -13,6 +14,7 @@ import { Message, MessageMedia } from '../../types';
 import { emojiOnly } from '../../utils/emoji';
 import { isLegacyMediaType, legacyMediaLabel } from '../../utils/messageType';
 import { AnimatedEmoji } from './AnimatedEmoji';
+import { LinkedText } from './LinkedText';
 import { LocationBubble } from './LocationBubble';
 
 interface Props {
@@ -60,7 +62,13 @@ export function MessageContent({ message, textColor, onOpenLocation, onLongPress
 
     default:
       if (emojis) return <AnimatedEmoji emojis={emojis} onLongPress={() => onLongPress?.(message)} />;
-      return <Text style={[styles.text, { color: textColor }]}>{message.text}</Text>;
+      return (
+        <LinkedText
+          text={message.text}
+          style={[styles.text, { color: textColor }]}
+          onLongPress={() => onLongPress?.(message)}
+        />
+      );
   }
 }
 
