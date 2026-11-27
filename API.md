@@ -821,6 +821,34 @@ Install the APK on a phone **before** sending it the update. If an update with t
 | Sign in on a second phone with the same account | It starts with the same colour, and its icon follows once it has been opened and left |
 | Chat list shortcuts (long-press the icon) | Their icon colour follows the accent |
 
+### 1.22 Android adaptive icon: the four people (needs a new APK)
+
+The default Android icon (the adaptive icon: a foreground and a background picture, `app.json` > `android.adaptiveIcon`) is now the picture of the four people that used to be the splash image (`assets/images/splash_icon_new.png`). Before, the foreground, the background and the monochrome file were one and the same SYPH logo, so the launcher showed a single logo cut off by its mask.
+
+| Layer | What it is now |
+|-------|----------------|
+| Foreground (`android-icon-foreground.png`) | The picture, 700 of the 1024 pixels, centred on a transparent canvas. It fills the visible circle or rounded square, and all four faces lie well inside it. Only the outer corners of the picture are cut by a round mask |
+| Background (`android-icon-background.png`) | The same picture, blurred and darkened. It shows only at the edges while the launcher moves or zooms the icon |
+| Fallback colour | Black (it was pale blue) |
+| Monochrome (Android 13 themed icons) | **Not changed.** It is still the old logo file, an opaque square, so a phone with themed icons turned on shows a plain block for SYPH. Say if you want a proper one |
+
+**Where you will see it, and where you will not.** This is the app's own icon: Settings > Apps > SYPH, the install and uninstall screens, and the home screen until the first colour or theme icon is applied. The theme icons (six) and the colour wheel's icons (12, 1.21) are separate launcher entries that take the home screen over once you have signed in and left the app, and they still show the SYPH logo. So on the home screen you will usually keep seeing the logo. If you want the four people there too, the theme and wheel icons would have to use the picture as well, which ends colour-matched icons: tell me and I will do that.
+
+| # | What you need to do | How | Cost |
+|---|---------------------|-----|------|
+| 1 | Build a new APK | `eas build --profile preview --platform android`. The icon is part of the app, so an update cannot change it. The version stays 7.5.5 | Free tier |
+
+To change the picture, replace `assets/images/splash_icon_new.png` and run `python3 scripts/make-adaptive-icon.py` (needs Python with Pillow).
+
+**Checked:** four unit tests (both layers exist, they are different files, both square and the same size, the foreground has transparency), the Android prebuild (writes the adaptive icon with all layers), and a mock-up of the icon under a circle and a rounded-square mask at the size Android uses (all four faces visible). **Not run on a phone.**
+
+| Test (new APK) | Expect |
+|----------------|--------|
+| Install it on a phone that never had SYPH and look at the launcher before signing in | The four-people icon, all four faces visible, in your launcher's shape |
+| Settings > Apps > SYPH | The same icon |
+| Sign in, press Home, wait a moment | The home screen icon turns into the theme's logo icon (or the colour wheel's): expected, see above |
+| A launcher with round icons and one with rounded squares | All four faces visible in both |
+
 ## 2. Data model (Firestore)
 
 | Path | Purpose |
