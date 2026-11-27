@@ -7,6 +7,7 @@ rules_version = '2';
 //   usernames/{name}               claim registry: who owns each lower-case username
 //   conversations/{id}             readable/writable only by members (participantIds)
 //   conversations/{id}/messages    members only; senders cannot spoof senderId or backdate createdAt
+//   conversations/{id}/contacts    the email each member shows to the others in the chat; members read, each writes their own
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -257,6 +258,21 @@ service cloud.firestore {
           && request.resource.data.typing == true
           && request.resource.data.at == request.time;
         allow delete: if isMemberOf(cid) && uid == request.auth.uid;
+      }
+
+      // ---------------- Shared contact details ----------------
+      // The email a member shows to the others in this chat, on the profile screen. Members read it; each member writes
+      // only their own ('' means "no real email, only a username"). It is not in the public profile (users/{uid}), so
+      // nobody outside the chat can read it.
+      match /contacts/{uid} {
+        allow read: if isMemberOf(cid);
+        allow create, update: if isMemberOf(cid)
+          && uid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['email', 'updatedAt'])
+          && request.resource.data.email is string
+          && request.resource.data.email.size() <= 254
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if false;
       }
     }
 

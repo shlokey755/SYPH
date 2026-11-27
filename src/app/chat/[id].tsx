@@ -49,6 +49,7 @@ import { useLiveShareIn } from '../../hooks/useLiveShares';
 import { useTypingPeers, useTypingReporter } from '../../hooks/useTyping';
 import { useMessages } from '../../hooks/useMessages';
 import { useProfiles } from '../../hooks/useProfiles';
+import { useShareMyEmail } from '../../hooks/useShareMyEmail';
 import { ReaderName, ReadBySheet } from '../../components/chat/ReadBySheet';
 import { useIsOffline } from '../../hooks/useOnlineStatus';
 import { useUserSettings } from '../../hooks/useUserSettings';
@@ -500,6 +501,16 @@ export default function ChatScreen() {
   // 1-on-1 chats call the other person (below); group chats use startOrJoinGroupCall.
   const callee = conversation && !conversation.isGroup ? getOtherParticipant(conversation, myUid) : undefined;
 
+  // Their profile screen (tap their name at the top). They can read my email on it, so it is shared into this chat.
+  useShareMyEmail(conversation?.id, !!callee);
+  const openProfile = () => {
+    if (!conversation || !callee) return;
+    router.push({
+      pathname: '/contact/[uid]',
+      params: { uid: callee.uid, cid: conversation.id, name: title, username: callee.username },
+    });
+  };
+
   const startCall = (type: CallType) => {
     if (!conversation || !callee) return;
     if (!isCallingSupported()) {
@@ -647,9 +658,9 @@ export default function ChatScreen() {
         </Pressable>
         <Pressable
           style={styles.headerInfo}
-          disabled={!conversation?.isGroup}
-          onPress={() => setGroupInfoOpen(true)}
-          accessibilityLabel={conversation?.isGroup ? 'Group info' : undefined}
+          disabled={!conversation?.isGroup && !callee}
+          onPress={conversation?.isGroup ? () => setGroupInfoOpen(true) : openProfile}
+          accessibilityLabel={conversation?.isGroup ? 'Group info' : callee ? 'Profile' : undefined}
         >
           <Text style={[styles.headerTitle, { color: themeColors.text }]} numberOfLines={1}>
             {title}

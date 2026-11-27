@@ -419,6 +419,23 @@ const no = (n, p) => check(n, p, false);
   await no('media state cannot be deleted', alice.doc('calls/c6/media/alice').delete());
   await no('outsider cannot read candidates', carol.collection('calls/c6/candidates').get());
 
+  console.log('\nShared contact email (profile screen)');
+  const contact = (extra = {}) => ({ email: 'alice@example.com', updatedAt: FV.serverTimestamp(), ...extra });
+  await ok('member shares their own email', alice.doc('conversations/alice_bob/contacts/alice').set(contact()));
+  await ok('member can change it', alice.doc('conversations/alice_bob/contacts/alice').set(contact({ email: 'new@example.com' })));
+  await ok('member can say they have no email', bob.doc('conversations/alice_bob/contacts/bob').set(contact({ email: '' })));
+  await ok('the other member reads it', bob.doc('conversations/alice_bob/contacts/alice').get());
+  await ok('reading one that is not there is fine', alice.doc('conversations/alice_bob/contacts/zed').get());
+  await no('cannot write the other member\'s email', alice.doc('conversations/alice_bob/contacts/bob').set(contact()));
+  await no('outsider cannot read it', carol.doc('conversations/alice_bob/contacts/alice').get());
+  await no('outsider cannot write one', carol.doc('conversations/alice_bob/contacts/carol').set(contact()));
+  await no('anonymous cannot read it', anon.doc('conversations/alice_bob/contacts/alice').get());
+  await no('email must be text', alice.doc('conversations/alice_bob/contacts/alice').set(contact({ email: 5 })));
+  await no('email has a length limit', alice.doc('conversations/alice_bob/contacts/alice').set(contact({ email: 'a'.repeat(300) })));
+  await no('other fields are refused', alice.doc('conversations/alice_bob/contacts/alice').set(contact({ admin: true })));
+  await no('updatedAt must be the server time', alice.doc('conversations/alice_bob/contacts/alice').set(contact({ updatedAt: firebase.firestore.Timestamp.fromMillis(1) })));
+  await no('it cannot be deleted', alice.doc('conversations/alice_bob/contacts/alice').delete());
+
   console.log(`\n${passed} passed, ${failed} failed`);
   await env.cleanup();
   process.exit(failed ? 1 : 0);
