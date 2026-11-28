@@ -13,55 +13,57 @@
 
 <p align="center">
   <b>SYPH</b> is a real-time chat app for friends, built with React Native and Firebase,<br>
-  offering one-to-one and group chats, GIFs, themes, read receipts, push notifications, and voice and video calls.
+  offering one-to-one and group chats, GIFs, themes and a colour wheel, read receipts, tappable links, push notifications,<br>
+  and voice and video calls. Android first, with a browser version beside it.
 </p>
-
-
 
 ---
 
-##  Features
+## Features
 
 | | What you get |
 |---|---|
-|  **Chat** | One-to-one and group chats in real time. Reply, forward, copy, and delete for me or for everyone. Typing indicator and in-chat search. |
-|  **Receipts** | Sent, delivered and read, shown on every message. |
-|  **GIFs** | Built-in Giphy picker (needs a free Giphy key). |
-|  **Link previews** | YouTube and Shorts links turn into cards (thumbnail, title, channel) that play in an in-app pop-up. A removed video shows "Video unavailable". Free, no key. |
-|  **Calls** | One-to-one audio and video with a speaker toggle. Group calls with up to 4 on video or 6 on voice. |
-|  **Notifications** | Push alerts while the app is closed, per-chat mute and a global switch. |
-|  **Location** | Hold the send button for a map popup: send a one-time pin, or share live location for 15 min, 1 h or 8 h, even while the app is closed. Free OpenStreetMap map. |
-|  **Updates** | An Update button in the Me tab: it turns active when a new update arrives, downloads it inside the app, or opens the new APK. |
-|  **Themes** | Six themes saved to your profile. The app icon follows your theme on Android. |
-|  **Offline** | An offline banner, and messages you send are queued until you are back online. |
-|  **Sign-in** | Username or email, password reset, optional display name. |
+| **Chat** | One-to-one and group chats in real time. Reply (or swipe a message to the right), forward, copy, and delete for me or for everyone. Messages are grouped by day, with a typing indicator and in-chat search. A message of only emoji plays as an animated emoji. |
+| **Links** | Web links in messages are underlined and tappable. A YouTube video or Short plays in an in-app pop-up; any other link opens in the browser or the app that handles it. |
+| **Link previews** | YouTube and Shorts links also get a card (thumbnail, title, channel) that plays in the same pop-up. A removed video shows "Video unavailable". Free, no key. |
+| **Receipts** | A clock while sending, one tick when sent, two when delivered. Your bubble turns hollow once it is read (in a group, once everyone has seen it). Until then a group shows who has seen it as an avatar queue; tap it to see each reader and when. |
+| **GIFs** | Built-in Giphy picker, preloaded when a chat opens (needs a free Giphy key). |
+| **Calls** | One-to-one audio and video, with an audio button that steps through Bluetooth, wired headset, speaker and earpiece. Group calls with up to 4 on video or 6 on voice. Add people to a one-to-one call and it becomes a group call. Calls keep running in the background with an End call notification. |
+| **Ringing** | The phone's own ringtone and notification sound. When SYPH is not on screen, a ringing call opens a full-screen call screen over other apps and the lock screen. |
+| **Notifications** | Push alerts while the app is closed, per-chat mute and a global switch. |
+| **Profiles** | Tap the name at the top of a one-to-one chat for their avatar, name, @username, the email they shared in that chat, and the call history (audio and video, how each ended, day and time). |
+| **Location** | Hold the send button for a map popup: send a one-time pin, or share live location for 15 min, 1 h or 8 h, even while the app is closed. Free OpenStreetMap map. |
+| **Themes** | Six themes saved to your profile, and a colour wheel in the Me tab that recolours the accent over any theme. Sharp corners everywhere. |
+| **App icon** | The launcher icon follows your theme, or your colour wheel pick (6 theme icons and 12 colour icons). Long-press it for your three latest chats (Android). |
+| **Updates** | An Update button in the Me tab: it turns active when a new update arrives, downloads it inside the app, or opens the new APK. |
+| **Offline** | An offline banner, and messages you send are queued until you are back online. |
+| **Sign-in** | Username or email, password reset, optional display name. |
+| **Browser version** | The same accounts, chats and calls in a browser, drawn as a pirate's torn map in `*.web.tsx` files beside the phone screens (the phone code is untouched). Try it with `npm run web`. Notes: [`docs/PARCHMENT.md`](docs/PARCHMENT.md). |
 
-###  Themes
+The colour wheel, contact profile, tappable links and launcher icons are phone-only: the browser version does not have them yet.
+
+### Themes
 
 <p align="center">
   <img src="docs/themes.png" alt="Cyber, Monochrome, Candy, Ocean, Forest and Sunset themes" width="100%">
 </p>
 
-##  Screenshots
+## Screenshots
 
 <table align="center">
   <tr>
     <td align="center"><img src="docs/screenshots/onboarding.jpeg" width="200" alt="Onboarding"><br><sub>Onboarding</sub></td>
     <td align="center"><img src="docs/screenshots/chat-list.jpeg" width="200" alt="Chat list"><br><sub>Chat list</sub></td>
-    
   </tr>
   <tr>
     <td align="center"><img src="docs/screenshots/themes.jpeg" width="200" alt="Themes"><br><sub>Themes</sub></td>
     <td align="center"><img src="docs/screenshots/chat.jpeg" width="200" alt="Conversation"><br><sub>Conversation</sub></td>
-    
   </tr>
 </table>
 
+## Quick start
 
-
-##  Quick start
-
-Run the everyday features (chat, GIFs, themes, search, typing) in Expo Go:
+Run the everyday features (chat, GIFs, themes, search, typing, links) in Expo Go:
 
 ```bash
 git clone https://github.com/shlokey755/SYPH.git
@@ -74,9 +76,11 @@ npx expo start -c --go
 
 You need a Firebase project with **Authentication** (email/password) and **Firestore**, and the rules from [`firestore.rules`](firestore.rules) published. Step by step: [`API.md`](API.md).
 
-> Calls, group calls, push while closed and the dynamic app icon need a real Android build, not Expo Go.
+> Calls, group calls, push while closed, the launcher icons and the full-screen call screen need a real Android build, not Expo Go.
 
-##  Build the APK
+The browser version runs with `npm run web`, or `npx expo export --platform web` and serve the `dist` folder (`firebase.json` is set up for Firebase Hosting).
+
+## Build the APK
 
 Builds run on [EAS](https://expo.dev/eas) (free tier). EAS skips git-ignored files, so your Firebase values live in EAS environment variables rather than in the repo.
 
@@ -87,10 +91,11 @@ Builds run on [EAS](https://expo.dev/eas) (free tier). EAS skips git-ignored fil
 | 3 | Publish `firestore.rules` | Firebase Console → Firestore → Rules |
 | 4 | Upload the FCM V1 key (for push) | `eas credentials` → Android → Google Service Account |
 | 5 | Build | `eas build --profile preview --platform android` |
+| 6 | Later, ship JavaScript-only changes without a new APK | `eas update --channel preview --message "what changed"` |
 
-A build with missing Firebase values stops at its start with a clear message, instead of crashing on launch. Details and gotchas: [`API.md`](API.md).
+A native change (a new package with native code, a permission, an icon, an `app.json` plugin) needs a new APK first; install it on every phone before publishing an update that depends on it. The version people see stays 7.5.5 for every APK. A build with missing Firebase values stops at its start with a clear message, instead of crashing on launch. Details and gotchas: [`API.md`](API.md).
 
-##  How it works
+## How it works
 
 ```mermaid
 flowchart LR
@@ -102,75 +107,92 @@ flowchart LR
 
 - **Real time:** messages, read receipts and typing state are Firestore documents with live listeners.
 - **Security:** access is membership-based and enforced by [`firestore.rules`](firestore.rules), not by hiding client config.
-- **Calls:** WebRTC between phones. Firestore carries the signalling, and free STUN finds the route. Group calls are a mesh.
+- **Calls:** WebRTC between phones. Firestore carries the signalling, and free STUN finds the route. Group calls are a mesh. A small Kotlin module (`modules/syph-call-service`) keeps a call alive in the background and shows the full-screen call screen.
 - **Push:** the sender's phone asks Expo's free push service to notify the recipient, so no server is needed. An optional relay lives in [`server/`](server). A browser cannot make that request (Expo's push service refuses browsers), so the web version posts to the small push gateway in the same folder instead.
+- **Links:** found when a message is drawn, so nothing extra is stored and older messages work too.
+- **Phone and browser:** one codebase. A phone screen is `Foo.tsx`; the browser's is `Foo.web.tsx` beside it, so neither version changes the other.
 - **No file storage:** chats carry text and GIF links only, so there is no Firebase Storage and no billing plan.
 
-###  Tech stack
+### Tech stack
 
 | Layer | Choice |
 |---|---|
 | App | Expo SDK 57, React Native 0.86, React 19.2, expo-router, TypeScript |
+| Browser | react-native-web, the same codebase with `.web.tsx` files |
 | Backend | Firebase Auth and Firestore (JS SDK 11) |
 | Calls | react-native-webrtc 124, free STUN |
+| Native | One Kotlin module: background call service, call screen, ringtone, icon menu |
 | Push | expo-notifications with FCM V1 |
 | GIFs | Giphy |
-| Builds | EAS Build |
+| Maps | Leaflet on OpenStreetMap, in a web view, no key |
+| Builds | EAS Build and EAS Update |
 | CI | GitHub Actions: typecheck, unit tests, Android bundle, relay tests |
 
-##  Checks
+## Checks
 
 ```bash
-npm run typecheck        # TypeScript
-npm run test:unit        # unit tests
-cd server && npm test    # push relay tests
+npm run typecheck                        # TypeScript
+npx tsc --noEmit -p tsconfig.web.json    # TypeScript for the browser files
+npm run test:unit                        # unit tests
+cd server && npm test                    # push relay tests
 ```
 
-CI runs the same checks, plus an Android bundle, on every pull request.
+CI runs the typecheck, the unit tests and the relay tests, plus an Android bundle, on every pull request.
 
 <details>
-<summary><b> Project structure</b></summary>
+<summary><b>Project structure</b></summary>
 
 ```text
 src/
-  app/          screens and routes (expo-router): auth, tabs, chat, call, group-call
-  components/   chat, call and profile UI
+  app/          screens and routes (expo-router): auth, tabs, chat, call, group-call, contact, shortcut
+  components/   chat, call and profile UI (desktop and parchment: browser only)
   hooks/        state: auth, themes, conversations, messages, calls, typing
   services/     Firebase, WebRTC and push code
+  theme/        the browser's palette and fonts
   utils/        pure logic with unit tests
+  *.web.tsx     the browser version of a screen, beside its phone file
+modules/        syph-call-service: native Kotlin (call service, call screen, icon menu)
+assets/         images, the 12 colour launcher icons, browser art and fonts
 tests/          unit tests and Firestore rules tests
-server/         optional push relay (Node)
-scripts/        build helpers (EAS environment check)
+server/         optional push relay, and the push gateway for the browser (Node)
+scripts/        build helpers (EAS environment check, icon and art makers)
+docs/           banner, screenshots and PARCHMENT.md (the browser version)
 firestore.rules security rules
 eas.json        build profiles
 ```
 
 </details>
 
-##  Roadmap
+## Roadmap
 
 | Status | Item |
 |---|---|
-|  Done | Chat, groups, receipts, GIFs, themes, push, typing, calls and group calls, dynamic app icon, splash |
-|  Done | Share location (hold send): one-time pin and live sharing, also in the background |
-|  Planned | Hosted web version |
-|  Not built | Google and phone sign-in, search across full message history |
+| Done | Chat, groups, receipts (hollow bubble, avatar queue), GIFs, themes and colour wheel, push, typing, calls and group calls, launcher icons, splash |
+| Done | Share location (hold send): one-time pin and live sharing, also in the background |
+| Done | Calls in the background and a full-screen call screen, add people to a call, contact profile with call history, tappable links, swipe to reply, animated emoji |
+| Done | Browser version (pirate map) with chats, calls and a push gateway |
+| Planned | Bring the phone's newer extras (profile, colour wheel, tappable links) to the browser version |
+| Not built | Google and phone sign-in, search across full message history |
 
-##  Known limits
+## Known limits
 
 - **No TURN server** (it costs money), so a few network pairs cannot connect a call, mostly mobile data on both sides.
-- **Push is sent from the sender's phone**, which must be online at that moment. From the web version it needs the push gateway running ([`server/README.md`](server/README.md)).
+- **Push is sent from the sender's phone**, which must be online at that moment. From the browser it needs the push gateway running ([`server/README.md`](server/README.md)).
 - **Android first.** iOS builds and push need a paid Apple developer account.
-- Web is not supported yet.
+- **The browser version trails the phone:** no colour wheel, contact profile, tappable links or launcher icons yet.
 - **Live location in the background** uses the GPS and a visible notification, so it uses more battery. Some phone brands may still stop it unless SYPH's battery use is set to Unrestricted.
+- **Links open as written.** SYPH does not scan where a link leads.
+- **Phone testing is still catching up.** The newest Android-only work (launcher icons, the full-screen call screen, background calls, the colour wheel) is covered by unit tests and bundle checks; what has run on a real phone is tracked in [`MEMORY.md`](MEMORY.md).
 
-##  More docs
+## More docs
 
 | File | What is inside |
 |---|---|
-| [`API.md`](API.md) | Setup and everything the owner must provide: keys, rules, builds |
+| [`API.md`](API.md) | Setup and everything the owner must provide: keys, rules, builds, and a test table per feature |
 | [`MEMORY.md`](MEMORY.md) | Current state of the project and what is verified |
 | [`JOURNEY.md`](JOURNEY.md) | How the project got here, and the problems solved on the way |
+| [`docs/PARCHMENT.md`](docs/PARCHMENT.md) | The browser version: the pirate-map look, how it sits beside the phone app, the push gateway |
+| [`server/README.md`](server/README.md) | The optional push relay and the browser push gateway |
 
 ---
 
